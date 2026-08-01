@@ -2,7 +2,12 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Günlük Ajandam">
+<meta name="theme-color" content="#f6f3eb">
 <title>Günlük Ajandam</title>
 <style>
 /* ================================================================
@@ -39,15 +44,22 @@ html[data-theme="dark"]{
   }
 }
 
-*{ box-sizing:border-box; }
-html,body{ height:100%; }
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body{ height:100%; overscroll-behavior:none; }
+html{ touch-action:manipulation; -webkit-text-size-adjust:100%; }
 body{
   margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans);
   -webkit-font-smoothing:antialiased;
+  -webkit-touch-callout:none;
+  -webkit-user-select:none; user-select:none;
+  overscroll-behavior:none;
 }
 button,input,select,textarea{ font-family:inherit; color:inherit; }
-button{ -webkit-tap-highlight-color:transparent; }
+input,textarea{ -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
+button{ transition:transform .12s cubic-bezier(.34,1.56,.64,1); }
+button:active{ transform:scale(.93); }
 :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+@media (prefers-reduced-motion:reduce){ button{ transition:none; } button:active{ transform:none; } }
 
 #app{ min-height:100vh; display:flex; flex-direction:column; }
 
@@ -83,7 +95,7 @@ header.top .right{ display:flex; align-items:center; gap:8px; }
 .icon-btn svg{ width:19px; height:19px; }
 
 /* ---------- Views ---------- */
-main{ flex:1; overflow-y:auto; padding-bottom:96px; }
+main{ flex:1; overflow-y:auto; overscroll-behavior-y:contain; -webkit-overflow-scrolling:touch; padding-bottom:96px; }
 .view{ display:none; padding:18px 18px 8px; max-width:520px; margin:0 auto; }
 .view.active{ display:block; animation: fadein .25s ease; }
 @keyframes fadein{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
@@ -142,7 +154,7 @@ main{ flex:1; overflow-y:auto; padding-bottom:96px; }
 .field-row{ display:flex; gap:8px; margin-bottom:14px; }
 .field{
   flex:1; min-width:0; background:var(--card); border:1px solid var(--paper-line);
-  border-radius:var(--radius-sm); padding:10px 12px; font-size:14.5px; color:var(--ink);
+  border-radius:var(--radius-sm); padding:10px 12px; font-size:16px; color:var(--ink);
 }
 .field::placeholder{ color:var(--ink-faint); }
 select.field{ -webkit-appearance:none; appearance:none; }
@@ -223,6 +235,58 @@ nav.tabbar button.active::before{
 
 .check.half{ border-color:var(--accent); }
 .check.half::after{ content:""; width:9px; height:2px; background:var(--accent); border-radius:2px; }
+
+/* ---------- Liveliness: XP toast, level-up, completion pop, streak flame ---------- */
+@keyframes checkPop{ 0%{transform:scale(1);} 45%{transform:scale(1.3) rotate(-4deg);} 100%{transform:scale(1);} }
+.check-pop{ animation:checkPop .4s cubic-bezier(.34,1.56,.64,1); }
+
+#toastLayer{
+  position:fixed; left:0; right:0; bottom:88px; z-index:55;
+  display:flex; flex-direction:column; align-items:center; pointer-events:none;
+}
+@keyframes xpRise{
+  0%{ opacity:0; transform:translateY(8px) scale(.85); }
+  18%{ opacity:1; transform:translateY(0) scale(1); }
+  78%{ opacity:1; transform:translateY(-6px) scale(1); }
+  100%{ opacity:0; transform:translateY(-22px) scale(.94); }
+}
+.xp-toast{
+  background:var(--accent); color:#fff; font-weight:800; font-size:13px;
+  padding:7px 15px; border-radius:999px; margin-top:6px;
+  box-shadow:0 6px 16px var(--shadow); animation:xpRise 1.3s ease forwards;
+  font-variant-numeric:tabular-nums;
+}
+
+#levelUpOverlay{
+  position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
+  background:rgba(20,22,26,.5); -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px);
+}
+#levelUpOverlay.show{ display:flex; animation:fadeIn .18s ease; }
+@keyframes fadeIn{ from{opacity:0} to{opacity:1} }
+#levelUpCard{
+  position:relative; background:var(--card); border-radius:26px; padding:34px 46px;
+  text-align:center; box-shadow:0 24px 60px rgba(0,0,0,.35);
+}
+#levelUpOverlay.show #levelUpCard{ animation:levelPop .45s cubic-bezier(.34,1.56,.64,1); }
+@keyframes levelPop{ 0%{ transform:scale(.6); opacity:0; } 100%{ transform:scale(1); opacity:1; } }
+#levelUpCard::before{
+  content:""; position:absolute; inset:-18px; border-radius:34px; border:2px solid var(--accent); opacity:0;
+}
+#levelUpOverlay.show #levelUpCard::before{ animation:ringPulse 1s ease-out .12s; }
+@keyframes ringPulse{ 0%{ transform:scale(.85); opacity:.9; } 100%{ transform:scale(1.3); opacity:0; } }
+#levelUpNumber{ font-family:var(--serif); font-size:58px; color:var(--accent); line-height:1; }
+
+.flame{ display:inline-block; animation:flameFlicker 1.6s ease-in-out infinite; transform-origin:50% 85%; }
+@keyframes flameFlicker{
+  0%,100%{ transform:scale(1) rotate(-2deg); } 50%{ transform:scale(1.08) rotate(2deg); }
+}
+
+@media (prefers-reduced-motion:reduce){
+  .check-pop{ animation:none; }
+  .xp-toast{ animation:none; opacity:1; }
+  #levelUpOverlay.show, #levelUpOverlay.show #levelUpCard, #levelUpOverlay.show #levelUpCard::before{ animation:none; }
+  .flame{ animation:none; }
+}
 
 </style>
 </head>
@@ -387,11 +451,11 @@ nav.tabbar button.active::before{
   <div class="field-row">
     <div class="field" style="display:flex;align-items:center;justify-content:space-between">
       <span style="font-size:13px;color:var(--ink-soft)">Çalışma (dk)</span>
-      <input type="number" id="focusWorkMin" value="25" min="5" max="90" style="width:44px;border:none;background:transparent;text-align:right;font-size:14px;color:var(--ink)">
+      <input type="number" id="focusWorkMin" value="25" min="5" max="90" style="width:44px;border:none;background:transparent;text-align:right;font-size:16px;color:var(--ink)">
     </div>
     <div class="field" style="display:flex;align-items:center;justify-content:space-between">
       <span style="font-size:13px;color:var(--ink-soft)">Mola (dk)</span>
-      <input type="number" id="focusBreakMin" value="5" min="1" max="30" style="width:44px;border:none;background:transparent;text-align:right;font-size:14px;color:var(--ink)">
+      <input type="number" id="focusBreakMin" value="5" min="1" max="30" style="width:44px;border:none;background:transparent;text-align:right;font-size:16px;color:var(--ink)">
     </div>
   </div>
   <div class="stat-grid" style="margin-bottom:14px">
@@ -491,7 +555,7 @@ nav.tabbar button.active::before{
 </section>
 
 <section class="view" data-view="achievements">
-  <div class="h1">Başarımlar</div>
+  <div class="h1">Başarılarım</div>
   <div class="card ruled" style="text-align:center;padding:24px 16px">
     <div style="font-family:var(--serif);font-size:40px;color:var(--accent)" id="achLevel">Sv. 1</div>
     <div style="font-size:12px;color:var(--ink-soft);margin:4px 0 14px" id="achXP">0 XP</div>
@@ -549,7 +613,7 @@ nav.tabbar button.active::before{
     <svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg> İstatistikler
   </div>
   <div class="more-row" data-target="achievements">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5.5"/><path d="M9 13.5 7.5 21 12 18.5 16.5 21 15 13.5"/></svg> Başarımlar
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5.5"/><path d="M9 13.5 7.5 21 12 18.5 16.5 21 15 13.5"/></svg> Başarılarım
   </div>
 </div>
 
@@ -566,6 +630,14 @@ nav.tabbar button.active::before{
   <div id="accentSwatches" style="display:flex;gap:10px;padding-bottom:6px"></div>
   <div class="h2">Ana Sayfa Sıralaması</div>
   <div class="card" id="widgetOrderList" style="padding:6px 10px"></div>
+</div>
+
+<div id="toastLayer" aria-live="polite"></div>
+<div id="levelUpOverlay">
+  <div id="levelUpCard">
+    <div style="font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-soft);font-weight:700;margin-bottom:8px">Seviye Atladın</div>
+    <div id="levelUpNumber">5</div>
+  </div>
 </div>
 
 </div>
@@ -597,14 +669,41 @@ const CHECK_SVG = '<svg viewBox="0 0 16 16"><path d="M3 8.5l3.2 3L13 4.5"/></svg
 /* ---------- XP / gamification (global) ---------- */
 function addXP(n){
   const s = get(STORAGE_KEYS.xp, {xp:0});
+  const beforeLevel = levelFromXP(s.xp);
   s.xp = Math.max(0, s.xp + n);
   set(STORAGE_KEYS.xp, s);
   renderXP();
+  const afterLevel = levelFromXP(s.xp);
+  if (n>0){
+    showXPToast(n);
+    if (afterLevel>beforeLevel) showLevelUp(afterLevel);
+    pulseXPChip();
+  }
 }
 function levelFromXP(xp){ return Math.floor(xp/100) + 1; }
 function renderXP(){
   const s = get(STORAGE_KEYS.xp, {xp:0});
   document.getElementById("xpChip").textContent = "Sv. " + levelFromXP(s.xp) + " · " + s.xp + " XP";
+}
+function pulseXPChip(){
+  const chip = document.getElementById("xpChip");
+  chip.classList.remove("check-pop"); void chip.offsetWidth; chip.classList.add("check-pop");
+}
+function showXPToast(n){
+  const layer = document.getElementById("toastLayer");
+  const el = document.createElement("div");
+  el.className = "xp-toast";
+  el.textContent = "+" + n + " XP";
+  layer.appendChild(el);
+  setTimeout(function(){ el.remove(); }, 1300);
+}
+function showLevelUp(level){
+  document.getElementById("levelUpNumber").textContent = level;
+  const ov = document.getElementById("levelUpOverlay");
+  ov.classList.add("show");
+  const dismiss = function(){ ov.classList.remove("show"); };
+  setTimeout(dismiss, 2200);
+  ov.onclick = dismiss;
 }
 
 /* ---------- Nav / view switching ---------- */
@@ -716,28 +815,46 @@ function addTask(){
   list.push({id:uid(), title:title, status:"todo", priority:document.getElementById("taskPriority").value, due: todayISO()});
   saveTasks(list); input.value=""; addXP(2); renderTasks();
 }
-function advanceTask(t){
-  t.status = t.status==="todo" ? "doing" : t.status==="doing" ? "done" : "todo";
-  if (t.status==="done") addXP(5);
+function completeOrUndoTask(t){
+  if (t.status==="done"){ t.status = "todo"; }
+  else { t.status = "done"; addXP(5); }
+}
+function startTask(t){ t.status = "doing"; }
+function deleteTask(id){ saveTasks(loadTasks().filter(t=>t.id!==id)); renderTasks(); }
+function renameTask(id){
+  const list = loadTasks(); const t = list.find(x=>x.id===id); if (!t) return;
+  const val = prompt("Görev adı:", t.title);
+  if (val && val.trim()){ t.title = val.trim(); saveTasks(list); renderTasks(); }
 }
 function renderTasks(){
   const list = loadTasks().filter(t=>t.status===taskFilter);
   const wrap = document.getElementById("taskList");
   if (!list.length){ wrap.innerHTML = '<div class="empty"><span class="big">Burada bir şey yok</span>Yukarıdan yeni görev ekleyin.</div>'; return; }
   wrap.innerHTML = list.map(function(t){
-    const cls = t.status==="done" ? "on" : t.status==="doing" ? "half" : "";
-    const icon = t.status==="done" ? CHECK_SVG : "";
+    const startBtn = t.status==="todo" ?
+      '<button class="icon-btn" data-id="'+t.id+'" data-act="start" aria-label="Başlat" style="width:30px;height:30px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M6 4.5v15l13-7.5-13-7.5Z" fill="currentColor" stroke="none"/></svg></button>' : '';
     return '<div class="list-row'+(t.status==="done"?" done":"")+'">'+
-      '<button class="check '+cls+'" data-id="'+t.id+'" aria-label="Durumu ilerlet">'+icon+'</button>'+
-      '<div class="name"><span class="t">'+esc(t.title)+'</span></div>'+
-      '<span class="chip '+t.priority+'">'+PRIORITY_LABEL[t.priority]+'</span>'+
+      '<button class="check'+(t.status==="done"?" on":"")+'" data-id="'+t.id+'" data-act="done" aria-label="Tamamla">'+CHECK_SVG+'</button>'+
+      '<div class="name" data-id="'+t.id+'" data-act="rename" style="cursor:pointer"><span class="t">'+esc(t.title)+'</span><span class="s">'+PRIORITY_LABEL[t.priority]+' öncelik</span></div>'+
+      startBtn+
+      '<button class="icon-btn" data-id="'+t.id+'" data-act="delete" aria-label="Sil" style="width:30px;height:30px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M5 7h14M10 11v6M14 11v6M7 7l1-3h8l1 3M6 7l1 13h10l1-13" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
     '</div>';
   }).join("");
-  wrap.querySelectorAll(".check").forEach(function(btn){
-    btn.addEventListener("click", function(){
-      const list2 = loadTasks();
-      const t = list2.find(function(x){ return x.id===btn.dataset.id; });
-      if (t){ advanceTask(t); saveTasks(list2); renderTasks(); }
+  wrap.querySelectorAll("[data-act]").forEach(function(el){
+    el.addEventListener("click", function(){
+      const id = el.dataset.id, act = el.dataset.act;
+      if (act==="delete"){ if (confirm("Bu görevi silmek istiyor musunuz?")) deleteTask(id); return; }
+      if (act==="rename"){ renameTask(id); return; }
+      const list2 = loadTasks(); const t = list2.find(function(x){ return x.id===id; });
+      if (!t) return;
+      if (act==="done"){
+        const willComplete = t.status!=="done";
+        if (willComplete) el.classList.add("check-pop");
+        setTimeout(function(){ completeOrUndoTask(t); saveTasks(list2); renderTasks(); }, willComplete?150:0);
+        return;
+      }
+      if (act==="start") startTask(t);
+      saveTasks(list2); renderTasks();
     });
   });
 }
@@ -796,7 +913,11 @@ function renderRoutinesToday(){
   wrap.querySelectorAll("[data-act]").forEach(function(el){
     el.addEventListener("click", function(){
       const id = el.dataset.id, act = el.dataset.act;
-      if (act==="toggle") toggleRoutineToday(id);
+      if (act==="toggle"){
+        const willComplete = !el.classList.contains("on");
+        if (willComplete) el.classList.add("check-pop");
+        setTimeout(function(){ toggleRoutineToday(id); }, willComplete?150:0);
+      }
       else if (act==="delete"){ if (confirm("Bu rutini silmek istiyor musunuz?")) deleteRoutine(id); }
       else if (act==="rename") renameRoutine(id);
     });
@@ -812,7 +933,7 @@ function renderStreak(){
   let longest=0, run=0;
   for (let i=59;i>=0;i--){ if (list.length && routineDayRate(daysAgo(i))>0){ run++; longest=Math.max(longest,run); } else run=0; }
   let missed=0; if (list.length){ for (let i=0;i<30;i++){ if (routineDayRate(daysAgo(i))===0) missed++; } }
-  document.getElementById("curStreak").textContent = cur;
+  document.getElementById("curStreak").innerHTML = cur + (cur>0 ? ' <span class="flame">🔥</span>' : '');
   document.getElementById("longStreak").textContent = longest;
   document.getElementById("missedDays").textContent = missed;
   const cells = [];
@@ -1218,12 +1339,16 @@ function renderPrayerList(){
   }).join("");
   wrap.querySelectorAll("[data-prayer]").forEach(function(btn){
     btn.addEventListener("click", function(){
-      const p2 = loadPrayers(); const today2 = todayISO();
-      if (!p2.daily[today2]) p2.daily[today2] = {};
-      const wasOn = !!p2.daily[today2][btn.dataset.prayer];
-      p2.daily[today2][btn.dataset.prayer] = !wasOn;
-      if (!wasOn) addXP(3);
-      savePrayers(p2); renderPrayerList();
+      const willComplete = !btn.classList.contains("on");
+      if (willComplete) btn.classList.add("check-pop");
+      setTimeout(function(){
+        const p2 = loadPrayers(); const today2 = todayISO();
+        if (!p2.daily[today2]) p2.daily[today2] = {};
+        const wasOn = !!p2.daily[today2][btn.dataset.prayer];
+        p2.daily[today2][btn.dataset.prayer] = !wasOn;
+        if (!wasOn) addXP(3);
+        savePrayers(p2); renderPrayerList();
+      }, willComplete?150:0);
     });
   });
 }
@@ -1250,7 +1375,7 @@ VIEW_RENDER.worship = function(){
   renderPrayerList(); renderQuran();
 };
 
-/* ---------- Başarımlar / Gamification ---------- */
+/* ---------- Başarılarım / Gamification ---------- */
 const ACHIEVEMENTS = [
   {title:"İlk Adım", desc:"İlk görev ya da rutini tamamla", check:function(){
     return loadTasks().some(t=>t.status==="done") || loadRoutines().some(r=>(r.completedDates||[]).length>0);
@@ -1330,6 +1455,7 @@ VIEW_RENDER.dashboard = function(){
   const rate = total ? Math.round(done/total*100) : 0;
 
   const valEl = document.getElementById("successValue");
+  valEl.style.color = rate>=80 ? "var(--good)" : rate>=40 ? "var(--accent)" : "var(--warn)";
   if (reduceMotion()){ valEl.innerHTML = rate + "<sup style=\"font-size:.4em;font-weight:700\">%</sup>"; }
   else{
     const start = performance.now();
