@@ -634,17 +634,15 @@ nav.tabbar button.active::before{
   <div class="h2" style="margin-top:0">Bugünkü Namazlar</div>
   <div class="card" id="prayerList" style="padding:4px 12px"></div>
   <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <div><div style="font-size:14.5px">Kaza Namazı</div><div style="font-size:12px;color:var(--ink-soft)">Bekleyen sayaç</div></div>
-      <div style="display:flex;align-items:center;gap:12px">
-        <button class="icon-btn" id="kazaMinus" aria-label="Azalt" style="background:var(--paper-line);font-size:18px;font-weight:700">−</button>
-        <span style="font-family:var(--serif);font-size:24px;min-width:34px;text-align:center;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:4px" id="kazaCount">0</span>
-      </div>
+    <div style="text-align:center;margin-bottom:14px">
+      <span style="font-family:var(--serif);font-size:34px;color:var(--margin)" id="kazaTotal">0</span>
+      <div style="font-size:11px;color:var(--ink-soft);letter-spacing:.06em;text-transform:uppercase;margin-top:2px">Toplam Bekleyen Kaza</div>
     </div>
-    <div style="font-size:11px;color:var(--ink-faint);margin-top:6px">Sayıya dokun → elle gir</div>
+    <div id="kazaByVakit" style="padding:0 2px"></div>
+    <div style="font-size:11px;color:var(--ink-faint);margin-top:8px">Sayıya dokun → elle gir · − ile azalt</div>
     <button class="btn" id="kazaAutoBtn" type="button" style="width:100%;margin-top:12px">Tarih Aralığına Göre Hesapla</button>
     <div id="kazaAutoPanel" style="display:none;margin-top:10px">
-      <div style="font-size:12px;color:var(--ink-soft);margin-bottom:8px">Namazı bırakma ve tekrar başlama tarihini seç — günde 5 vakit üzerinden hesaplanır.</div>
+      <div style="font-size:12px;color:var(--ink-soft);margin-bottom:8px">Namazı bırakma ve tekrar başlama tarihini seç — aradaki her gün, 5 vaktin her birine 1 kaza olarak eklenir.</div>
       <div class="field-row">
         <input class="field" type="date" id="kazaFromDate" style="flex:1">
         <input class="field" type="date" id="kazaToDate" style="flex:1">
@@ -1676,8 +1674,22 @@ VIEW_RENDER.health = function(){ renderWater(); renderHealthInputs(); renderWeig
 
 /* ---------- İbadet Takibi ---------- */
 const PRAYER_NAMES = ["Sabah","Öğle","İkindi","Akşam","Yatsı"];
-function loadPrayers(){ return get(STORAGE_KEYS.prayers, {daily:{}, kazaCount:0, quran:{}}); }
 function savePrayers(p){ set(STORAGE_KEYS.prayers, p); }
+function loadPrayers(){
+  const p = get(STORAGE_KEYS.prayers, null) || {daily:{}, quran:{}};
+  if (!p.kaza){
+    const old = p.kazaCount || 0;
+    const base = Math.floor(old/5), rem = old%5;
+    p.kaza = {};
+    PRAYER_NAMES.forEach(function(name,i){ p.kaza[name] = base + (i<rem?1:0); });
+    delete p.kazaCount;
+    set(STORAGE_KEYS.prayers, p);
+  }
+  if (!p.daily) p.daily = {};
+  if (!p.quran) p.quran = {};
+  return p;
+}
+function kazaTotal(p){ return PRAYER_NAMES.reduce(function(sum,name){ return sum+(p.kaza[name]||0); },0); }
 function renderPrayerList(){
   const p = loadPrayers(); const today = todayISO(); const rec = p.daily[today] || {};
   const wrap = document.getElementById("prayerList");
@@ -1701,20 +1713,38 @@ function renderPrayerList(){
     });
   });
 }
-document.getElementById("kazaCount").addEventListener("click", function(){
+function renderKaza(){
   const p = loadPrayers();
-  showPrompt("Kaza namazı sayısını gir:", p.kazaCount||0, function(val){
-    if (val===null) return;
-    const n = parseInt(val,10);
-    if (isNaN(n) || n<0) return;
-    const p2 = loadPrayers(); p2.kazaCount = n; savePrayers(p2);
-    document.getElementById("kazaCount").textContent = n;
-  }, "number");
-});
-document.getElementById("kazaMinus").addEventListener("click", function(){
-  const p = loadPrayers(); p.kazaCount = Math.max(0,(p.kazaCount||0)-1); savePrayers(p);
-  document.getElementById("kazaCount").textContent = p.kazaCount; addXP(2);
-});
+  const wrap = document.getElementById("kazaByVakit");
+  wrap.innerHTML = PRAYER_NAMES.map(function(name){
+    const n = p.kaza[name]||0;
+    return '<div class="list-row"><div class="name"><span class="t">'+name+'</span></div>'+
+      '<button class="icon-btn" data-vakit-minus="'+name+'" aria-label="Azalt" style="width:27px;height:27px;background:var(--paper-line);font-size:16px;font-weight:700">−</button>'+
+      '<span class="num" data-vakit-count="'+name+'" style="min-width:24px;text-align:center;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;font-size:15px;font-weight:700;color:var(--ink)">'+n+'</span></div>';
+  }).join("");
+  document.getElementById("kazaTotal").textContent = kazaTotal(p);
+  wrap.querySelectorAll("[data-vakit-minus]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      const p2 = loadPrayers();
+      const name = btn.dataset.vakitMinus;
+      p2.kaza[name] = Math.max(0,(p2.kaza[name]||0)-1);
+      savePrayers(p2); addXP(2); renderKaza();
+    });
+  });
+  wrap.querySelectorAll("[data-vakit-count]").forEach(function(el){
+    el.addEventListener("click", function(){
+      const name = el.dataset.vakitCount;
+      const cur = loadPrayers();
+      showPrompt(name+" kaza sayısını gir:", cur.kaza[name]||0, function(val){
+        if (val===null) return;
+        const n = parseInt(val,10);
+        if (isNaN(n) || n<0) return;
+        const p3 = loadPrayers(); p3.kaza[name] = n; savePrayers(p3);
+        renderKaza();
+      }, "number");
+    });
+  });
+}
 document.getElementById("kazaAutoBtn").addEventListener("click", function(){
   const panel = document.getElementById("kazaAutoPanel");
   const opening = panel.style.display==="none";
@@ -1733,9 +1763,11 @@ document.getElementById("kazaCalcBtn").addEventListener("click", function(){
   if (to<from){ showToast("Bitiş tarihi başlangıçtan önce olamaz.", true); return; }
   const days = Math.round((to-from)/86400000) + 1;
   const total = days*5;
-  showConfirm(days+" gün × 5 vakit = "+total+" kaza namazı. Sayacı bu değere ayarlansın mı?", function(){
-    const p = loadPrayers(); p.kazaCount = total; savePrayers(p);
-    document.getElementById("kazaCount").textContent = total;
+  showConfirm(days+" gün × 5 vakit = "+total+" kaza namazı eklenecek (her vakte "+days+" gün). Onaylıyor musun?", function(){
+    const p = loadPrayers();
+    PRAYER_NAMES.forEach(function(name){ p.kaza[name] = (p.kaza[name]||0) + days; });
+    savePrayers(p);
+    renderKaza();
     document.getElementById("kazaAutoPanel").style.display = "none";
   });
 });
@@ -1751,8 +1783,7 @@ function renderQuran(){
   document.getElementById("quranWeek").textContent = weekTotal;
 }
 VIEW_RENDER.worship = function(){
-  document.getElementById("kazaCount").textContent = loadPrayers().kazaCount || 0;
-  renderPrayerList(); renderQuran();
+  renderPrayerList(); renderKaza(); renderQuran();
 };
 
 /* ---------- Finans ---------- */
@@ -2124,8 +2155,9 @@ function renderCardSuggestions(){
   if (tmrEvents.length) msgs.push("📅 Yarın: "+esc(tmrEvents[0].title)+".");
   const routines = get(STORAGE_KEYS.routines, []);
   if (routines.length && routineDayRate(daysAgo(1))>0 && routineDayRate(today)===0) msgs.push("🔥 Serini bugün de sürdürmeyi unutma.");
-  const prayers = get(STORAGE_KEYS.prayers, {kazaCount:0});
-  if (prayers.kazaCount>0) msgs.push("🕌 "+prayers.kazaCount+" kaza namazın bekliyor.");
+  const prayers = loadPrayers();
+  const kzTotal = kazaTotal(prayers);
+  if (kzTotal>0) msgs.push("🕌 "+kzTotal+" kaza namazın bekliyor.");
   document.getElementById("cardSuggestionsBody").innerHTML = msgs.length ? msgs.slice(0,4).map(function(m){
     return '<div class="list-row"><div class="name"><span class="t">'+m+'</span></div></div>';
   }).join("") : '<div class="empty">Şu an her şey yolunda görünüyor 👍</div>';
