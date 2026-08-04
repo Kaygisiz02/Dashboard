@@ -191,6 +191,9 @@ select.field{ -webkit-appearance:none; appearance:none; }
 .stat-grid .card{ margin-bottom:0; text-align:left; }
 .stat-grid .val{ font-family:var(--serif); font-size:26px; color:var(--accent); font-variant-numeric:tabular-nums; }
 .stat-grid .lbl{ font-size:11.5px; color:var(--ink-soft); margin-top:2px; }
+.card-nav{ cursor:pointer; transition:transform .12s cubic-bezier(.34,1.56,.64,1); }
+.card-nav:active{ transform:scale(.97); }
+@media (prefers-reduced-motion:reduce){ .card-nav{ transition:none; } .card-nav:active{ transform:none; } }
 
 /* ---------- Bottom nav ---------- */
 nav.tabbar{
@@ -363,32 +366,32 @@ nav.tabbar button.active::before{
   </div>
 
   <div id="dashCardsWrap">
-    <div class="card" data-card="tasks" style="display:none">
+    <div class="card card-nav" data-card="tasks" style="display:none">
       <div class="h2" style="margin-top:0">Bugünkü Yapılacaklar</div>
       <div id="cardTasksBody"></div>
     </div>
 
-    <div class="card" data-card="habits" style="display:none">
+    <div class="card card-nav" data-card="habits" style="display:none">
       <div class="h2" style="margin-top:0">Alışkanlık Takibi</div>
       <div id="cardHabitsBody"></div>
     </div>
 
-    <div class="card" data-card="calendar" style="display:none">
+    <div class="card card-nav" data-card="calendar" style="display:none">
       <div class="h2" style="margin-top:0">Takvim</div>
       <div id="cardCalendarBody"></div>
     </div>
 
-    <div class="card" data-card="stats" style="display:none">
+    <div class="card card-nav" data-card="stats" style="display:none">
       <div class="h2" style="margin-top:0">Günlük İstatistikler</div>
       <div id="cardStatsBody"></div>
     </div>
 
-    <div class="card" data-card="finance" style="display:none">
+    <div class="card card-nav" data-card="finance" style="display:none">
       <div class="h2" style="margin-top:0">Finans Özeti</div>
       <div id="cardFinanceBody"></div>
     </div>
 
-    <div class="card" data-card="notes" style="display:none">
+    <div class="card card-nav" data-card="notes" style="display:none">
       <div class="h2" style="margin-top:0">Hızlı Notlar</div>
       <div id="cardNotesBody"></div>
     </div>
@@ -686,7 +689,10 @@ nav.tabbar button.active::before{
     <button data-type="income" type="button">Gelir</button>
     <button data-type="expense" class="active" type="button">Gider</button>
   </div>
-  <div class="field-row"><input class="field" id="financeNote" placeholder="Not (ör. market, maaş)" maxlength="60"></div>
+  <div class="field-row">
+    <input class="field" id="financeNote" placeholder="Not (ör. market, maaş)" maxlength="60" style="flex:1">
+    <select class="field" id="financeCategory" style="flex:none;width:118px"></select>
+  </div>
   <div class="field-row">
     <input class="field" type="number" id="financeAmount" placeholder="Tutar ₺" min="0" style="flex:1">
     <input class="field" type="date" id="financeDate" style="flex:1">
@@ -697,6 +703,8 @@ nav.tabbar button.active::before{
     <div class="card"><span class="val" id="financeMonthIncome" style="color:var(--good)">0 ₺</span><div class="lbl">Gelir</div></div>
     <div class="card"><span class="val" id="financeMonthExpense" style="color:var(--margin)">0 ₺</span><div class="lbl">Gider</div></div>
   </div>
+  <div class="h2">Kategoriye Göre (Bu Ay)</div>
+  <div class="card" id="financeCategoryBreakdown" style="padding:4px 12px"></div>
   <div class="h2">İşlemler</div>
   <div class="card" id="financeList" style="padding:4px 12px"></div>
 </section>
@@ -1795,26 +1803,47 @@ function computeBalance(f){
   f.transactions.forEach(function(t){ if (t.date<=today) bal += (t.type==="income"?1:-1)*t.amount; });
   return bal;
 }
+const FINANCE_CATEGORIES = {
+  income: ["Maaş","Ek Gelir","Yatırım","Hediye","Diğer"],
+  expense: ["Market","Fatura","Kira","Ulaşım","Sağlık","Eğlence","Giyim","Diğer"]
+};
+function populateFinanceCategories(){
+  const type = document.querySelector("#financeTypeSeg button.active").dataset.type;
+  document.getElementById("financeCategory").innerHTML = FINANCE_CATEGORIES[type].map(function(c){
+    return '<option value="'+c+'">'+c+'</option>';
+  }).join("");
+}
 document.getElementById("financeStartBalance").addEventListener("change", function(){
   const f = loadFinance(); f.startingBalance = parseFloat(this.value)||0; saveFinance(f); renderFinanceView();
 });
 document.getElementById("financeTypeSeg").addEventListener("click", function(e){
   const b = e.target.closest("button[data-type]"); if (!b) return;
   document.querySelectorAll("#financeTypeSeg button").forEach(function(x){ x.classList.toggle("active", x===b); });
+  populateFinanceCategories();
 });
 document.getElementById("financeAddBtn").addEventListener("click", function(){
   const amount = parseFloat(document.getElementById("financeAmount").value);
   if (!amount || amount<=0) return;
   const type = document.querySelector("#financeTypeSeg button.active").dataset.type;
+  const rawCat = document.getElementById("financeCategory").value;
   const note = document.getElementById("financeNote").value.trim();
   const date = document.getElementById("financeDate").value || todayISO();
+  if (rawCat==="Diğer"){
+    showPrompt("Kategori adı gir:", "", function(custom){
+      finishAddTransaction(type, (custom && custom.trim()) ? custom.trim() : "Diğer", note, amount, date);
+    });
+  } else {
+    finishAddTransaction(type, rawCat, note, amount, date);
+  }
+});
+function finishAddTransaction(type, category, note, amount, date){
   const f = loadFinance();
-  f.transactions.push({id:uid(), date:date, type:type, amount:amount, note:note});
+  f.transactions.push({id:uid(), date:date, type:type, category:category, amount:amount, note:note});
   saveFinance(f);
   document.getElementById("financeAmount").value = ""; document.getElementById("financeNote").value = "";
   addXP(2);
   renderFinanceView();
-});
+}
 function deleteTransaction(id){
   const f = loadFinance(); f.transactions = f.transactions.filter(function(t){ return t.id!==id; }); saveFinance(f); renderFinanceView();
 }
@@ -1826,10 +1855,20 @@ function renderFinanceView(){
   const thisMonth = f.transactions.filter(function(t){ return t.date.slice(0,7)===monthKey; });
   document.getElementById("financeMonthIncome").textContent = thisMonth.filter(function(t){ return t.type==="income"; }).reduce(function(a,t){ return a+t.amount; },0).toLocaleString("tr-TR")+" ₺";
   document.getElementById("financeMonthExpense").textContent = thisMonth.filter(function(t){ return t.type==="expense"; }).reduce(function(a,t){ return a+t.amount; },0).toLocaleString("tr-TR")+" ₺";
+
+  const byCat = {};
+  thisMonth.filter(function(t){ return t.type==="expense"; }).forEach(function(t){
+    const c = t.category || "Diğer"; byCat[c] = (byCat[c]||0) + t.amount;
+  });
+  const catNames = Object.keys(byCat).sort(function(a,b){ return byCat[b]-byCat[a]; });
+  document.getElementById("financeCategoryBreakdown").innerHTML = catNames.length ? catNames.map(function(c){
+    return '<div class="list-row"><div class="name"><span class="t">'+esc(c)+'</span></div><span class="num" style="color:var(--margin)">'+byCat[c].toLocaleString("tr-TR")+' ₺</span></div>';
+  }).join("") : '<div class="empty">Bu ay gider yok</div>';
+
   const recent = f.transactions.slice().sort(function(a,b){ return b.date.localeCompare(a.date); }).slice(0,20);
   const wrap = document.getElementById("financeList");
   wrap.innerHTML = recent.length ? recent.map(function(t){
-    return '<div class="list-row"><div class="name"><span class="t">'+(esc(t.note)||(t.type==="income"?"Gelir":"Gider"))+'</span><span class="s">'+t.date+'</span></div>'+
+    return '<div class="list-row"><div class="name"><span class="t">'+(esc(t.note)||(t.type==="income"?"Gelir":"Gider"))+'</span><span class="s">'+(t.category?esc(t.category)+" · ":"")+t.date+'</span></div>'+
       '<span class="num" style="color:'+(t.type==="income"?"var(--good)":"var(--margin)")+'">'+(t.type==="income"?"+":"−")+t.amount.toLocaleString("tr-TR")+' ₺</span>'+
       '<button class="icon-btn" data-del="'+t.id+'" style="width:28px;height:28px" aria-label="Sil"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button></div>';
   }).join("") : '<div class="empty">Henüz işlem yok</div>';
@@ -1837,7 +1876,11 @@ function renderFinanceView(){
     btn.addEventListener("click", function(){ showConfirm("Bu işlemi silmek istiyor musunuz?", function(){ deleteTransaction(btn.dataset.del); }); });
   });
 }
-VIEW_RENDER.finance = function(){ document.getElementById("financeDate").value = todayISO(); renderFinanceView(); };
+VIEW_RENDER.finance = function(){
+  document.getElementById("financeDate").value = todayISO();
+  populateFinanceCategories();
+  renderFinanceView();
+};
 
 /* ---------- Notlar ---------- */
 function loadNotes(){ return get(STORAGE_KEYS.notes, []); }
@@ -2013,6 +2056,13 @@ function applyDashCardOrder(){
     wrap.appendChild(el);
   });
 }
+const DASH_CARD_NAV = {tasks:"tasks", habits:"routines", calendar:"calendar", stats:"focus", finance:"finance", notes:"notes"};
+document.getElementById("dashCardsWrap").addEventListener("click", function(e){
+  const card = e.target.closest(".card-nav[data-card]");
+  if (!card) return;
+  const target = DASH_CARD_NAV[card.dataset.card];
+  if (target) showView(target);
+});
 function renderDashCardSettings(){
   const cards = loadDashCards();
   const wrap = document.getElementById("dashCardSettingsList");
@@ -2155,9 +2205,6 @@ function renderCardSuggestions(){
   if (tmrEvents.length) msgs.push("📅 Yarın: "+esc(tmrEvents[0].title)+".");
   const routines = get(STORAGE_KEYS.routines, []);
   if (routines.length && routineDayRate(daysAgo(1))>0 && routineDayRate(today)===0) msgs.push("🔥 Serini bugün de sürdürmeyi unutma.");
-  const prayers = loadPrayers();
-  const kzTotal = kazaTotal(prayers);
-  if (kzTotal>0) msgs.push("🕌 "+kzTotal+" kaza namazın bekliyor.");
   document.getElementById("cardSuggestionsBody").innerHTML = msgs.length ? msgs.slice(0,4).map(function(m){
     return '<div class="list-row"><div class="name"><span class="t">'+m+'</span></div></div>';
   }).join("") : '<div class="empty">Şu an her şey yolunda görünüyor 👍</div>';
