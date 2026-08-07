@@ -396,10 +396,6 @@ nav.tabbar button.active::before{
       <div class="h2" style="margin-top:0">Akıllı Öneriler</div>
       <div id="cardSuggestionsBody"></div>
     </div>
-    <div class="card" data-card="shortcuts" style="display:none">
-      <div class="h2" style="margin-top:0">Hızlı Kısayollar</div>
-      <div id="cardShortcutsBody" style="display:flex;flex-wrap:wrap;gap:8px"></div>
-    </div>
   </div>
 </section>
 
@@ -1899,7 +1895,7 @@ function monthPeriodBounds(indexBack){
   const now = new Date();
   const d = new Date(now.getFullYear(), now.getMonth()-indexBack, 1);
   const endD = new Date(d.getFullYear(), d.getMonth()+1, 0);
-  return {start: toISO(d), end: toISO(endD), label: MONTH_ABBR_TR[d.getMonth()]+" "+d.getFullYear()};
+  return {start: toISO(d), end: toISO(endD), label: MONTH_ABBR_TR[d.getMonth()]+" "+d.getFullYear(), short: MONTH_ABBR_TR[d.getMonth()]};
 }
 function quarterPeriodBounds(indexBack){
   const now = new Date();
@@ -1907,7 +1903,7 @@ function quarterPeriodBounds(indexBack){
   const ty = Math.floor(curQ/4), tq = curQ - ty*4;
   const start = new Date(ty, tq*3, 1);
   const end = new Date(ty, tq*3+3, 0);
-  return {start: toISO(start), end: toISO(end), label: "Ç"+(tq+1)+" "+ty};
+  return {start: toISO(start), end: toISO(end), label: "Ç"+(tq+1)+" "+ty, short: "Ç"+(tq+1)};
 }
 function halfPeriodBounds(indexBack){
   const now = new Date();
@@ -1915,11 +1911,11 @@ function halfPeriodBounds(indexBack){
   const ty = Math.floor(curH/2), th = curH - ty*2;
   const start = new Date(ty, th*6, 1);
   const end = new Date(ty, th*6+6, 0);
-  return {start: toISO(start), end: toISO(end), label: (th===0?"1. Yarı ":"2. Yarı ")+ty};
+  return {start: toISO(start), end: toISO(end), label: (th===0?"1. Yarı ":"2. Yarı ")+ty, short: th===0?"1Y":"2Y"};
 }
 function yearPeriodBounds(indexBack){
   const y = new Date().getFullYear() - indexBack;
-  return {start: toISO(new Date(y,0,1)), end: toISO(new Date(y,11,31)), label: String(y)};
+  return {start: toISO(new Date(y,0,1)), end: toISO(new Date(y,11,31)), label: String(y), short: String(y)};
 }
 const FINANCE_TREND_CONFIG = {
   month:{count:6, boundsFn:monthPeriodBounds}, quarter:{count:4, boundsFn:quarterPeriodBounds},
@@ -1944,20 +1940,20 @@ function renderFinanceTrend(){
   const periods = [];
   for (let i=cfg.count-1; i>=0; i--){
     const b = cfg.boundsFn(i);
-    periods.push({label:b.label, net: financePeriodNet(f, b.start, b.end)});
+    periods.push({label:b.label, short:b.short, net: financePeriodNet(f, b.start, b.end)});
   }
   const maxAbs = Math.max(1, ...periods.map(function(p){ return Math.abs(p.net); }));
-  const w = 100/periods.length;
+  const w = 300/periods.length;
   const bars = periods.map(function(p,i){
     const barH = Math.min(46, Math.abs(p.net)/maxAbs*46);
     const color = p.net>=0 ? "var(--good)" : "var(--margin)";
     const y = p.net>=0 ? (50-barH) : 50;
-    return '<rect x="'+(i*w+w*0.15)+'%" y="'+y+'%" width="'+(w*0.7)+'%" height="'+barH+'%" rx="2" fill="'+color+'"/>'+
-      '<text x="'+(i*w+w*0.5)+'%" y="97%" font-size="5.5" text-anchor="middle" fill="var(--ink-soft)">'+esc(p.label)+'</text>';
+    return '<rect x="'+(i*w+w*0.2)+'" y="'+y+'%" width="'+(w*0.6)+'" height="'+barH+'%" rx="2" fill="'+color+'"/>'+
+      '<text x="'+(i*w+w*0.5)+'" y="97%" font-size="8" text-anchor="middle" fill="var(--ink-soft)">'+esc(p.short)+'</text>';
   }).join("");
   document.getElementById("financeTrendChart").innerHTML =
-    '<svg viewBox="0 0 100 100" style="width:100%;height:130px;display:block" preserveAspectRatio="none">'+
-      '<line x1="0" y1="50" x2="100" y2="50" stroke="var(--paper-line)" stroke-width="0.6"/>'+bars+
+    '<svg viewBox="0 0 300 100" style="width:100%;height:130px;display:block">'+
+      '<line x1="0" y1="50" x2="300" y2="50" stroke="var(--paper-line)" stroke-width="0.6"/>'+bars+
     '</svg>';
   document.getElementById("financeTrendList").innerHTML = periods.slice().reverse().map(function(p){
     const color = p.net>=0 ? "var(--good)" : "var(--margin)";
@@ -2368,15 +2364,17 @@ function loadWeatherOnce(){
 const DASH_CARD_LABELS = {
   tasks:"Bugünkü Yapılacaklar", habits:"Alışkanlık Takibi", calendar:"Takvim",
   stats:"Günlük İstatistikler", finance:"Finans Özeti", notes:"Hızlı Notlar",
-  suggestions:"Akıllı Öneriler", shortcuts:"Hızlı Kısayollar"
+  suggestions:"Akıllı Öneriler"
 };
-const DEFAULT_DASH_CARDS = ["tasks","calendar","habits","suggestions","stats","finance","notes","shortcuts"].map(function(k){ return {key:k, on:true}; });
+const DEFAULT_DASH_CARDS = ["tasks","calendar","habits","suggestions","stats","finance","notes"].map(function(k){ return {key:k, on:true}; });
 function loadDashCards(){
   const saved = get(STORAGE_KEYS.dashCards, null);
   if (!saved) return DEFAULT_DASH_CARDS.slice();
-  const keys = saved.map(function(c){ return c.key; });
-  DEFAULT_DASH_CARDS.forEach(function(d){ if (keys.indexOf(d.key)===-1) saved.push({key:d.key, on:true}); });
-  return saved;
+  const validKeys = DEFAULT_DASH_CARDS.map(function(d){ return d.key; });
+  const cleaned = saved.filter(function(c){ return validKeys.indexOf(c.key)!==-1; });
+  const keys = cleaned.map(function(c){ return c.key; });
+  DEFAULT_DASH_CARDS.forEach(function(d){ if (keys.indexOf(d.key)===-1) cleaned.push({key:d.key, on:true}); });
+  return cleaned;
 }
 function saveDashCards(cards){ set(STORAGE_KEYS.dashCards, cards); }
 function applyDashCardOrder(){
@@ -2494,15 +2492,38 @@ function renderCardFinance(){
   const thisMonth = f.transactions.filter(function(t){ return monthKey(t.date)===mKey && t.date<=today; });
   const income = thisMonth.filter(function(t){ return t.type==="income"; }).reduce(function(a,t){ return a+t.amount; },0);
   const expense = thisMonth.filter(function(t){ return t.type==="expense"; }).reduce(function(a,t){ return a+t.amount; },0);
+  const net = income - expense;
   const upcoming = f.transactions.filter(function(t){ return t.date>today; }).sort(function(a,b){ return a.date.localeCompare(b.date); })[0];
   const bal = financeBalance(f);
+
+  const sparkVals = [];
+  for (let i=5; i>=0; i--){
+    const b = monthPeriodBounds(i);
+    sparkVals.push(financePeriodNet(f, b.start, b.end));
+  }
+  const sparkMax = Math.max(1, ...sparkVals.map(Math.abs));
+  const sw = 100/sparkVals.length;
+  const sparkBars = sparkVals.map(function(v,i){
+    const h = Math.max(3, Math.abs(v)/sparkMax*22);
+    const y = v>=0 ? (24-h) : 24;
+    const color = v>=0 ? "var(--good)" : "var(--margin)";
+    return '<rect x="'+(i*sw+sw*0.22)+'%" y="'+y+'" width="'+(sw*0.56)+'%" height="'+h+'" rx="1.5" fill="'+color+'"/>';
+  }).join("");
+
   document.getElementById("cardFinanceBody").innerHTML =
-    '<span style="font-family:var(--serif);font-size:26px;color:'+(bal>=0?"var(--ink)":"var(--margin)")+'">'+fmtTL(bal)+'</span>'+
-    '<div style="font-size:11px;color:var(--ink-soft);margin-bottom:10px">güncel bakiye</div>'+
-    '<div style="display:flex;gap:16px;font-size:12.5px">'+
-      '<span style="color:var(--good)">+'+fmtTL(income)+'</span>'+
-      '<span style="color:var(--margin)">−'+fmtTL(expense)+'</span></div>'+
-    (upcoming ? '<div style="margin-top:10px;font-size:12px;color:var(--ink-soft)">Yaklaşan: '+esc(upcoming.title||"işlem")+' · '+upcoming.date+'</div>' : '');
+    '<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:10px">'+
+      '<div>'+
+        '<span style="font-family:var(--serif);font-size:28px;color:'+(bal>=0?"var(--ink)":"var(--margin)")+';display:block;line-height:1">'+fmtTL(bal)+'</span>'+
+        '<span style="font-size:11px;color:var(--ink-soft)">güncel bakiye</span>'+
+      '</div>'+
+      '<svg viewBox="0 0 100 24" style="width:96px;height:26px;flex:none">'+sparkBars+'</svg>'+
+    '</div>'+
+    '<div style="display:flex;align-items:center;gap:6px;margin-top:12px;padding-top:10px;border-top:1px solid var(--paper-line)">'+
+      '<svg viewBox="0 0 24 24" style="width:15px;height:15px;flex:none"><path d="'+(net>=0?"M12 5v14M6 11l6-6 6 6":"M12 19V5M6 13l6 6 6-6")+'" stroke="'+(net>=0?"var(--good)":"var(--margin)")+'" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'+
+      '<span style="font-size:13px;font-weight:700;color:'+(net>=0?"var(--good)":"var(--margin)")+'">'+fmtTL(Math.abs(net))+'</span>'+
+      '<span style="font-size:11.5px;color:var(--ink-soft)">bu ay '+(net>=0?"net kazanç":"net gider")+'</span>'+
+    '</div>'+
+    (upcoming ? '<div style="margin-top:8px;font-size:12px;color:var(--ink-soft)">Yaklaşan: '+esc(upcoming.title||"işlem")+' · '+upcoming.date+'</div>' : '');
 }
 function renderCardNotes(){
   const list = loadNotes().slice().reverse().slice(0,3);
@@ -2536,21 +2557,6 @@ function renderCardSuggestions(){
   document.getElementById("cardSuggestionsBody").innerHTML = msgs.length ? msgs.slice(0,4).map(function(m){
     return '<div class="list-row"><div class="name"><span class="t">'+m+'</span></div></div>';
   }).join("") : '<div class="empty">Şu an her şey yolunda görünüyor 👍</div>';
-}
-function renderCardShortcuts(){
-  document.getElementById("cardShortcutsBody").innerHTML =
-    '<button class="btn" data-shortcut="task" style="flex:1 1 45%">➕ Görev</button>'+
-    '<button class="btn" data-shortcut="note" style="flex:1 1 45%">📝 Not</button>'+
-    '<button class="btn" data-shortcut="expense" style="flex:1 1 45%">💸 Harcama</button>'+
-    '<button class="btn" data-shortcut="event" style="flex:1 1 45%">📅 Etkinlik</button>';
-  document.getElementById("cardShortcutsBody").querySelectorAll("[data-shortcut]").forEach(function(btn){
-    btn.addEventListener("click", function(){
-      const viewMap = {task:"tasks", note:"notes", expense:"finance", event:"calendar"};
-      const focusMap = {task:"taskInput", note:"noteInput", expense:"financeTxAmount", event:"eventTitle"};
-      showView(viewMap[btn.dataset.shortcut]);
-      setTimeout(function(){ const el = document.getElementById(focusMap[btn.dataset.shortcut]); if (el) el.focus(); }, 260);
-    });
-  });
 }
 
 /* ---------- Dashboard (özet — diğer modüllerin verisini toplar) ---------- */
@@ -2593,7 +2599,6 @@ VIEW_RENDER.dashboard = function(){
   renderCardFinance();
   renderCardNotes();
   renderCardSuggestions();
-  renderCardShortcuts();
   applyDashCardOrder();
 };
 
