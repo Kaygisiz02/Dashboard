@@ -511,8 +511,8 @@ nav.tabbar button.active::before{
       <svg id="eventAddIcon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
     </button>
   </div>
-  <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft);margin:-6px 0 14px 2px">
-    <input type="checkbox" id="eventYearly" style="width:16px;height:16px"> Yıllık tekrar (doğum günü vb.)
+  <label style="display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:600;color:var(--ink);background:var(--accent-soft);border-radius:var(--radius-sm);padding:10px 12px;margin:-4px 0 14px 0;cursor:pointer">
+    <input type="checkbox" id="eventYearly" style="width:18px;height:18px;flex:none"> 🎂 Yıllık tekrar (doğum günü vb.)
   </label>
 
   <div class="h2">Yaklaşan Etkinlikler</div>
@@ -881,7 +881,7 @@ const STORAGE_KEYS = {
   xp:"gunlukAjandam_xp", theme:"gunlukAjandam_theme", accent:"gunlukAjandam_accent",
   widgetOrder:"gunlukAjandam_widgetOrder", finance:"gunlukAjandam_finance",
   user:"gunlukAjandam_user", notes:"gunlukAjandam_notes", waterTarget:"gunlukAjandam_waterTarget",
-  dashCards:"gunlukAjandam_dashCards"
+  dashCards:"gunlukAjandam_dashCards", taskCleanupDate:"gunlukAjandam_taskCleanupDate"
 };
 
 function todayISO(){ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
@@ -914,7 +914,18 @@ function addXP(n){
     pulseXPChip();
   }
 }
-function levelFromXP(xp){ return Math.floor(xp/100) + 1; }
+function levelThreshold(level){
+  // Seviye 1-3 arası düz 100 XP; 3'ten sonra her seviye öncekinden daha zor.
+  if (level<=1) return 0;
+  if (level<=3) return (level-1)*100;
+  const m = level-3;
+  return 200 + 50*m*(m+3);
+}
+function levelFromXP(xp){
+  let level = 1;
+  while (levelThreshold(level+1) <= xp) level++;
+  return level;
+}
 function renderXP(){
   const s = get(STORAGE_KEYS.xp, {xp:0});
   document.getElementById("xpChip").textContent = "Sv. " + levelFromXP(s.xp) + " · " + s.xp + " XP";
@@ -1104,6 +1115,14 @@ function completeOrUndoTask(t){
 }
 function startTask(t){ t.status = "doing"; }
 function deleteTask(id){ saveTasks(loadTasks().filter(t=>t.id!==id)); renderTasks(); }
+function cleanupDoneTasks(){
+  const today = todayISO();
+  if (get(STORAGE_KEYS.taskCleanupDate, null)===today) return;
+  const tasks = loadTasks();
+  const remaining = tasks.filter(function(t){ return t.status!=="done"; });
+  if (remaining.length !== tasks.length) saveTasks(remaining);
+  set(STORAGE_KEYS.taskCleanupDate, today);
+}
 function renameTask(id){
   const list = loadTasks(); const t = list.find(x=>x.id===id); if (!t) return;
   showPrompt("Görev adı:", t.title, function(val){
@@ -1251,7 +1270,7 @@ function renderStreak(){
   let cur=0; for (let i=0;;i++){ if (list.length && routineDayRate(daysAgo(i))>0) cur++; else break; }
   let longest=0, run=0;
   for (let i=59;i>=0;i--){ if (list.length && routineDayRate(daysAgo(i))>0){ run++; longest=Math.max(longest,run); } else run=0; }
-  let missed=0; if (list.length){ for (let i=0;i<30;i++){ if (routineDayRate(daysAgo(i))===0) missed++; } }
+  let missed=0; if (list.length){ for (let i=0;i<30;i++){ if (routineDayRate(daysAgo(i))<1) missed++; } }
   document.getElementById("curStreak").innerHTML = cur + (cur>0 ? ' <span class="flame">🔥</span>' : '');
   document.getElementById("longStreak").textContent = longest;
   document.getElementById("missedDays").textContent = missed;
@@ -1598,6 +1617,7 @@ document.getElementById("vocabAddBtn").addEventListener("click", function(){
   list.push({id:uid(), word:w, meaning:m, addedDate:todayISO(), reviewedDates:[]});
   saveVocab(list);
   document.getElementById("vocabWord").value=""; document.getElementById("vocabMeaning").value="";
+  addXP(2);
   renderLearning();
 });
 function markVocabReviewed(id){
@@ -1995,6 +2015,22 @@ function deleteFinanceTx(id){
   saveFinance(f);
   renderFinanceHistory(); renderFinanceOverview();
 }
+const DONUT_PALETTE = ["#2b4570","#b23a2e","#3f7d54","#b8862f","#6a3f6b","#3f6b7d","#8a6a3f","#5b6b7c"];
+function renderDonutChart(entries){ // entries: [{label, value}], value>0
+  const total = entries.reduce(function(s,e){ return s+e.value; },0);
+  if (!total) return "";
+  const r = 15.9, C = 2*Math.PI*r;
+  let offset = 0;
+  const segs = entries.map(function(e,i){
+    const frac = e.value/total;
+    const dash = frac*C;
+    const seg = '<circle cx="21" cy="21" r="'+r+'" fill="none" stroke="'+DONUT_PALETTE[i%DONUT_PALETTE.length]+'" stroke-width="7.5" '+
+      'stroke-dasharray="'+dash+' '+(C-dash)+'" stroke-dashoffset="'+(-offset)+'" transform="rotate(-90 21 21)"/>';
+    offset += dash;
+    return seg;
+  }).join("");
+  return '<svg viewBox="0 0 42 42" style="width:150px;height:150px;display:block;margin:4px auto 14px">'+segs+'</svg>';
+}
 function renderFinanceOverview(){
   const f = loadFinance();
   renderFinanceTrend();
@@ -2007,13 +2043,18 @@ function renderFinanceOverview(){
   monthTx.filter(t=>t.type==="expense").forEach(function(t){
     byCategory[t.category] = (byCategory[t.category]||0) + t.amount;
   });
-  const rows = Object.keys(byCategory).sort(function(a,b){ return byCategory[b]-byCategory[a]; });
+  const cats = Object.keys(byCategory).sort(function(a,b){ return byCategory[b]-byCategory[a]; });
   const wrap = document.getElementById("financeCategoryBreakdown");
-  if (!rows.length){ wrap.innerHTML = '<div class="empty">Bu ay henüz gider yok</div>'; return; }
-  wrap.innerHTML = rows.map(function(cat){
+  if (!cats.length){ wrap.innerHTML = '<div class="empty">Bu ay henüz gider yok</div>'; return; }
+  const donutSVG = renderDonutChart(cats.map(function(c){ return {label:c, value:byCategory[c]}; }));
+  const rows = cats.map(function(cat,i){
     const pct = monthExpense ? Math.round(byCategory[cat]/monthExpense*100) : 0;
-    return '<div class="list-row"><div class="name"><span class="t">'+esc(cat)+'</span></div><span class="num">'+fmtTL(byCategory[cat])+' · '+pct+'%</span></div>';
+    const dotColor = DONUT_PALETTE[i%DONUT_PALETTE.length];
+    return '<div class="list-row"><div class="name" style="display:flex;align-items:center;gap:8px">'+
+      '<span style="width:10px;height:10px;border-radius:99px;background:'+dotColor+';flex:none"></span>'+
+      '<span class="t">'+esc(cat)+'</span></div><span class="num">'+fmtTL(byCategory[cat])+' · '+pct+'%</span></div>';
   }).join("");
+  wrap.innerHTML = donutSVG + rows;
 }
 function renderFinanceHistory(){
   const f = loadFinance();
@@ -2253,11 +2294,14 @@ const ACHIEVEMENTS = [
   {title:"Seviye 10", desc:"Seviye 10'a ulaş", check:function(){ return levelFromXP(get(STORAGE_KEYS.xp,{xp:0}).xp) >= 10; }}
 ];
 function renderAchievements(){
-  const s = get(STORAGE_KEYS.xp, {xp:0}); const lvl = levelFromXP(s.xp); const inLevel = s.xp % 100;
+  const s = get(STORAGE_KEYS.xp, {xp:0});
+  const lvl = levelFromXP(s.xp);
+  const curT = levelThreshold(lvl), nextT = levelThreshold(lvl+1);
+  const inLevel = s.xp - curT, span = nextT - curT;
   document.getElementById("achLevel").textContent = "Sv. "+lvl;
   document.getElementById("achXP").textContent = s.xp+" XP";
-  document.getElementById("achProgressBar").style.width = inLevel+"%";
-  document.getElementById("achNextLevel").textContent = (100-inLevel)+" XP sonra Seviye "+(lvl+1);
+  document.getElementById("achProgressBar").style.width = Math.round(inLevel/span*100)+"%";
+  document.getElementById("achNextLevel").textContent = (nextT-s.xp)+" XP sonra Seviye "+(lvl+1);
   document.getElementById("badgeGrid").innerHTML = ACHIEVEMENTS.map(function(a){
     let unlocked=false; try{ unlocked = !!a.check(); }catch(e){ unlocked=false; }
     const col = unlocked ? "var(--accent)" : "var(--ink-faint)";
@@ -2386,11 +2430,14 @@ function renderDashCardSettings(){
 function renderCardTasks(){
   const today = todayISO();
   const tasks = get(STORAGE_KEYS.tasks, []);
-  const tasksToday = tasks.filter(function(t){ return !t.due || t.due===today; });
-  const pending = tasksToday.filter(function(t){ return t.status!=="done"; });
+  const relevant = tasks.filter(function(t){
+    if (t.status==="doing") return true;
+    return !t.due || t.due<=today;
+  });
+  const pending = relevant.filter(function(t){ return t.status!=="done"; });
   const prOrder = {high:0, med:1, low:2};
   const top3 = pending.slice().sort(function(a,b){ return prOrder[a.priority]-prOrder[b.priority]; }).slice(0,3);
-  const doneCount = tasksToday.length - pending.length;
+  const doneCount = relevant.length - pending.length;
   let html = '<div style="display:flex;gap:18px;margin-bottom:12px">'+
     '<span style="font-size:12.5px;color:var(--ink-soft)"><strong style="color:var(--ink);font-family:var(--serif);font-size:17px">'+doneCount+'</strong> tamamlandı</span>'+
     '<span style="font-size:12.5px;color:var(--ink-soft)"><strong style="color:var(--ink);font-family:var(--serif);font-size:17px">'+pending.length+'</strong> kaldı</span></div>';
@@ -2655,6 +2702,7 @@ document.getElementById("resetDataBtn").addEventListener("click", function(){
 })();
 
 /* ---------- Init ---------- */
+cleanupDoneTasks();
 initUser();
 renderDate();
 renderXP();
