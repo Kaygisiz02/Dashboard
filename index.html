@@ -665,6 +665,7 @@ nav.tabbar button.active::before{
   </div>
 
   <div id="financeSubOverview">
+    <div class="card ruled" id="financeBalanceCard" style="text-align:center;padding:20px 16px 16px"></div>
     <div class="segmented" id="financeTrendSeg">
       <button data-gran="month" class="active" type="button">Aylık</button>
       <button data-gran="quarter" type="button">3 Aylık</button>
@@ -673,18 +674,14 @@ nav.tabbar button.active::before{
     </div>
     <div class="card" id="financeTrendChart" style="padding:12px 10px 6px"></div>
     <div class="card" id="financeTrendList" style="padding:4px 12px"></div>
+    <div class="h2">Bütçe Durumu (Bu Ay)</div>
+    <div class="card" id="financeBudgetStatus" style="padding:4px 12px"></div>
     <div class="h2">Kategoriye Göre Gider (Bu Ay)</div>
     <div class="card" id="financeCategoryBreakdown" style="padding:4px 12px"></div>
   </div>
 
   <div id="financeSubAdd" style="display:none">
-    <div class="h2" style="margin-top:0">Başlangıç Bakiyesi</div>
-    <div class="field-row">
-      <input class="field" type="number" step="0.01" id="financeStartingBalance" placeholder="Başlangıç bakiyesi" style="flex:1">
-      <button class="btn-icon" id="financeStartingSaveBtn" type="button" aria-label="Kaydet"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-    </div>
-
-    <div class="h2">Yeni İşlem</div>
+    <div class="h2" id="financeTxFormTitle" style="margin-top:0">Yeni İşlem</div>
     <div class="field-row">
       <input type="file" id="receiptPhotoInput" accept="image/*" capture="environment" style="display:none">
       <button class="btn" id="receiptScanBtn" type="button" style="width:100%">📷 Makbuzdan Doldur</button>
@@ -703,10 +700,42 @@ nav.tabbar button.active::before{
       <input class="field" type="date" id="financeTxDate" style="flex:1">
     </div>
     <button class="btn btn-primary" id="financeTxAddBtn" type="button" style="width:100%;padding:12px">İşlemi Kaydet</button>
+    <button class="btn" id="financeTxCancelEditBtn" type="button" style="width:100%;padding:10px;margin-top:8px;display:none">Düzenlemeyi İptal Et</button>
+
+    <div class="h2">Sabit Gelir/Gider (Tekrarlayan)</div>
+    <div class="card" id="financeRecurringList" style="padding:4px 12px;margin-bottom:12px"></div>
+    <div class="segmented" id="financeRecurringTypeSeg">
+      <button data-rtype="expense" class="active" type="button">Gider</button>
+      <button data-rtype="income" type="button">Gelir</button>
+    </div>
+    <div class="field-row"><input class="field" id="financeRecurringTitle" placeholder="Açıklama (ör. kira, maaş)..." maxlength="80"></div>
+    <div class="field-row">
+      <input class="field" type="number" step="0.01" min="0" id="financeRecurringAmount" placeholder="Tutar (₺)" style="flex:1">
+      <select class="field" id="financeRecurringCategory" style="flex:none;width:130px"></select>
+    </div>
+    <div class="field-row">
+      <select class="field" id="financeRecurringDay" style="flex:1" aria-label="Ayın günü"></select>
+    </div>
+    <button class="btn" id="financeRecurringAddBtn" type="button" style="width:100%;padding:12px">Sabit İşlem Ekle</button>
   </div>
 
   <div id="financeSubHistory" style="display:none">
     <div class="h2" style="margin-top:0">Tüm İşlemler</div>
+    <div class="segmented" id="financeHistoryTypeFilter">
+      <button data-filter-type="all" class="active" type="button">Hepsi</button>
+      <button data-filter-type="income" type="button">Gelir</button>
+      <button data-filter-type="expense" type="button">Gider</button>
+    </div>
+    <div class="field-row">
+      <select class="field" id="financeHistoryCategoryFilter" style="flex:1"><option value="all">Tüm kategoriler</option></select>
+    </div>
+    <div class="field-row">
+      <input class="field" type="date" id="financeHistoryDateFrom" style="flex:1" aria-label="Başlangıç tarihi">
+      <input class="field" type="date" id="financeHistoryDateTo" style="flex:1" aria-label="Bitiş tarihi">
+    </div>
+    <div class="field-row">
+      <button class="btn" id="financeHistoryFilterClearBtn" type="button" style="width:100%">Filtreyi Temizle</button>
+    </div>
     <div class="card" id="financeHistory" style="padding:4px 12px"></div>
   </div>
 </section>
@@ -877,7 +906,8 @@ const STORAGE_KEYS = {
   xp:"gunlukAjandam_xp", theme:"gunlukAjandam_theme", accent:"gunlukAjandam_accent",
   widgetOrder:"gunlukAjandam_widgetOrder", finance:"gunlukAjandam_finance",
   user:"gunlukAjandam_user", notes:"gunlukAjandam_notes", waterTarget:"gunlukAjandam_waterTarget",
-  dashCards:"gunlukAjandam_dashCards", taskCleanupDate:"gunlukAjandam_taskCleanupDate"
+  dashCards:"gunlukAjandam_dashCards", taskCleanupDate:"gunlukAjandam_taskCleanupDate",
+  budget:"gunlukAjandam_budget", recurringFinance:"gunlukAjandam_recurringFinance"
 };
 
 function todayISO(){ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
@@ -1875,16 +1905,34 @@ function populateFinanceCategories(){
 }
 function loadFinance(){ return get(STORAGE_KEYS.finance, {startingBalance:0, transactions:[]}); }
 function saveFinance(f){ set(STORAGE_KEYS.finance, f); }
+/* Bütçe: {kategori: aylık_limit} şeklinde basit bir obje. Sadece gider
+   kategorileri için anlamlıdır (gelir kategorilerine limit koymak bir
+   bütçe kavramı değildir). */
+function loadFinanceBudget(){ return get(STORAGE_KEYS.budget, {}); }
+function saveFinanceBudget(b){ set(STORAGE_KEYS.budget, b); }
+/* Tekrarlayan işlemler: [{id, title, amount, type, category, dayOfMonth,
+   lastGeneratedMonth}]. lastGeneratedMonth ("YYYY-MM"), aynı şablondan
+   bir ayda birden fazla işlem oluşturulmasını engeller — showView("finance")
+   her tetiklendiğinde generateDueRecurringFinance() bu ayki günü geçmiş
+   ama henüz oluşturulmamış şablonları kontrol edip otomatik ekler. */
+function loadRecurringFinance(){ return get(STORAGE_KEYS.recurringFinance, []); }
+function saveRecurringFinance(list){ set(STORAGE_KEYS.recurringFinance, list); }
 function fmtTL(n){
   const sign = n<0 ? "-" : "";
   return sign + "₺" + Math.abs(n).toLocaleString("tr-TR", {minimumFractionDigits:0, maximumFractionDigits:2});
 }
+/* Not: Bakiye artık her zaman 0'dan başlar. Kullanıcı arayüzünden
+   ayarlanabilir bir "Başlangıç Bakiyesi" alanı vardı; her "Ekle"
+   sekmesi ziyaretinde tek seferlik bir ayarın tekrar tekrar görünmesi
+   kafa karıştırıcıydı ve kaldırıldı. f.startingBalance alanı eski
+   verilerle (localStorage, yedek dosyaları) uyumluluk için veri
+   modelinde bırakıldı, ama artık hesaplamada kullanılmıyor. */
 function financeBalance(f){
   const today = todayISO();
   return f.transactions.reduce(function(sum,t){
     if (t.date>today) return sum;
     return sum + (t.type==="income" ? t.amount : -t.amount);
-  }, f.startingBalance||0);
+  }, 0);
 }
 function monthKey(dateISO){ return dateISO.slice(0,7); }
 let financeTxType = "expense";
@@ -1974,13 +2022,7 @@ document.getElementById("financeTypeSeg").addEventListener("click", function(e){
   document.querySelectorAll("#financeTypeSeg button").forEach(x=>x.classList.toggle("active", x===b));
   populateFinanceCategories();
 });
-document.getElementById("financeStartingSaveBtn").addEventListener("click", function(){
-  const val = parseFloat(document.getElementById("financeStartingBalance").value);
-  if (isNaN(val)) return;
-  const f = loadFinance(); f.startingBalance = val; saveFinance(f);
-  document.getElementById("financeStartingBalance").value = "";
-  renderFinanceOverview();
-});
+let financeEditingId = null;
 document.getElementById("financeTxAddBtn").addEventListener("click", function(){
   const title = document.getElementById("financeTxTitle").value.trim();
   const amount = parseFloat(document.getElementById("financeTxAmount").value);
@@ -1997,14 +2039,82 @@ document.getElementById("financeTxAddBtn").addEventListener("click", function(){
 });
 function finishAddTransaction(title, amount, category, date){
   const f = loadFinance();
-  f.transactions.push({id:uid(), title:title, amount:amount, type:financeTxType, category:category, date:date});
-  saveFinance(f);
+  if (financeEditingId){
+    const tx = f.transactions.find(t=>t.id===financeEditingId);
+    if (tx){ tx.title=title; tx.amount=amount; tx.type=financeTxType; tx.category=category; tx.date=date; }
+    saveFinance(f);
+    showToast("İşlem güncellendi.");
+    resetFinanceTxForm();
+    renderFinanceHistory();
+  } else {
+    f.transactions.push({id:uid(), title:title, amount:amount, type:financeTxType, category:category, date:date});
+    saveFinance(f);
+    resetFinanceTxForm();
+    addXP(2);
+  }
+  if (financeTxType==="expense" && monthKey(date)===monthKey(todayISO())){
+    checkFinanceBudgetOverrun(category);
+  }
+  renderFinanceOverview();
+}
+/* Bir gider eklendiğinde/güncellendiğinde, o kategori bu ay için
+   bütçeyi aşmışsa kullanıcıyı toast ile uyarır. Sadece bu ayki tarihli
+   kayıtlar için gösterilir (geçmiş bir aya kayıt eklerken güncel bütçe
+   durumuyla kullanıcıyı şaşırtmamak için). */
+function checkFinanceBudgetOverrun(category){
+  const budget = loadFinanceBudget();
+  const limit = budget[category];
+  if (!(limit>0)) return;
+  const f = loadFinance();
+  const thisMonth = monthKey(todayISO());
+  const spent = f.transactions.filter(t=>t.type==="expense" && t.category===category && monthKey(t.date)===thisMonth)
+    .reduce((a,t)=>a+t.amount, 0);
+  if (spent>limit){
+    showToast('"'+category+'" bütçesi aşıldı: '+fmtTL(spent)+' / '+fmtTL(limit), true);
+  }
+}
+/* Formu boşaltır ve varsa düzenleme modundan çıkar. Hem başarılı
+   kayıt/güncelleme sonrası hem de "Düzenlemeyi İptal Et" ile çağrılır. */
+function resetFinanceTxForm(){
+  financeEditingId = null;
+  document.getElementById("financeTxFormTitle").textContent = "Yeni İşlem";
+  document.getElementById("financeTxAddBtn").textContent = "İşlemi Kaydet";
+  document.getElementById("financeTxCancelEditBtn").style.display = "none";
   document.getElementById("financeTxTitle").value = "";
   document.getElementById("financeTxAmount").value = "";
   document.getElementById("financeTxDate").value = todayISO();
-  addXP(2);
-  renderFinanceOverview();
 }
+/* Geçmiş listesindeki düzenle ikonuna basılınca çağrılır: Ekle sekmesine
+   geçer, formu seçilen işlemin verileriyle doldurur, form "düzenleme
+   modu"na girer (finishAddTransaction bunu financeEditingId üzerinden
+   algılayıp push yerine güncelleme yapar). */
+function startEditFinanceTx(id){
+  const f = loadFinance();
+  const tx = f.transactions.find(t=>t.id===id);
+  if (!tx) return;
+  financeEditingId = id;
+  financeTxType = tx.type;
+  document.querySelectorAll("#financeTypeSeg button").forEach(function(x){ x.classList.toggle("active", x.dataset.type===tx.type); });
+  populateFinanceCategories();
+  document.getElementById("financeTxTitle").value = tx.title;
+  document.getElementById("financeTxAmount").value = tx.amount;
+  document.getElementById("financeTxDate").value = tx.date;
+  const catSelect = document.getElementById("financeTxCategory");
+  if (![...catSelect.options].some(o=>o.value===tx.category)){
+    const opt = document.createElement("option");
+    opt.value = tx.category; opt.textContent = tx.category;
+    catSelect.appendChild(opt);
+  }
+  catSelect.value = tx.category;
+  document.getElementById("financeTxFormTitle").textContent = "İşlemi Düzenle";
+  document.getElementById("financeTxAddBtn").textContent = "Güncelle";
+  document.getElementById("financeTxCancelEditBtn").style.display = "block";
+  document.querySelectorAll("#financeSeg button").forEach(function(x){ x.classList.toggle("active", x.dataset.sub==="add"); });
+  document.getElementById("financeSubOverview").style.display = "none";
+  document.getElementById("financeSubAdd").style.display = "";
+  document.getElementById("financeSubHistory").style.display = "none";
+}
+document.getElementById("financeTxCancelEditBtn").addEventListener("click", resetFinanceTxForm);
 function deleteFinanceTx(id){
   const f = loadFinance();
   f.transactions = f.transactions.filter(t=>t.id!==id);
@@ -2029,7 +2139,9 @@ function renderDonutChart(entries){ // entries: [{label, value}], value>0
 }
 function renderFinanceOverview(){
   const f = loadFinance();
+  renderFinanceBalanceCard(f);
   renderFinanceTrend();
+  renderFinanceBudgetStatus(f);
 
   const thisMonth = monthKey(todayISO());
   const monthTx = f.transactions.filter(t=>monthKey(t.date)===thisMonth);
@@ -2052,24 +2164,179 @@ function renderFinanceOverview(){
   }).join("");
   wrap.innerHTML = donutSVG + rows;
 }
+/* Bütçe durumu: her bütçesi tanımlı gider kategorisi için bu ayki
+   harcama/limit oranını, bir ilerleme çubuğunu ve limiti aşınca uyarı
+   rengini gösterir. Kategori bazlı limit belirleme/silme burada, satır
+   üzerindeki butonlarla yapılır — ayrı bir modal gerektirmez. */
+function renderFinanceBudgetStatus(f){
+  const budget = loadFinanceBudget();
+  const wrap = document.getElementById("financeBudgetStatus");
+  const budgetedCats = Object.keys(budget).filter(c => budget[c]>0);
+  const thisMonth = monthKey(todayISO());
+  const monthExpenseByCat = {};
+  f.transactions.filter(t=>t.type==="expense" && monthKey(t.date)===thisMonth).forEach(function(t){
+    monthExpenseByCat[t.category] = (monthExpenseByCat[t.category]||0) + t.amount;
+  });
+  const addRowHtml = '<div class="list-row" id="financeBudgetAddRow" style="cursor:pointer">'+
+      '<div class="name"><span class="t" style="color:var(--accent)">+ Bütçe Ekle</span></div></div>';
+  if (!budgetedCats.length){
+    wrap.innerHTML = '<div class="empty" style="padding-bottom:4px">Henüz bütçe belirlenmedi</div>' + addRowHtml;
+    document.getElementById("financeBudgetAddRow").addEventListener("click", startAddFinanceBudget);
+    return;
+  }
+  budgetedCats.sort(function(a,b){ return a.localeCompare(b,"tr-TR"); });
+  const rows = budgetedCats.map(function(cat){
+    const spent = monthExpenseByCat[cat] || 0;
+    const limit = budget[cat];
+    const pct = Math.min(100, Math.round(spent/limit*100));
+    const over = spent>limit;
+    const barColor = over ? "var(--margin)" : (pct>=80 ? "var(--warn)" : "var(--good)");
+    const statusText = over ? (fmtTL(spent-limit)+' aşıldı') : (fmtTL(limit-spent)+' kaldı');
+    return '<div class="list-row" style="flex-direction:column;align-items:stretch;gap:4px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center">'+
+        '<span class="t">'+esc(cat)+'</span>'+
+        '<span style="display:flex;align-items:center;gap:8px">'+
+          '<span class="num" style="color:'+barColor+'">'+fmtTL(spent)+' / '+fmtTL(limit)+'</span>'+
+          '<button class="icon-btn" data-budget-edit="'+esc(cat)+'" style="width:22px;height:22px" aria-label="Düzenle"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M4 20h4l10.5-10.5a2 2 0 0 0-4-4L4 16v4Z" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/></svg></button>'+
+          '<button class="icon-btn" data-budget-del="'+esc(cat)+'" style="width:22px;height:22px" aria-label="Sil"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button>'+
+        '</span>'+
+      '</div>'+
+      '<div style="height:6px;border-radius:99px;background:var(--paper-line);overflow:hidden"><i style="display:block;height:100%;width:'+pct+'%;background:'+barColor+';border-radius:99px"></i></div>'+
+      '<div style="font-size:11px;color:'+(over?"var(--margin)":"var(--ink-soft)")+'">'+statusText+'</div>'+
+    '</div>';
+  }).join("");
+  wrap.innerHTML = rows + addRowHtml;
+  document.getElementById("financeBudgetAddRow").addEventListener("click", startAddFinanceBudget);
+  wrap.querySelectorAll("[data-budget-edit]").forEach(function(btn){
+    btn.addEventListener("click", function(){ editFinanceBudgetAmount(btn.dataset.budgetEdit); });
+  });
+  wrap.querySelectorAll("[data-budget-del]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      const cat = btn.dataset.budgetDel;
+      showConfirm('"'+cat+'" bütçesini silmek istiyor musunuz?', function(){
+        const b = loadFinanceBudget(); delete b[cat]; saveFinanceBudget(b);
+        renderFinanceBudgetStatus(loadFinance());
+      });
+    });
+  });
+}
+function startAddFinanceBudget(){
+  const budget = loadFinanceBudget();
+  const available = FINANCE_CATEGORIES.expense.filter(c => c!=="Diğer" && !(budget[c]>0));
+  if (!available.length){
+    showToast("Tüm gider kategorileri için zaten bütçe belirlenmiş.", true);
+    return;
+  }
+  showPrompt("Bütçe eklemek istediğin kategori: "+available.join(", "), available[0], function(cat){
+    if (!cat) return;
+    const trimmed = cat.trim();
+    if (!FINANCE_CATEGORIES.expense.includes(trimmed)){
+      showToast("Geçerli bir gider kategorisi gir: "+available.join(", "), true);
+      return;
+    }
+    editFinanceBudgetAmount(trimmed);
+  });
+}
+function editFinanceBudgetAmount(category){
+  const budget = loadFinanceBudget();
+  showPrompt('"'+category+'" için aylık limit (₺):', budget[category] || "", function(val){
+    if (val===null) return;
+    const amount = parseFloat(val);
+    if (isNaN(amount) || amount<=0){ showToast("Geçerli bir tutar gir.", true); return; }
+    const b = loadFinanceBudget();
+    b[category] = amount;
+    saveFinanceBudget(b);
+    showToast("Bütçe kaydedildi.");
+    renderFinanceBudgetStatus(loadFinance());
+  }, "number");
+}
+/* Güncel bakiye kartı: financeBalance() zaten hesaplanıyordu ama hiçbir
+   view'da gösterilmiyordu — bu boşluğu dolduruyor. Ayrıca bu ayın
+   gelir/gider özetini de küçük iki alt satırda gösteriyor. */
+function renderFinanceBalanceCard(f){
+  const balance = financeBalance(f);
+  const thisMonth = monthKey(todayISO());
+  const monthTx = f.transactions.filter(t=>monthKey(t.date)===thisMonth && t.date<=todayISO());
+  const monthIncome = monthTx.filter(t=>t.type==="income").reduce((a,t)=>a+t.amount,0);
+  const monthExpense = monthTx.filter(t=>t.type==="expense").reduce((a,t)=>a+t.amount,0);
+  const balColor = balance>=0 ? "var(--ink)" : "var(--margin)";
+  document.getElementById("financeBalanceCard").innerHTML =
+    '<div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);font-weight:700">Güncel Bakiye</div>'+
+    '<div style="font-family:var(--serif);font-size:34px;margin:4px 0 12px;color:'+balColor+'">'+fmtTL(balance)+'</div>'+
+    '<div style="display:flex;justify-content:center;gap:22px;font-size:12px">'+
+      '<span style="color:var(--good)">↑ '+fmtTL(monthIncome)+' bu ay</span>'+
+      '<span style="color:var(--margin)">↓ '+fmtTL(monthExpense)+' bu ay</span>'+
+    '</div>';
+}
+let financeHistoryFilters = { type:"all", category:"all", from:"", to:"" };
+function financeHistoryFilteredList(f){
+  return f.transactions.filter(function(t){
+    if (financeHistoryFilters.type!=="all" && t.type!==financeHistoryFilters.type) return false;
+    if (financeHistoryFilters.category!=="all" && t.category!==financeHistoryFilters.category) return false;
+    if (financeHistoryFilters.from && t.date<financeHistoryFilters.from) return false;
+    if (financeHistoryFilters.to && t.date>financeHistoryFilters.to) return false;
+    return true;
+  });
+}
+function populateFinanceHistoryCategoryFilter(f){
+  const sel = document.getElementById("financeHistoryCategoryFilter");
+  const prevValue = sel.value || "all";
+  const cats = Array.from(new Set(f.transactions.map(t=>t.category))).sort(function(a,b){ return a.localeCompare(b,"tr-TR"); });
+  sel.innerHTML = '<option value="all">Tüm kategoriler</option>' + cats.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join("");
+  sel.value = cats.indexOf(prevValue)>=0 ? prevValue : "all";
+  financeHistoryFilters.category = sel.value;
+}
 function renderFinanceHistory(){
   const f = loadFinance();
+  populateFinanceHistoryCategoryFilter(f);
   const wrap = document.getElementById("financeHistory");
-  const sorted = f.transactions.slice().sort(function(a,b){ return b.date.localeCompare(a.date); });
-  if (!sorted.length){ wrap.innerHTML = '<div class="empty"><span class="big">Henüz işlem yok</span>Yukarıdan "Ekle" sekmesinden başlayın.</div>'; return; }
+  if (!f.transactions.length){ wrap.innerHTML = '<div class="empty"><span class="big">Henüz işlem yok</span>Yukarıdan "Ekle" sekmesinden başlayın.</div>'; return; }
+  const filtered = financeHistoryFilteredList(f);
+  const sorted = filtered.slice().sort(function(a,b){ return b.date.localeCompare(a.date); });
+  if (!sorted.length){ wrap.innerHTML = '<div class="empty"><span class="big">Filtreye uyan işlem yok</span>Filtreleri temizleyip tekrar dene.</div>'; return; }
   wrap.innerHTML = sorted.map(function(t){
     const sign = t.type==="income" ? "+" : "−";
     const color = t.type==="income" ? "var(--good)" : "var(--margin)";
     return '<div class="list-row"><div class="name"><span class="t">'+esc(t.title)+'</span><span class="s">'+esc(t.category)+' · '+t.date+'</span></div>'+
-      '<span class="num" style="color:'+color+'">'+sign+fmtTL(t.amount).replace("₺","₺")+'</span>'+
+      '<span class="num" style="color:'+color+'">'+sign+fmtTL(t.amount)+'</span>'+
+      '<button class="icon-btn" data-edit="'+t.id+'" style="width:28px;height:28px" aria-label="Düzenle"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M4 20h4l10.5-10.5a2 2 0 0 0-4-4L4 16v4Z" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/></svg></button>'+
       '<button class="icon-btn" data-del="'+t.id+'" style="width:28px;height:28px" aria-label="Sil"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button></div>';
   }).join("");
+  wrap.querySelectorAll("[data-edit]").forEach(function(btn){
+    btn.addEventListener("click", function(){ startEditFinanceTx(btn.dataset.edit); });
+  });
   wrap.querySelectorAll("[data-del]").forEach(function(btn){
     btn.addEventListener("click", function(){
       showConfirm("Bu işlemi silmek istiyor musunuz?", function(){ deleteFinanceTx(btn.dataset.del); });
     });
   });
 }
+document.getElementById("financeHistoryTypeFilter").addEventListener("click", function(e){
+  const b = e.target.closest("button[data-filter-type]"); if (!b) return;
+  financeHistoryFilters.type = b.dataset.filterType;
+  document.querySelectorAll("#financeHistoryTypeFilter button").forEach(function(x){ x.classList.toggle("active", x===b); });
+  renderFinanceHistory();
+});
+document.getElementById("financeHistoryCategoryFilter").addEventListener("change", function(){
+  financeHistoryFilters.category = this.value;
+  renderFinanceHistory();
+});
+document.getElementById("financeHistoryDateFrom").addEventListener("change", function(){
+  financeHistoryFilters.from = this.value;
+  renderFinanceHistory();
+});
+document.getElementById("financeHistoryDateTo").addEventListener("change", function(){
+  financeHistoryFilters.to = this.value;
+  renderFinanceHistory();
+});
+document.getElementById("financeHistoryFilterClearBtn").addEventListener("click", function(){
+  financeHistoryFilters = { type:"all", category:"all", from:"", to:"" };
+  document.querySelectorAll("#financeHistoryTypeFilter button").forEach(function(x){ x.classList.toggle("active", x.dataset.filterType==="all"); });
+  document.getElementById("financeHistoryCategoryFilter").value = "all";
+  document.getElementById("financeHistoryDateFrom").value = "";
+  document.getElementById("financeHistoryDateTo").value = "";
+  renderFinanceHistory();
+});
 
 /* ---------- Finans: Makbuz Tarama (OCR) ----------
    Tesseract.js tarayıcı içinde çalışır, sunucu gerektirmez, ama ilk
@@ -2192,12 +2459,97 @@ async function handleReceiptPhoto(file){
 }
 
 VIEW_RENDER.finance = function(){
+  generateDueRecurringFinance();
   const f = loadFinance();
-  document.getElementById("financeStartingBalance").value = f.startingBalance || "";
   if (!document.getElementById("financeTxDate").value) document.getElementById("financeTxDate").value = todayISO();
   populateFinanceCategories();
+  populateFinanceRecurringForm();
   renderFinanceOverview();
+  renderFinanceRecurringList();
 };
+/* Bu ay için henüz oluşturulmamış, günü gelmiş tüm tekrarlayan şablonları
+   gerçek işlemlere çevirir. "Günü gelmiş" = bugünün günü >= dayOfMonth
+   (örn. 15'inde oluşturulacak bir şablon ayın 10'unda henüz oluşmaz,
+   15'ine gelindiğinde oluşur ve o andan sonra tekrar oluşmaz). İşlemin
+   tarihi dayOfMonth'a göre bu ayın ilgili günü olarak kaydedilir, bugünün
+   tarihi olarak değil — böylece geçmişe dönük raporlar tutarlı kalır. */
+function generateDueRecurringFinance(){
+  const recurring = loadRecurringFinance();
+  if (!recurring.length) return;
+  const today = new Date();
+  const todayDay = today.getDate();
+  const curMonthKey = monthKey(todayISO());
+  let anyGenerated = false;
+  const f = loadFinance();
+  recurring.forEach(function(r){
+    if (r.lastGeneratedMonth===curMonthKey) return;
+    if (todayDay<r.dayOfMonth) return;
+    const dateForThisMonth = curMonthKey + "-" + String(r.dayOfMonth).padStart(2,"0");
+    f.transactions.push({id:uid(), title:r.title, amount:r.amount, type:r.type, category:r.category, date:dateForThisMonth, recurringId:r.id});
+    r.lastGeneratedMonth = curMonthKey;
+    anyGenerated = true;
+  });
+  if (anyGenerated){
+    saveFinance(f);
+    saveRecurringFinance(recurring);
+  }
+}
+function populateFinanceRecurringForm(){
+  const type = document.querySelector("#financeRecurringTypeSeg button.active").dataset.rtype;
+  document.getElementById("financeRecurringCategory").innerHTML = FINANCE_CATEGORIES[type].map(function(c){
+    return '<option value="'+c+'">'+c+'</option>';
+  }).join("");
+  const daySelect = document.getElementById("financeRecurringDay");
+  if (!daySelect.options.length){
+    daySelect.innerHTML = Array.from({length:28}, function(_,i){ return i+1; }).map(function(d){
+      return '<option value="'+d+'">Her ayın '+d+'. günü</option>';
+    }).join("");
+  }
+}
+document.getElementById("financeRecurringTypeSeg").addEventListener("click", function(e){
+  const b = e.target.closest("button[data-rtype]"); if (!b) return;
+  document.querySelectorAll("#financeRecurringTypeSeg button").forEach(function(x){ x.classList.toggle("active", x===b); });
+  populateFinanceRecurringForm();
+});
+document.getElementById("financeRecurringAddBtn").addEventListener("click", function(){
+  const title = document.getElementById("financeRecurringTitle").value.trim();
+  const amount = parseFloat(document.getElementById("financeRecurringAmount").value);
+  if (!title || isNaN(amount) || amount<=0){ showToast("Açıklama ve geçerli bir tutar gir.", true); return; }
+  const type = document.querySelector("#financeRecurringTypeSeg button.active").dataset.rtype;
+  const category = document.getElementById("financeRecurringCategory").value;
+  const dayOfMonth = parseInt(document.getElementById("financeRecurringDay").value,10);
+  const list = loadRecurringFinance();
+  list.push({id:uid(), title:title, amount:amount, type:type, category:category, dayOfMonth:dayOfMonth, lastGeneratedMonth:null});
+  saveRecurringFinance(list);
+  document.getElementById("financeRecurringTitle").value = "";
+  document.getElementById("financeRecurringAmount").value = "";
+  showToast("Sabit işlem eklendi.");
+  generateDueRecurringFinance();
+  renderFinanceRecurringList();
+  renderFinanceOverview();
+});
+function renderFinanceRecurringList(){
+  const list = loadRecurringFinance();
+  const wrap = document.getElementById("financeRecurringList");
+  if (!list.length){ wrap.innerHTML = '<div class="empty">Henüz sabit gelir/gider eklenmedi</div>'; return; }
+  const sorted = list.slice().sort(function(a,b){ return a.dayOfMonth-b.dayOfMonth; });
+  wrap.innerHTML = sorted.map(function(r){
+    const sign = r.type==="income" ? "+" : "−";
+    const color = r.type==="income" ? "var(--good)" : "var(--margin)";
+    return '<div class="list-row"><div class="name"><span class="t">'+esc(r.title)+'</span><span class="s">'+esc(r.category)+' · her ayın '+r.dayOfMonth+'. günü</span></div>'+
+      '<span class="num" style="color:'+color+'">'+sign+fmtTL(r.amount)+'</span>'+
+      '<button class="icon-btn" data-recurring-del="'+r.id+'" style="width:28px;height:28px" aria-label="Sil"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button></div>';
+  }).join("");
+  wrap.querySelectorAll("[data-recurring-del]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      showConfirm("Bu sabit işlemi silmek istiyor musunuz? (Daha önce oluşturulmuş işlemler silinmez.)", function(){
+        const l = loadRecurringFinance().filter(r=>r.id!==btn.dataset.recurringDel);
+        saveRecurringFinance(l);
+        renderFinanceRecurringList();
+      });
+    });
+  });
+}
 
 /* ---------- Notlar ---------- */
 function loadNotes(){ return get(STORAGE_KEYS.notes, []); }
