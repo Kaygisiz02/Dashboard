@@ -407,7 +407,7 @@ nav.tabbar button.active::before{
     <button data-filter="done" type="button">Tamamlanan</button>
   </div>
   <div class="field-row">
-    <input class="field" id="taskInput" placeholder="Yeni görev..." maxlength="120">
+    <input class="field" id="taskInput" placeholder="Yeni görev..." maxlength="120" style="flex:1">
     <select class="field" id="taskPriority" style="flex:none;width:88px">
       <option value="low">Düşük</option>
       <option value="med" selected>Orta</option>
@@ -417,6 +417,19 @@ nav.tabbar button.active::before{
       <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
     </button>
   </div>
+  <div class="field-row">
+    <input class="field" type="date" id="taskDueInput" style="flex:1" aria-label="Bitiş tarihi">
+    <input class="field" id="taskTagInput" placeholder="Etiket (ör. iş, ev)..." maxlength="24" style="flex:1">
+  </div>
+  <div class="field-row">
+    <input class="field" id="taskSearchInput" placeholder="Görevlerde ara..." style="flex:1">
+    <select class="field" id="taskSortSelect" style="flex:none;width:130px">
+      <option value="manual">Eklenme sırası</option>
+      <option value="priority">Önceliğe göre</option>
+      <option value="due">Tarihe göre</option>
+    </select>
+  </div>
+  <div class="segmented" id="taskTagFilterSeg" style="display:none"></div>
   <div class="card" id="taskList" style="padding:4px 12px"></div>
 </section>
 
@@ -430,7 +443,7 @@ nav.tabbar button.active::before{
 
   <div id="routineSubToday">
     <div class="field-row">
-      <input class="field" id="routineInput" placeholder="Yeni rutin..." maxlength="80">
+      <input class="field" id="routineInput" placeholder="Yeni rutin..." maxlength="80" style="flex:1">
       <select class="field" id="routineCategory" style="flex:none;width:112px">
         <option value="Genel">Genel</option>
         <option value="İbadet">İbadet</option>
@@ -440,12 +453,26 @@ nav.tabbar button.active::before{
         <option value="Kişisel">Kişisel</option>
         <option value="__custom__">Diğer…</option>
       </select>
+    </div>
+    <div class="field-row">
+      <select class="field" id="routineFrequency" style="flex:1">
+        <option value="daily">Her gün</option>
+        <option value="2">Haftada 2 gün</option>
+        <option value="3">Haftada 3 gün</option>
+        <option value="4">Haftada 4 gün</option>
+        <option value="5">Haftada 5 gün</option>
+        <option value="6">Haftada 6 gün</option>
+      </select>
       <button class="btn-icon" id="routineAddBtn" type="button" aria-label="Ekle">
         <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
       </button>
     </div>
     <div id="routineCategoryFilter" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;-webkit-overflow-scrolling:touch"></div>
     <div class="card" id="routineList" style="padding:4px 12px"></div>
+    <div style="text-align:center;padding:10px 0">
+      <button class="icon-btn" id="routineShowArchivedBtn" type="button" style="width:auto;padding:6px 12px;font-size:12.5px;color:var(--ink-soft)">Arşivlenmiş rutinleri göster</button>
+    </div>
+    <div class="card" id="routineArchivedList" style="padding:4px 12px;display:none"></div>
   </div>
 
   <div id="routineSubStreak" style="display:none">
@@ -479,6 +506,7 @@ nav.tabbar button.active::before{
   <div class="segmented" id="calSeg">
     <button data-sub="day" class="active" type="button">Gün</button>
     <button data-sub="week" type="button">Hafta</button>
+    <button data-sub="month" type="button">Ay</button>
   </div>
 
   <div id="calDaySub">
@@ -495,6 +523,16 @@ nav.tabbar button.active::before{
     <div class="card" id="calWeekDayList" style="padding:4px 12px"></div>
   </div>
 
+  <div id="calMonthSub" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <button class="icon-btn" id="calPrevMonth" aria-label="Önceki ay"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <span id="calMonthLabel" style="font-family:var(--serif);font-size:16px"></span>
+      <button class="icon-btn" id="calNextMonth" aria-label="Sonraki ay"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
+    <div id="calMonthGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:14px"></div>
+    <div class="card" id="calMonthDayList" style="padding:4px 12px"></div>
+  </div>
+
   <div style="display:flex;justify-content:space-between;align-items:baseline">
     <div class="h2" id="eventFormHeading" style="margin-bottom:0">Yeni Etkinlik</div>
     <span id="eventCancelEdit" style="display:none;font-size:12px;color:var(--margin);cursor:pointer;font-weight:700">İptal</span>
@@ -502,14 +540,26 @@ nav.tabbar button.active::before{
   <div class="field-row"><input class="field" id="eventTitle" placeholder="Başlık..." maxlength="80"></div>
   <div class="field-row">
     <input class="field" type="date" id="eventDate" style="flex:1">
-    <input class="field" type="time" id="eventTime" style="flex:none;width:96px">
+    <input class="field" type="time" id="eventTime" style="flex:none;width:88px" aria-label="Başlangıç saati">
+    <input class="field" type="time" id="eventEndTime" style="flex:none;width:88px" aria-label="Bitiş saati">
+  </div>
+  <div class="field-row">
+    <input class="field" id="eventLocation" placeholder="Konum (isteğe bağlı)..." maxlength="80" style="flex:1">
+  </div>
+  <div class="field-row">
+    <input class="field" id="eventNote" placeholder="Not (isteğe bağlı)..." maxlength="160" style="flex:1">
+  </div>
+  <div class="field-row">
+    <select class="field" id="eventRecurring" style="flex:1">
+      <option value="none">Tekrarlamaz</option>
+      <option value="weekly">Her hafta</option>
+      <option value="monthly">Her ay</option>
+      <option value="yearly">Her yıl (🎂 doğum günü vb.)</option>
+    </select>
     <button class="btn-icon" id="eventAddBtn" type="button" aria-label="Ekle">
       <svg id="eventAddIcon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
     </button>
   </div>
-  <label style="display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:600;color:var(--ink);background:var(--accent-soft);border-radius:var(--radius-sm);padding:10px 12px;margin:-4px 0 14px 0;cursor:pointer">
-    <input type="checkbox" id="eventYearly" style="width:18px;height:18px;flex:none"> 🎂 Yıllık tekrar (doğum günü vb.)
-  </label>
 
   <div class="h2">Yaklaşan Etkinlikler</div>
   <div class="card" id="calUpcoming" style="padding:4px 12px"></div>
@@ -1131,9 +1181,16 @@ document.getElementById("taskInput").addEventListener("keydown", function(e){ if
 function addTask(){
   const input = document.getElementById("taskInput");
   const title = input.value.trim(); if (!title) return;
+  const dueInput = document.getElementById("taskDueInput").value;
+  const tagInput = document.getElementById("taskTagInput").value.trim();
   const list = loadTasks();
-  list.push({id:uid(), title:title, status:"todo", priority:document.getElementById("taskPriority").value, due: todayISO()});
-  saveTasks(list); input.value=""; addXP(2); renderTasks();
+  list.push({
+    id:uid(), title:title, status:"todo", priority:document.getElementById("taskPriority").value,
+    due: dueInput || todayISO(), tag: tagInput || "", subtasks: []
+  });
+  saveTasks(list); input.value=""; document.getElementById("taskTagInput").value="";
+  document.getElementById("taskDueInput").value="";
+  addXP(2); renderTasks();
 }
 function completeOrUndoTask(t){
   if (t.status==="done"){ t.status = "todo"; }
@@ -1155,19 +1212,116 @@ function renameTask(id){
     if (val && val.trim()){ t.title = val.trim(); saveTasks(list); renderTasks(); }
   });
 }
+/* Öncelik, tarih ve etiket satır-içi (inline) düzenlenebilir: kullanıcı
+   ilgili chip'e tıklar, küçük bir seçim/prompt açılır. Ayrı bir "düzenleme
+   formu" yerine bu yaklaşım seçildi çünkü Görevler listesi zaten satır
+   bazlı hızlı etkileşim için tasarlanmış (finance'taki gibi çok alanlı
+   bir form burada akışı yavaşlatırdı). */
+function editTaskPriority(id){
+  const list = loadTasks(); const t = list.find(x=>x.id===id); if (!t) return;
+  const order = ["low","med","high"];
+  const next = order[(order.indexOf(t.priority)+1) % order.length];
+  t.priority = next; saveTasks(list); renderTasks();
+}
+function editTaskDue(id){
+  const list = loadTasks(); const t = list.find(x=>x.id===id); if (!t) return;
+  showPrompt("Bitiş tarihi (YYYY-AA-GG):", t.due || todayISO(), function(val){
+    if (val===null) return;
+    const trimmed = val.trim();
+    if (trimmed && !/^\d{4}-\d{2}-\d{2}$/.test(trimmed)){ showToast("Tarihi YYYY-AA-GG biçiminde gir.", true); return; }
+    t.due = trimmed || todayISO(); saveTasks(list); renderTasks();
+  }, "date");
+}
+function editTaskTag(id){
+  const list = loadTasks(); const t = list.find(x=>x.id===id); if (!t) return;
+  showPrompt("Etiket (boş bırakarak kaldırabilirsin):", t.tag || "", function(val){
+    if (val===null) return;
+    t.tag = val.trim(); saveTasks(list); renderTasks();
+  });
+}
+function addSubtask(id){
+  const list = loadTasks(); const t = list.find(x=>x.id===id); if (!t) return;
+  if (!t.subtasks) t.subtasks = [];
+  showPrompt("Alt görev:", "", function(val){
+    if (val && val.trim()){
+      t.subtasks.push({id:uid(), title:val.trim(), done:false});
+      saveTasks(list); renderTasks();
+    }
+  });
+}
+function toggleSubtask(taskId, subId){
+  const list = loadTasks(); const t = list.find(x=>x.id===taskId); if (!t || !t.subtasks) return;
+  const sub = t.subtasks.find(s=>s.id===subId); if (!sub) return;
+  sub.done = !sub.done; saveTasks(list); renderTasks();
+}
+function deleteSubtask(taskId, subId){
+  const list = loadTasks(); const t = list.find(x=>x.id===taskId); if (!t || !t.subtasks) return;
+  t.subtasks = t.subtasks.filter(s=>s.id!==subId); saveTasks(list); renderTasks();
+}
+let taskExpandedIds = new Set();
+let taskSortMode = "manual";
+let taskSearchQuery = "";
+let taskTagFilter = "all";
+const PRIORITY_ORDER = {high:0, med:1, low:2};
+function renderTaskTagFilter(allTasks){
+  const seg = document.getElementById("taskTagFilterSeg");
+  const tags = Array.from(new Set(allTasks.map(t=>t.tag).filter(Boolean))).sort(function(a,b){ return a.localeCompare(b,"tr-TR"); });
+  if (!tags.length){ seg.style.display = "none"; taskTagFilter = "all"; return; }
+  seg.style.display = "";
+  seg.innerHTML = '<button data-tag="all" class="'+(taskTagFilter==="all"?"active":"")+'" type="button">Tümü</button>' +
+    tags.map(function(tag){ return '<button data-tag="'+esc(tag)+'" class="'+(taskTagFilter===tag?"active":"")+'" type="button">'+esc(tag)+'</button>'; }).join("");
+}
 function renderTasks(){
-  const list = loadTasks().filter(t=>t.status===taskFilter);
+  const allTasks = loadTasks();
+  renderTaskTagFilter(allTasks);
+  let list = allTasks.filter(t=>t.status===taskFilter);
+  if (taskTagFilter!=="all") list = list.filter(t=>t.tag===taskTagFilter);
+  if (taskSearchQuery.trim()){
+    const q = taskSearchQuery.trim().toLocaleLowerCase("tr-TR");
+    list = list.filter(t=>t.title.toLocaleLowerCase("tr-TR").includes(q));
+  }
+  if (taskSortMode==="priority"){
+    list = list.slice().sort(function(a,b){ return PRIORITY_ORDER[a.priority]-PRIORITY_ORDER[b.priority]; });
+  } else if (taskSortMode==="due"){
+    list = list.slice().sort(function(a,b){ return (a.due||"").localeCompare(b.due||""); });
+  }
   const wrap = document.getElementById("taskList");
-  if (!list.length){ wrap.innerHTML = '<div class="empty"><span class="big">Burada bir şey yok</span>Yukarıdan yeni görev ekleyin.</div>'; return; }
+  if (!list.length){
+    wrap.innerHTML = '<div class="empty"><span class="big">Burada bir şey yok</span>'+
+      (taskSearchQuery.trim()||taskTagFilter!=="all" ? "Filtreleri temizleyip tekrar dene." : "Yukarıdan yeni görev ekleyin.")+'</div>';
+    return;
+  }
   wrap.innerHTML = list.map(function(t){
     const startBtn = t.status==="todo" ?
       '<button class="icon-btn" data-id="'+t.id+'" data-act="start" aria-label="Başlat" style="width:30px;height:30px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M6 4.5v15l13-7.5-13-7.5Z" fill="currentColor" stroke="none"/></svg></button>' : '';
-    return '<div class="list-row'+(t.status==="done"?" done":"")+'">'+
+    const subtasks = t.subtasks || [];
+    const subDone = subtasks.filter(s=>s.done).length;
+    const expanded = taskExpandedIds.has(t.id);
+    const subBadge = subtasks.length ?
+      '<button class="icon-btn" data-id="'+t.id+'" data-act="toggle-expand" aria-label="Alt görevler" style="width:auto;padding:0 6px;font-size:11px;color:var(--ink-soft)">'+subDone+'/'+subtasks.length+' '+(expanded?"▲":"▼")+'</button>' : "";
+    const metaParts = [PRIORITY_LABEL[t.priority]+' öncelik'];
+    if (t.due) metaParts.push(t.due);
+    if (t.tag) metaParts.push("#"+esc(t.tag));
+    let subtaskHtml = "";
+    if (expanded && subtasks.length){
+      subtaskHtml = '<div style="padding:2px 0 6px 40px">' + subtasks.map(function(s){
+        return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0">'+
+          '<button class="check'+(s.done?" on":"")+'" data-id="'+t.id+'" data-sub-id="'+s.id+'" data-act="sub-toggle" style="width:20px;height:20px" aria-label="Alt görevi tamamla">'+CHECK_SVG+'</button>'+
+          '<span style="flex:1;font-size:13px'+(s.done?";text-decoration:line-through;color:var(--ink-soft)":"")+'">'+esc(s.title)+'</span>'+
+          '<button class="icon-btn" data-id="'+t.id+'" data-sub-id="'+s.id+'" data-act="sub-delete" style="width:22px;height:22px" aria-label="Alt görevi sil"><svg viewBox="0 0 24 24" style="width:11px;height:11px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button>'+
+        '</div>';
+      }).join("") + '<button class="icon-btn" data-id="'+t.id+'" data-act="sub-add" style="width:auto;padding:2px 8px;font-size:12px;color:var(--accent)" aria-label="Alt görev ekle">+ Alt görev</button></div>';
+    }
+    return '<div class="list-row'+(t.status==="done"?" done":"")+'" style="flex-wrap:wrap">'+
       '<button class="check'+(t.status==="done"?" on":"")+'" data-id="'+t.id+'" data-act="done" aria-label="Tamamla">'+CHECK_SVG+'</button>'+
-      '<div class="name" data-id="'+t.id+'" data-act="done" style="cursor:pointer"><span class="t">'+esc(t.title)+'</span><span class="s">'+PRIORITY_LABEL[t.priority]+' öncelik</span></div>'+
-      startBtn+
+      '<div class="name" data-id="'+t.id+'" data-act="done" style="cursor:pointer"><span class="t">'+esc(t.title)+'</span><span class="s">'+metaParts.join(" · ")+'</span></div>'+
+      subBadge+startBtn+
+      '<button class="icon-btn" data-id="'+t.id+'" data-act="priority" aria-label="Öncelik değiştir" style="width:30px;height:30px"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 3v18M6 8l6-5 6 5M6 16l6 5 6-5" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
+      '<button class="icon-btn" data-id="'+t.id+'" data-act="due" aria-label="Tarih değiştir" style="width:30px;height:30px"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M4 9h16M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>'+
+      '<button class="icon-btn" data-id="'+t.id+'" data-act="tag" aria-label="Etiket değiştir" style="width:30px;height:30px"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 3l8 8-9 9-8-8V4h8Z" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linejoin="round"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/></svg></button>'+
       '<button class="icon-btn" data-id="'+t.id+'" data-act="rename" aria-label="Düzenle" style="width:30px;height:30px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M4 20l1-4.5L15.5 5 19 8.5 8.5 19 4 20Z" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
       '<button class="icon-btn" data-id="'+t.id+'" data-act="delete" aria-label="Sil" style="width:30px;height:30px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M5 7h14M10 11v6M14 11v6M7 7l1-3h8l1 3M6 7l1 13h10l1-13" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
+      subtaskHtml+
     '</div>';
   }).join("");
   wrap.querySelectorAll("[data-act]").forEach(function(el){
@@ -1175,6 +1329,16 @@ function renderTasks(){
       const id = el.dataset.id, act = el.dataset.act;
       if (act==="delete"){ showConfirm("Bu görevi silmek istiyor musunuz?", function(){ deleteTask(id); }); return; }
       if (act==="rename"){ renameTask(id); return; }
+      if (act==="priority"){ editTaskPriority(id); return; }
+      if (act==="due"){ editTaskDue(id); return; }
+      if (act==="tag"){ editTaskTag(id); return; }
+      if (act==="sub-add"){ addSubtask(id); return; }
+      if (act==="sub-toggle"){ toggleSubtask(id, el.dataset.subId); return; }
+      if (act==="sub-delete"){ deleteSubtask(id, el.dataset.subId); return; }
+      if (act==="toggle-expand"){
+        if (taskExpandedIds.has(id)) taskExpandedIds.delete(id); else taskExpandedIds.add(id);
+        renderTasks(); return;
+      }
       const list2 = loadTasks(); const t = list2.find(function(x){ return x.id===id; });
       if (!t) return;
       if (act==="done"){
@@ -1189,6 +1353,16 @@ function renderTasks(){
     });
   });
 }
+document.getElementById("taskSearchInput").addEventListener("input", function(){
+  taskSearchQuery = this.value; renderTasks();
+});
+document.getElementById("taskSortSelect").addEventListener("change", function(){
+  taskSortMode = this.value; renderTasks();
+});
+document.getElementById("taskTagFilterSeg").addEventListener("click", function(e){
+  const b = e.target.closest("button[data-tag]"); if (!b) return;
+  taskTagFilter = b.dataset.tag; renderTasks();
+});
 VIEW_RENDER.tasks = renderTasks;
 
 /* ---------- Rutinler + Seri + İstatistik ---------- */
@@ -1222,10 +1396,14 @@ function addRoutine(){
 }
 function finishAddRoutine(title, cat){
   const list = loadRoutines();
-  list.push({id:uid(), title:title, category:cat, completedDates:[]});
+  const freqVal = document.getElementById("routineFrequency").value;
+  const frequency = freqVal==="daily" ? {type:"daily"} : {type:"weekly", timesPerWeek:parseInt(freqVal,10)};
+  const maxOrder = list.reduce(function(m,r){ return Math.max(m, r.order||0); }, 0);
+  list.push({id:uid(), title:title, category:cat, completedDates:[], frequency:frequency, order:maxOrder+1, archived:false, note:""});
   saveRoutines(list);
   document.getElementById("routineInput").value = "";
   document.getElementById("routineCategory").value = "Genel";
+  document.getElementById("routineFrequency").value = "daily";
   renderRoutinesToday();
 }
 function deleteRoutine(id){ saveRoutines(loadRoutines().filter(r=>r.id!==id)); renderRoutinesToday(); }
@@ -1235,16 +1413,86 @@ function renameRoutine(id){
     if (val && val.trim()){ r.title = val.trim(); saveRoutines(list); renderRoutinesToday(); }
   });
 }
-function toggleRoutineToday(id){
+function toggleRoutineOnDate(id, dateISO){
   const list = loadRoutines(); const r = list.find(x=>x.id===id); if (!r) return;
-  const today = todayISO(); const i = r.completedDates.indexOf(today);
-  if (i>=0){ r.completedDates.splice(i,1); } else { r.completedDates.push(today); addXP(3); }
+  const i = r.completedDates.indexOf(dateISO);
+  if (i>=0){ r.completedDates.splice(i,1); }
+  else {
+    r.completedDates.push(dateISO);
+    if (dateISO===todayISO()) addXP(3); // XP sadece bugünü işaretlemek için verilir, geçmişe dönük doldurma XP kazandırmaz
+  }
   saveRoutines(list); renderRoutinesToday();
 }
+function toggleRoutineToday(id){ toggleRoutineOnDate(id, todayISO()); }
+function editRoutineNote(id){
+  const list = loadRoutines(); const r = list.find(x=>x.id===id); if (!r) return;
+  showPrompt("Not (boş bırakarak kaldırabilirsin):", r.note || "", function(val){
+    if (val===null) return;
+    r.note = val.trim(); saveRoutines(list); renderRoutinesToday();
+  });
+}
+/* Hatırlatma saati: uygulama tek dosyalık statik bir HTML olduğu için
+   gerçek bir bildirim gönderemez (arka planda çalışan bir sunucu/servis
+   yok). Burada kaydedilen saat, kullanıcının "bu rutin için hatırlatıcı
+   istiyorum" niyetini işaretlemesi ve daha sonra Claude'dan bu bilgiye
+   göre gerçek bir Reminders app kaydı oluşturmasını istemesi içindir. */
+function editRoutineReminder(id){
+  const list = loadRoutines(); const r = list.find(x=>x.id===id); if (!r) return;
+  showPrompt("Hatırlatma saati (SS:DD, boş bırakarak kaldırabilirsin):", r.reminderTime || "", function(val){
+    if (val===null) return;
+    const trimmed = val.trim();
+    if (trimmed && !/^([01]\d|2[0-3]):[0-5]\d$/.test(trimmed)){ showToast("Saati SS:DD biçiminde gir (ör. 08:30).", true); return; }
+    r.reminderTime = trimmed; saveRoutines(list); renderRoutinesToday();
+  });
+}
+function archiveRoutine(id){
+  const list = loadRoutines(); const r = list.find(x=>x.id===id); if (!r) return;
+  r.archived = true; saveRoutines(list); renderRoutinesToday();
+}
+function unarchiveRoutine(id){
+  const list = loadRoutines(); const r = list.find(x=>x.id===id); if (!r) return;
+  r.archived = false; saveRoutines(list); renderRoutinesToday(); renderArchivedRoutines();
+}
+function renderArchivedRoutines(){
+  const list = loadRoutines().filter(r=>r.archived);
+  const wrap = document.getElementById("routineArchivedList");
+  if (!list.length){ wrap.innerHTML = '<div class="empty">Arşivlenmiş rutin yok</div>'; return; }
+  wrap.innerHTML = list.map(function(r){
+    return '<div class="list-row"><div class="name"><span class="t">'+esc(r.title)+'</span><span class="s">'+esc(r.category||"Genel")+'</span></div>'+
+      '<button class="icon-btn" data-id="'+r.id+'" data-act="unarchive" aria-label="Arşivden çıkar" style="width:auto;padding:0 10px;font-size:12px;color:var(--accent)">Geri Al</button></div>';
+  }).join("");
+  wrap.querySelectorAll("[data-act=unarchive]").forEach(function(btn){
+    btn.addEventListener("click", function(){ unarchiveRoutine(btn.dataset.id); });
+  });
+}
+document.getElementById("routineShowArchivedBtn").addEventListener("click", function(){
+  const wrap = document.getElementById("routineArchivedList");
+  const showing = wrap.style.display!=="none";
+  wrap.style.display = showing ? "none" : "";
+  this.textContent = showing ? "Arşivlenmiş rutinleri göster" : "Arşivlenmiş rutinleri gizle";
+  if (!showing) renderArchivedRoutines();
+});
 let routineCatFilter = "Tümü";
+function frequencyLabel(routine){
+  const freq = routine.frequency || {type:"daily"};
+  return freq.type==="weekly" ? "Haftada "+freq.timesPerWeek+" gün" : "Her gün";
+}
+/* Son 7 günü küçük tıklanabilir noktalar olarak gösterir - kullanıcı
+   geçmiş bir günü unuttuysa buradan geriye dönük işaretleyebilir.
+   Bugün en sağda, büyük ve check ikonu ana toggle butonuyla senkron. */
+function last7DaysDotsHTML(routine){
+  const dots = [];
+  for (let i=6;i>=0;i--){
+    const d = daysAgo(i);
+    const on = routine.completedDates.includes(d);
+    const isToday = i===0;
+    dots.push('<button class="icon-btn" data-id="'+routine.id+'" data-act="toggle-date" data-date="'+d+'" title="'+d+'" style="width:'+(isToday?"18px":"14px")+';height:'+(isToday?"18px":"14px")+';padding:0;border-radius:99px;background:'+(on?"var(--accent)":"var(--paper-line)")+';border:none"></button>');
+  }
+  return '<div style="display:flex;gap:4px;align-items:center;padding:2px 0 6px 40px">'+dots.join("")+'</div>';
+}
 function renderRoutinesToday(){
   const today = todayISO();
-  const all = loadRoutines();
+  const all = loadRoutines().filter(r=>!r.archived);
   const cats = ["Tümü"].concat(Array.from(new Set(all.map(function(r){ return r.category||"Genel"; }))).sort(function(a,b){ return a.localeCompare(b,"tr"); }));
   if (cats.indexOf(routineCatFilter)===-1) routineCatFilter = "Tümü";
   const filterWrap = document.getElementById("routineCategoryFilter");
@@ -1257,21 +1505,36 @@ function renderRoutinesToday(){
       chip.addEventListener("click", function(){ routineCatFilter = chip.dataset.cat; renderRoutinesToday(); });
     });
   }
-  const list = routineCatFilter==="Tümü" ? all : all.filter(function(r){ return (r.category||"Genel")===routineCatFilter; });
+  const list = (routineCatFilter==="Tümü" ? all : all.filter(function(r){ return (r.category||"Genel")===routineCatFilter; }))
+    .slice().sort(function(a,b){ return (a.order||0)-(b.order||0); });
   const wrap = document.getElementById("routineList");
   if (!all.length){ wrap.innerHTML = '<div class="empty"><span class="big">Henüz rutin yok</span>Yukarıdan ekleyin.</div>'; return; }
   if (!list.length){ wrap.innerHTML = '<div class="empty">Bu kategoride rutin yok</div>'; return; }
   wrap.innerHTML = list.map(function(r){
     const on = r.completedDates.includes(today);
-    return '<div class="list-row'+(on?" done":"")+'">'+
+    const noteHtml = r.note ? '<span class="s" style="display:block;color:var(--ink-soft);font-style:italic">'+esc(r.note)+'</span>' : "";
+    const reminderMeta = r.reminderTime ? ' · 🔔 '+r.reminderTime : "";
+    return '<div class="list-row" draggable="true" data-drag-id="'+r.id+'" style="flex-direction:column;align-items:stretch;gap:0'+(on?" done":"")+'">'+
+      '<div style="display:flex;align-items:center;width:100%;flex-wrap:wrap">'+
       '<button class="check'+(on?" on":"")+'" data-id="'+r.id+'" data-act="toggle">'+CHECK_SVG+'</button>'+
-      '<div class="name" data-id="'+r.id+'" data-act="toggle" style="cursor:pointer"><span class="t">'+esc(r.title)+'</span><span class="s">'+esc(r.category||"Genel")+'</span></div>'+
+      '<div class="name" data-id="'+r.id+'" data-act="toggle" style="cursor:pointer"><span class="t">'+esc(r.title)+'</span><span class="s">'+esc(r.category||"Genel")+' · '+frequencyLabel(r)+reminderMeta+'</span>'+noteHtml+'</div>'+
+      '<button class="icon-btn" data-id="'+r.id+'" data-act="reminder" aria-label="Hatırlatıcı" style="width:30px;height:30px">'+
+        '<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 3a5 5 0 0 0-5 5v3.5L5 15h14l-2-3.5V8a5 5 0 0 0-5-5Z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/><path d="M10 18a2 2 0 0 0 4 0" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>'+
+      '</button>'+
+      '<button class="icon-btn" data-id="'+r.id+'" data-act="note" aria-label="Not" style="width:30px;height:30px">'+
+        '<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M5 4h14v16l-4-3-3 3-3-3-4 3V4Z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/></svg>'+
+      '</button>'+
       '<button class="icon-btn" data-id="'+r.id+'" data-act="rename" aria-label="Düzenle" style="width:30px;height:30px">'+
         '<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M4 20l1-4.5L15.5 5 19 8.5 8.5 19 4 20Z" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'+
       '</button>'+
+      '<button class="icon-btn" data-id="'+r.id+'" data-act="archive" aria-label="Arşivle" style="width:30px;height:30px">'+
+        '<svg viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="4" y="5" width="16" height="4" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M5 9v10h14V9M10 13h4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>'+
+      '</button>'+
       '<button class="icon-btn" data-id="'+r.id+'" data-act="delete" aria-label="Sil" style="width:30px;height:30px">'+
         '<svg viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M5 7h14M10 11v6M14 11v6M7 7l1-3h8l1 3M6 7l1 13h10l1-13" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'+
-      '</button></div>';
+      '</button>'+
+      '</div>'+last7DaysDotsHTML(r)+
+    '</div>';
   }).join("");
   wrap.querySelectorAll("[data-act]").forEach(function(el){
     el.addEventListener("click", function(){
@@ -1282,17 +1545,70 @@ function renderRoutinesToday(){
         if (willComplete && checkEl) checkEl.classList.add("check-pop");
         setTimeout(function(){ toggleRoutineToday(id); }, willComplete?150:0);
       }
+      else if (act==="toggle-date"){ toggleRoutineOnDate(id, el.dataset.date); }
       else if (act==="delete"){ showConfirm("Bu rutini silmek istiyor musunuz?", function(){ deleteRoutine(id); }); }
       else if (act==="rename") renameRoutine(id);
+      else if (act==="note") editRoutineNote(id);
+      else if (act==="reminder") editRoutineReminder(id);
+      else if (act==="archive") showConfirm("Bu rutini arşivlemek istiyor musunuz? Geçmiş verisi korunur, istediğinde geri alabilirsin.", function(){ archiveRoutine(id); });
+    });
+  });
+  /* Sürükle-bırak ile manuel sıralama: native HTML5 drag-and-drop.
+     Sürüklenen satır bırakıldığında, tüm listenin "order" alanları
+     yeni sıraya göre yeniden numaralandırılır. */
+  let dragSourceId = null;
+  wrap.querySelectorAll("[draggable=true]").forEach(function(row){
+    row.addEventListener("dragstart", function(){ dragSourceId = row.dataset.dragId; row.style.opacity = "0.5"; });
+    row.addEventListener("dragend", function(){ row.style.opacity = ""; });
+    row.addEventListener("dragover", function(e){ e.preventDefault(); });
+    row.addEventListener("drop", function(e){
+      e.preventDefault();
+      const targetId = row.dataset.dragId;
+      if (!dragSourceId || dragSourceId===targetId) return;
+      const allRoutines = loadRoutines();
+      const visibleIds = list.map(r=>r.id);
+      const srcIdx = visibleIds.indexOf(dragSourceId), tgtIdx = visibleIds.indexOf(targetId);
+      if (srcIdx===-1 || tgtIdx===-1) return;
+      visibleIds.splice(tgtIdx, 0, visibleIds.splice(srcIdx,1)[0]);
+      visibleIds.forEach(function(id, i){
+        const r = allRoutines.find(x=>x.id===id); if (r) r.order = i;
+      });
+      saveRoutines(allRoutines);
+      renderRoutinesToday();
     });
   });
 }
+/* Hedef sıklık: rutin.frequency olmayan (eski) kayıtlar "daily" (her gün)
+   olarak davranır — geriye dönük uyumluluk. "weekly" tipinde ise
+   frequency.timesPerWeek kadar gün yapılması yeterlidir; bir hafta
+   içinde bu sayıya zaten ulaşılmışsa o haftanın kalan günleri için
+   rutin "gerekli değil" sayılır (kullanıcı hedefini erken tamamlarsa
+   kalan günler kaçırılmış gibi görünüp seriyi bozmasın diye). */
+function weekStartISO(dateISO){
+  const d = new Date(dateISO+"T00:00:00");
+  const day = d.getDay(); // 0=Pazar
+  const diff = (day===0 ? -6 : 1-day); // haftayı Pazartesi başlangıçlı say
+  d.setDate(d.getDate()+diff);
+  return toISO(d);
+}
+function completionsInWeekBefore(routine, dateISO){
+  const weekStart = weekStartISO(dateISO);
+  return (routine.completedDates||[]).filter(function(d){ return d>=weekStart && d<dateISO; }).length;
+}
+function isRoutineDueOn(routine, dateISO){
+  const freq = routine.frequency || {type:"daily"};
+  if (freq.type!=="weekly") return true;
+  const target = freq.timesPerWeek || 7;
+  return completionsInWeekBefore(routine, dateISO) < target;
+}
 function routineDayRate(dateISO){
-  const list = loadRoutines(); if (!list.length) return 0;
-  return list.filter(r=>r.completedDates.includes(dateISO)).length / list.length;
+  const list = loadRoutines().filter(r=>!r.archived); if (!list.length) return 0;
+  const due = list.filter(r=>isRoutineDueOn(r, dateISO));
+  if (!due.length) return 1; // o gün hiçbir rutin gerekli değilse (hepsi haftalık hedefini doldurmuşsa) tam başarı say
+  return due.filter(r=>r.completedDates.includes(dateISO)).length / due.length;
 }
 function renderStreak(){
-  const list = loadRoutines();
+  const list = loadRoutines().filter(r=>!r.archived);
   let cur=0; for (let i=0;;i++){ if (list.length && routineDayRate(daysAgo(i))>0) cur++; else break; }
   let longest=0, run=0;
   for (let i=59;i>=0;i--){ if (list.length && routineDayRate(daysAgo(i))>0){ run++; longest=Math.max(longest,run); } else run=0; }
@@ -1323,7 +1639,7 @@ function renderStats(range){
     return '<rect x="'+(i*w+w*0.15)+'%" y="'+(100-h)+'%" width="'+(w*0.7)+'%" height="'+h+'%" rx="2" fill="var(--accent)"/>';
   }).join("");
   document.getElementById("statsChart").innerHTML = '<svg viewBox="0 0 100 60" style="width:100%;height:100px;display:block" preserveAspectRatio="none">'+bars+'</svg>';
-  const list = loadRoutines();
+  const list = loadRoutines().filter(r=>!r.archived);
   const counted = list.map(function(r){
     return {title:r.title, n:(r.completedDates||[]).filter(function(d){ return days.indexOf(d)>=0; }).length};
   }).sort(function(a,b){ return b.n-a.n; });
@@ -1340,6 +1656,7 @@ VIEW_RENDER.routines = function(){ renderRoutinesToday(); };
 /* ---------- Takvim ---------- */
 function toISO(d){ const c=new Date(d); c.setMinutes(c.getMinutes()-c.getTimezoneOffset()); return c.toISOString().slice(0,10); }
 let calSelectedDate = todayISO();
+let calMonthDate = todayISO().slice(0,7); // "YYYY-MM" — Ay görünümünde gösterilen ay
 function loadEvents(){ return get(STORAGE_KEYS.events, []); }
 function saveEvents(list){ set(STORAGE_KEYS.events, list); }
 document.getElementById("calSeg").addEventListener("click", function(e){
@@ -1347,7 +1664,9 @@ document.getElementById("calSeg").addEventListener("click", function(e){
   document.querySelectorAll("#calSeg button").forEach(x=>x.classList.toggle("active", x===b));
   document.getElementById("calDaySub").style.display = b.dataset.sub==="day" ? "" : "none";
   document.getElementById("calWeekSub").style.display = b.dataset.sub==="week" ? "" : "none";
+  document.getElementById("calMonthSub").style.display = b.dataset.sub==="month" ? "" : "none";
   if (b.dataset.sub==="week") renderWeek();
+  if (b.dataset.sub==="month") renderMonth();
 });
 document.getElementById("calPrevDay").addEventListener("click", function(){ shiftDay(-1); });
 document.getElementById("calNextDay").addEventListener("click", function(){ shiftDay(1); });
@@ -1359,27 +1678,99 @@ function fmtDateLabel(iso){
   const cap = s => s.charAt(0).toLocaleUpperCase("tr-TR")+s.slice(1);
   return cap(parts.find(p=>p.type==="weekday").value)+", "+parts.find(p=>p.type==="day").value+" "+cap(parts.find(p=>p.type==="month").value);
 }
+/* Tekrar modeli: eskiden recurring bir string'di ("yearly" | null).
+   Artık recurring bir obje: {type:"none"|"weekly"|"monthly"|"yearly"}.
+   Geriye dönük uyumluluk için normalizeRecurring, eski string
+   kayıtları da doğru objeye çevirir. */
+function normalizeRecurring(ev){
+  if (ev.recurring && typeof ev.recurring==="object") return ev.recurring;
+  if (ev.recurring==="yearly") return {type:"yearly"};
+  return {type:"none"};
+}
+function eventOccursOn(ev, dateISO){
+  const rec = normalizeRecurring(ev);
+  if (rec.type==="none") return ev.date===dateISO;
+  if (dateISO < ev.date) return false; // tekrar, ilk tarihten önce başlamaz
+  if (rec.type==="yearly") return ev.date.slice(5)===dateISO.slice(5);
+  if (rec.type==="weekly"){
+    const evDow = new Date(ev.date+"T00:00:00").getDay();
+    const checkDow = new Date(dateISO+"T00:00:00").getDay();
+    return evDow===checkDow;
+  }
+  if (rec.type==="monthly"){
+    return ev.date.slice(8,10)===dateISO.slice(8,10);
+  }
+  return false;
+}
 function eventsOn(dateISO){
-  return loadEvents().filter(function(e){
-    return e.recurring==="yearly" ? e.date.slice(5)===dateISO.slice(5) : e.date===dateISO;
-  }).sort(function(a,b){ return (a.time||"99:99").localeCompare(b.time||"99:99"); });
+  return loadEvents().filter(function(e){ return eventOccursOn(e, dateISO); })
+    .sort(function(a,b){ return (a.time||"99:99").localeCompare(b.time||"99:99"); });
+}
+const RECURRING_ICON = {yearly:"🎂 ", monthly:"🔁 ", weekly:"🔁 "};
+/* Görevler entegrasyonu: Görevler sayfasında bir tarih (due) atanmış,
+   henüz tamamlanmamış görevler Takvim'de de görünür. Görsel olarak
+   etkinliklerden ayırt edilir (✓ ikonu, öncelik rengi) ve düzenle/sil
+   butonu yerine tıklanınca Görevler sayfasına yönlendiren bir buton
+   taşır — görev düzenleme mantığı Görevler sayfasında merkezi kalır,
+   burada tekrarlanmaz. */
+function tasksOn(dateISO){
+  return loadTasks().filter(function(t){ return t.due===dateISO && t.status!=="done"; });
+}
+function taskRowHTML(t){
+  const prColor = t.priority==="high" ? "var(--margin)" : (t.priority==="med" ? "var(--warn)" : "var(--ink-soft)");
+  return '<div class="list-row"><div class="name"><span class="t" style="display:flex;align-items:center;gap:6px">'+
+      '<span style="width:7px;height:7px;border-radius:99px;background:'+prColor+';flex:none"></span>'+esc(t.title)+'</span>'+
+      '<span class="s">Görev · '+PRIORITY_LABEL[t.priority]+' öncelik</span></div>'+
+    '<button class="icon-btn" data-goto-task="1" style="width:28px;height:28px" aria-label="Görevler sayfasına git"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>';
 }
 function dayListHTML(dateISO){
   const evs = eventsOn(dateISO);
-  if (!evs.length) return '<div class="empty">Bu gün için etkinlik yok</div>';
-  return evs.map(function(e){
-    return '<div class="list-row"><div class="name"><span class="t">'+(e.recurring==="yearly"?"🎂 ":"")+esc(e.title)+'</span>'+(e.time?'<span class="s">'+e.time+'</span>':'')+'</div>'+
+  const tasks = tasksOn(dateISO);
+  if (!evs.length && !tasks.length) return '<div class="empty">Bu gün için etkinlik yok</div>';
+  const evHtml = evs.map(function(e){
+    const rec = normalizeRecurring(e);
+    const metaParts = [];
+    if (e.time) metaParts.push(e.time + (e.endTime ? "–"+e.endTime : ""));
+    if (e.location) metaParts.push("📍 "+esc(e.location));
+    const metaHtml = metaParts.length ? '<span class="s">'+metaParts.join(" · ")+'</span>' : '';
+    const noteHtml = e.note ? '<span class="s" style="display:block;font-style:italic;color:var(--ink-soft)">'+esc(e.note)+'</span>' : '';
+    return '<div class="list-row"><div class="name"><span class="t">'+(RECURRING_ICON[rec.type]||"")+esc(e.title)+'</span>'+metaHtml+noteHtml+'</div>'+
       '<button class="icon-btn" data-edit="'+e.id+'" style="width:28px;height:28px" aria-label="Düzenle"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M4 20l1-4.5L15.5 5 19 8.5 8.5 19 4 20Z" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
       '<button class="icon-btn" data-del="'+e.id+'" style="width:28px;height:28px" aria-label="Sil"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button></div>';
   }).join("");
+  const taskHtml = tasks.map(taskRowHTML).join("");
+  return evHtml + taskHtml;
 }
 function nextOccurrence(ev){
-  if (ev.recurring!=="yearly") return ev.date;
+  const rec = normalizeRecurring(ev);
+  if (rec.type==="none") return ev.date;
   const today = todayISO();
-  const parts = ev.date.split("-");
-  let cand = today.slice(0,4)+"-"+parts[1]+"-"+parts[2];
-  if (cand < today) cand = (parseInt(today.slice(0,4),10)+1)+"-"+parts[1]+"-"+parts[2];
-  return cand;
+  if (ev.date>=today) return ev.date; // henüz ilk oluşumu bile gelmemiş
+  if (rec.type==="yearly"){
+    const parts = ev.date.split("-");
+    let cand = today.slice(0,4)+"-"+parts[1]+"-"+parts[2];
+    if (cand < today) cand = (parseInt(today.slice(0,4),10)+1)+"-"+parts[1]+"-"+parts[2];
+    return cand;
+  }
+  if (rec.type==="monthly"){
+    const day = ev.date.slice(8,10);
+    let cand = today.slice(0,7)+"-"+day;
+    if (cand < today){
+      const d = new Date(today.slice(0,7)+"-01T00:00:00");
+      d.setMonth(d.getMonth()+1);
+      cand = d.toISOString().slice(0,7)+"-"+day;
+    }
+    return cand;
+  }
+  if (rec.type==="weekly"){
+    // bugünden ileriye doğru, etkinliğin haftanın günü ile eşleşen ilk günü bul
+    const evDow = new Date(ev.date+"T00:00:00").getDay();
+    for (let i=0;i<7;i++){
+      const cand = daysAgo(-i);
+      if (new Date(cand+"T00:00:00").getDay()===evDow) return cand;
+    }
+  }
+  return ev.date;
 }
 let editingEventId = null;
 function startEditEvent(id){
@@ -1389,7 +1780,10 @@ function startEditEvent(id){
   document.getElementById("eventTitle").value = ev.title;
   document.getElementById("eventDate").value = ev.date;
   document.getElementById("eventTime").value = ev.time || "";
-  document.getElementById("eventYearly").checked = ev.recurring==="yearly";
+  document.getElementById("eventEndTime").value = ev.endTime || "";
+  document.getElementById("eventLocation").value = ev.location || "";
+  document.getElementById("eventNote").value = ev.note || "";
+  document.getElementById("eventRecurring").value = normalizeRecurring(ev).type;
   document.getElementById("eventFormHeading").textContent = "Etkinliği Düzenle";
   document.getElementById("eventCancelEdit").style.display = "inline";
   document.getElementById("eventAddIcon").innerHTML = '<path d="M4 12.5l5 5L20 6" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
@@ -1399,7 +1793,10 @@ function cancelEditEvent(){
   editingEventId = null;
   document.getElementById("eventTitle").value = "";
   document.getElementById("eventTime").value = "";
-  document.getElementById("eventYearly").checked = false;
+  document.getElementById("eventEndTime").value = "";
+  document.getElementById("eventLocation").value = "";
+  document.getElementById("eventNote").value = "";
+  document.getElementById("eventRecurring").value = "none";
   document.getElementById("eventDate").value = todayISO();
   document.getElementById("eventFormHeading").textContent = "Yeni Etkinlik";
   document.getElementById("eventCancelEdit").style.display = "none";
@@ -1412,12 +1809,15 @@ function bindRowActions(container){
       showConfirm("Bu etkinliği silmek istiyor musunuz?", function(){
         saveEvents(loadEvents().filter(e=>e.id!==btn.dataset.del));
         if (editingEventId===btn.dataset.del) cancelEditEvent();
-        renderDayView(); renderWeek(); renderUpcoming();
+        renderDayView(); renderWeek(); renderMonth(); renderUpcoming();
       });
     });
   });
   container.querySelectorAll("[data-edit]").forEach(function(btn){
     btn.addEventListener("click", function(){ startEditEvent(btn.dataset.edit); });
+  });
+  container.querySelectorAll("[data-goto-task]").forEach(function(btn){
+    btn.addEventListener("click", function(){ showView("tasks"); });
   });
 }
 function renderDayView(){
@@ -1449,13 +1849,65 @@ function renderWeek(){
   });
   const wrap = document.getElementById("calWeekDayList"); wrap.innerHTML = dayListHTML(calSelectedDate); bindRowActions(wrap);
 }
+function shiftMonth(n){
+  const d = new Date(calMonthDate+"-01T00:00:00");
+  d.setMonth(d.getMonth()+n);
+  calMonthDate = d.toISOString().slice(0,7);
+  renderMonth();
+}
+document.getElementById("calPrevMonth").addEventListener("click", function(){ shiftMonth(-1); });
+document.getElementById("calNextMonth").addEventListener("click", function(){ shiftMonth(1); });
+/* Ay görünümü: seçilen ayın günlerini 7 sütunlu bir grid'de gösterir.
+   Önceki/sonraki aydan taşan hücreler de (tam haftalar oluşturmak için)
+   soluk renkte gösterilir ama tıklanabilir değildir — kafa karışıklığını
+   önlemek için sadece güncel ayın günleri seçilebilir. */
+function renderMonth(){
+  const fmt = new Intl.DateTimeFormat("tr-TR",{year:"numeric", month:"long"});
+  const label = fmt.format(new Date(calMonthDate+"-01T00:00:00"));
+  document.getElementById("calMonthLabel").textContent = label.charAt(0).toLocaleUpperCase("tr-TR")+label.slice(1);
+
+  const firstOfMonth = new Date(calMonthDate+"-01T00:00:00");
+  const startDow = (firstOfMonth.getDay()+6)%7; // Pazartesi=0
+  const gridStart = new Date(firstOfMonth); gridStart.setDate(firstOfMonth.getDate()-startDow);
+  const daysInMonth = new Date(firstOfMonth.getFullYear(), firstOfMonth.getMonth()+1, 0).getDate();
+  const totalCells = Math.ceil((startDow+daysInMonth)/7)*7;
+
+  const labels = ["Pt","Sa","Ça","Pe","Cu","Ct","Pz"];
+  let headerHtml = labels.map(function(l){ return '<div style="text-align:center;font-size:10px;font-weight:700;color:var(--ink-soft);padding-bottom:2px">'+l+'</div>'; }).join("");
+  let cellsHtml = "";
+  for (let i=0;i<totalCells;i++){
+    const d = new Date(gridStart); d.setDate(gridStart.getDate()+i);
+    const iso = toISO(d);
+    const inMonth = iso.slice(0,7)===calMonthDate;
+    const has = eventsOn(iso).length>0, isToday = iso===todayISO(), isSel = iso===calSelectedDate;
+    if (!inMonth){
+      cellsHtml += '<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--ink-soft);opacity:.35">'+d.getDate()+'</div>';
+    } else {
+      cellsHtml += '<button data-day="'+iso+'" style="aspect-ratio:1;border:none;border-radius:10px;cursor:pointer;background:'+(isSel?"var(--accent)":"transparent")+';color:'+(isSel?"#fff":"var(--ink)")+';display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;position:relative">'+
+        '<span style="font-size:13px'+(isToday&&!isSel?";color:var(--margin);font-weight:800":"")+'">'+d.getDate()+'</span>'+
+        '<span style="width:4px;height:4px;border-radius:99px;background:'+(has?(isSel?"#fff":"var(--margin)"):"transparent")+'"></span></button>';
+    }
+  }
+  document.getElementById("calMonthGrid").innerHTML = headerHtml+cellsHtml;
+  document.getElementById("calMonthGrid").querySelectorAll("[data-day]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      calSelectedDate = btn.dataset.day;
+      renderMonth();
+      const wrap = document.getElementById("calMonthDayList"); wrap.innerHTML = dayListHTML(calSelectedDate); bindRowActions(wrap);
+    });
+  });
+  const wrap = document.getElementById("calMonthDayList"); wrap.innerHTML = dayListHTML(calSelectedDate); bindRowActions(wrap);
+}
 function renderUpcoming(){
   const today = todayISO();
   const evs = loadEvents().map(function(e){ return Object.assign({}, e, {_next: nextOccurrence(e)}); })
     .filter(function(e){ return e._next>=today; })
     .sort(function(a,b){ return (a._next+(a.time||"")).localeCompare(b._next+(b.time||"")); });
   document.getElementById("calUpcoming").innerHTML = evs.length ? evs.map(function(e){
-    return '<div class="list-row"><div class="name"><span class="t">'+(e.recurring==="yearly"?"🎂 ":"")+esc(e.title)+'</span><span class="s">'+e._next+(e.time?" · "+e.time:"")+'</span></div></div>';
+    const rec = normalizeRecurring(e);
+    const timePart = e.time ? " · "+e.time+(e.endTime?"–"+e.endTime:"") : "";
+    const locPart = e.location ? " · 📍 "+esc(e.location) : "";
+    return '<div class="list-row"><div class="name"><span class="t">'+(RECURRING_ICON[rec.type]||"")+esc(e.title)+'</span><span class="s">'+e._next+timePart+locPart+'</span></div></div>';
   }).join("") : '<div class="empty">Yaklaşan etkinlik yok</div>';
 }
 document.getElementById("eventAddBtn").addEventListener("click", addEvent);
@@ -1463,26 +1915,34 @@ function addEvent(){
   const title = document.getElementById("eventTitle").value.trim();
   const date = document.getElementById("eventDate").value || todayISO();
   const time = document.getElementById("eventTime").value || null;
-  const yearly = document.getElementById("eventYearly").checked;
+  const endTime = document.getElementById("eventEndTime").value || null;
+  const location = document.getElementById("eventLocation").value.trim();
+  const note = document.getElementById("eventNote").value.trim();
+  const recurringType = document.getElementById("eventRecurring").value;
   if (!title) return;
+  if (time && endTime && endTime<=time){ showToast("Bitiş saati başlangıçtan sonra olmalı.", true); return; }
+  const recurring = recurringType==="none" ? null : {type:recurringType};
   const list = loadEvents();
   if (editingEventId){
     const ev = list.find(function(x){ return x.id===editingEventId; });
-    if (ev){ ev.title=title; ev.date=date; ev.time=time; ev.recurring = yearly ? "yearly" : null; }
+    if (ev){ ev.title=title; ev.date=date; ev.time=time; ev.endTime=endTime; ev.location=location; ev.note=note; ev.recurring=recurring; }
     saveEvents(list);
     cancelEditEvent();
   } else {
-    list.push({id:uid(), title:title, date:date, time:time, recurring: yearly ? "yearly" : null});
+    list.push({id:uid(), title:title, date:date, time:time, endTime:endTime, location:location, note:note, recurring:recurring});
     saveEvents(list);
     document.getElementById("eventTitle").value = ""; document.getElementById("eventTime").value = "";
-    document.getElementById("eventYearly").checked = false;
+    document.getElementById("eventEndTime").value = ""; document.getElementById("eventLocation").value = "";
+    document.getElementById("eventNote").value = ""; document.getElementById("eventRecurring").value = "none";
   }
-  renderDayView(); renderWeek(); renderUpcoming();
+  renderDayView(); renderWeek(); renderMonth(); renderUpcoming();
 }
 VIEW_RENDER.calendar = function(){
   calSelectedDate = todayISO();
+  calMonthDate = todayISO().slice(0,7);
   if (!editingEventId) document.getElementById("eventDate").value = todayISO();
   renderDayView(); renderUpcoming();
+  if (document.getElementById("calMonthSub").style.display!=="none") renderMonth();
 };
 
 /* ---------- Hedef Takibi ---------- */
@@ -2810,17 +3270,17 @@ function renderCardHabits(){
 function renderCardCalendar(){
   const today = todayISO();
   const all = get(STORAGE_KEYS.events, []);
-  const withNext = all.map(function(e){ const n = nextOccurrence(e); return {title:e.title, recurring:e.recurring, next:n}; });
+  const withNext = all.map(function(e){ const n = nextOccurrence(e); return {title:e.title, recurring:normalizeRecurring(e), next:n}; });
   const todays = withNext.filter(function(e){ return e.next===today; });
   const upcoming = withNext.filter(function(e){ return e.next>today; }).sort(function(a,b){ return a.next.localeCompare(b.next); }).slice(0,3);
   let html = "";
   if (todays.length){
     html += '<div style="font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Bugün</div>'+
-      todays.map(function(e){ return '<div class="list-row"><div class="name"><span class="t">'+(e.recurring==="yearly"?"🎂 ":"")+esc(e.title)+'</span></div></div>'; }).join("");
+      todays.map(function(e){ return '<div class="list-row"><div class="name"><span class="t">'+(RECURRING_ICON[e.recurring.type]||"")+esc(e.title)+'</span></div></div>'; }).join("");
   }
   if (upcoming.length){
     html += '<div style="font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;margin:10px 0 2px">Yaklaşan</div>'+
-      upcoming.map(function(e){ return '<div class="list-row"><div class="name"><span class="t">'+(e.recurring==="yearly"?"🎂 ":"")+esc(e.title)+'</span><span class="s">'+e.next+'</span></div></div>'; }).join("");
+      upcoming.map(function(e){ return '<div class="list-row"><div class="name"><span class="t">'+(RECURRING_ICON[e.recurring.type]||"")+esc(e.title)+'</span><span class="s">'+e.next+'</span></div></div>'; }).join("");
   }
   document.getElementById("cardCalendarBody").innerHTML = html || '<div class="empty">Etkinlik yok</div>';
 }
