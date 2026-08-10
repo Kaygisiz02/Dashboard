@@ -667,6 +667,12 @@ nav.tabbar button.active::before{
   </div>
 
   <div id="financeSubOverview">
+    <div class="h2" style="margin-top:0">Bu Ay</div>
+    <div class="card" id="financeMonthActivity" style="padding:4px 12px"></div>
+
+    <div class="h2" style="display:flex;align-items:center;gap:8px">
+      <span style="white-space:nowrap">Trend Analizi</span><span style="flex:1;height:1px;background:var(--paper-line)"></span>
+    </div>
     <div class="segmented" id="financeTrendSeg">
       <button data-gran="month" class="active" type="button">Aylık</button>
       <button data-gran="quarter" type="button">3 Aylık</button>
@@ -2115,6 +2121,7 @@ function renderDonutChart(entries){ // entries: [{label, value}], value>0
 }
 function renderFinanceOverview(){
   const f = loadFinance();
+  renderMonthActivity();
   renderFinanceTrend();
   renderFinanceProjection();
   renderBudgetList();
@@ -2140,23 +2147,51 @@ function renderFinanceOverview(){
   }).join("");
   wrap.innerHTML = donutSVG + rows;
 }
-function renderFinanceHistory(){
-  const f = loadFinance();
-  const wrap = document.getElementById("financeHistory");
-  const sorted = f.transactions.slice().sort(function(a,b){ return b.date.localeCompare(a.date); });
-  if (!sorted.length){ wrap.innerHTML = '<div class="empty"><span class="big">Henüz işlem yok</span>Yukarıdan "Ekle" sekmesinden başlayın.</div>'; return; }
-  wrap.innerHTML = sorted.map(function(t){
-    const sign = t.type==="income" ? "+" : "−";
-    const color = t.type==="income" ? "var(--good)" : "var(--margin)";
-    return '<div class="list-row"><div class="name"><span class="t">'+esc(t.title)+'</span><span class="s">'+esc(t.category)+' · '+t.date+'</span></div>'+
-      '<span class="num" style="color:'+color+'">'+sign+fmtTL(t.amount).replace("₺","₺")+'</span>'+
-      '<button class="icon-btn" data-del="'+t.id+'" style="width:28px;height:28px" aria-label="Sil"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button></div>';
+function smartDayLabel(iso){
+  const today = todayISO();
+  if (iso===today) return "Bugün";
+  if (iso===daysAgo(1)) return "Dün";
+  return fmtDateLabel(iso);
+}
+function renderGroupedTransactions(transactions, containerId, emptyHTML){
+  const wrap = document.getElementById(containerId);
+  if (!transactions.length){ wrap.innerHTML = emptyHTML; return; }
+  const byDate = {};
+  transactions.forEach(function(t){ (byDate[t.date] = byDate[t.date]||[]).push(t); });
+  const dates = Object.keys(byDate).sort(function(a,b){ return b.localeCompare(a); });
+  wrap.innerHTML = dates.map(function(date){
+    const dayTx = byDate[date].slice().sort(function(a,b){ return b.id.localeCompare(a.id); });
+    const dayNet = dayTx.reduce(function(s,t){ return s+(t.type==="income"?t.amount:-t.amount); },0);
+    const netColor = dayNet>=0 ? "var(--good)" : "var(--margin)";
+    const rows = dayTx.map(function(t){
+      const sign = t.type==="income" ? "+" : "−";
+      const color = t.type==="income" ? "var(--good)" : "var(--margin)";
+      return '<div class="list-row"><div class="name"><span class="t">'+esc(t.title)+'</span><span class="s">'+esc(t.category)+'</span></div>'+
+        '<span class="num" style="color:'+color+'">'+sign+fmtTL(t.amount)+'</span>'+
+        '<button class="icon-btn" data-del="'+t.id+'" style="width:26px;height:26px" aria-label="Sil"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button></div>';
+    }).join("");
+    return '<div style="margin-bottom:16px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:0 2px 6px;border-bottom:1px solid var(--paper-line);margin-bottom:2px">'+
+        '<span style="font-size:12.5px;font-weight:700;color:var(--ink-soft)">'+esc(smartDayLabel(date))+'</span>'+
+        '<span style="font-size:12px;font-weight:700;color:'+netColor+'">'+fmtTL(dayNet)+'</span>'+
+      '</div>'+rows+'</div>';
   }).join("");
   wrap.querySelectorAll("[data-del]").forEach(function(btn){
     btn.addEventListener("click", function(){
       showConfirm("Bu işlemi silmek istiyor musunuz?", function(){ deleteFinanceTx(btn.dataset.del); });
     });
   });
+}
+function renderMonthActivity(){
+  const f = loadFinance();
+  const today = todayISO(), mKey = monthKey(today);
+  const monthTx = f.transactions.filter(function(t){ return monthKey(t.date)===mKey && t.date<=today; });
+  renderGroupedTransactions(monthTx, "financeMonthActivity", '<div class="empty"><span class="big">Bu ay henüz işlem yok</span>"Ekle" sekmesinden bir tane ekle.</div>');
+}
+function renderFinanceHistory(){
+  const f = loadFinance();
+  const sorted = f.transactions.slice().sort(function(a,b){ return b.date.localeCompare(a.date); });
+  renderGroupedTransactions(sorted, "financeHistory", '<div class="empty"><span class="big">Henüz işlem yok</span>Yukarıdan "Ekle" sekmesinden başlayın.</div>');
 }
 
 /* ---------- Finans: Makbuz Tarama (OCR) ----------
