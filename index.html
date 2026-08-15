@@ -881,8 +881,22 @@ nav.tabbar button.active::before{
 
 <section class="view" data-view="notes">
   <div class="h1">Notlar</div>
-  <div class="field-row" style="flex-wrap:wrap">
+  <div class="segmented" id="noteTypeSeg">
+    <button data-type="text" class="active" type="button">Not</button>
+    <button data-type="checklist" type="button">Liste</button>
+  </div>
+  <div class="field-row" style="flex-wrap:wrap" id="noteTextRow">
     <input class="field" id="noteInput" placeholder="Not yaz — fikir, alışveriş listesi..." maxlength="300" style="flex:1 1 100%">
+  </div>
+  <div id="noteChecklistRow" style="display:none">
+    <div id="noteChecklistItems"></div>
+    <div class="field-row">
+      <input class="field" id="noteChecklistItemInput" placeholder="Liste öğesi ekle..." maxlength="80" style="flex:1">
+      <button class="btn-icon" id="noteChecklistAddItemBtn" type="button" aria-label="Öğe ekle"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+    </div>
+  </div>
+  <div class="field-row">
+    <input class="field" id="noteTagInput" placeholder="Etiket (isteğe bağlı)..." maxlength="24" style="flex:1">
   </div>
   <div class="field-row">
     <input type="file" id="notePhotoInput" accept="image/*" capture="environment" style="display:none">
@@ -890,6 +904,10 @@ nav.tabbar button.active::before{
     <button class="btn-icon" id="noteAddBtn" type="button" aria-label="Ekle"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></button>
   </div>
   <div id="notePhotoPreview" style="display:none;margin-bottom:14px"></div>
+  <div class="field-row">
+    <input class="field" id="noteSearchInput" placeholder="Notlarda ara..." style="flex:1">
+  </div>
+  <div id="noteTagFilter" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;-webkit-overflow-scrolling:touch"></div>
   <div id="notesList"></div>
 </section>
 
@@ -1048,7 +1066,7 @@ const STORAGE_KEYS = {
   dashCards:"gunlukAjandam_dashCards", taskCleanupDate:"gunlukAjandam_taskCleanupDate",
   budget:"gunlukAjandam_budget", recurringFinance:"gunlukAjandam_recurringFinance",
   focusDailyGoal:"gunlukAjandam_focusDailyGoal", finishedBooks:"gunlukAjandam_finishedBooks",
-  weightGoal:"gunlukAjandam_weightGoal"
+  weightGoal:"gunlukAjandam_weightGoal", unlockedAchievements:"gunlukAjandam_unlockedAchievements"
 };
 
 function todayISO(){ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
@@ -1081,12 +1099,21 @@ function addXP(n){
     pulseXPChip();
   }
 }
+/* Seviye eşiği: 1-4. seviyeler eski eğriyle birebir aynı (mevcut
+   kullanıcıların seviyesi bu değişiklikle geriye dönük düşmesin diye).
+   4. seviyeden sonra, her yeni seviye için gereken EK XP miktarının
+   kendisi %35 büyüyerek katlanır — bu, önceki lineer-artan eğriden
+   çok daha dik bir zorlaşma sağlar (seviye 10: eskiden 3700, şimdi
+   ~8200 XP gerektirir). */
 function levelThreshold(level){
-  // Seviye 1-3 arası düz 100 XP; 3'ten sonra her seviye öncekinden daha zor.
   if (level<=1) return 0;
-  if (level<=3) return (level-1)*100;
-  const m = level-3;
-  return 200 + 50*m*(m+3);
+  if (level<=4) return [0,100,200,400][level-1];
+  let total = 400, increment = 400;
+  for (let l=5; l<=level; l++){
+    increment = Math.round(increment*1.35);
+    total += increment;
+  }
+  return total;
 }
 function levelFromXP(xp){
   let level = 1;
@@ -1125,6 +1152,7 @@ function showView(name){
   closeSheet("moreSheet","moreBackdrop");
   window.scrollTo(0,0);
   if (typeof VIEW_RENDER[name] === "function") VIEW_RENDER[name]();
+  if (typeof checkAndNotifyNewAchievements === "function") checkAndNotifyNewAchievements();
 }
 const VIEW_RENDER = {}; // her modül burada kendi render fonksiyonunu kaydeder
 
@@ -3686,34 +3714,157 @@ function clearPendingNotePhoto(){
   document.getElementById("notePhotoPreview").innerHTML = "";
   document.getElementById("notePhotoInput").value = "";
 }
+let pendingChecklistItems = [];
+let noteType = "text";
+document.getElementById("noteTypeSeg").addEventListener("click", function(e){
+  const b = e.target.closest("button[data-type]"); if (!b) return;
+  noteType = b.dataset.type;
+  document.querySelectorAll("#noteTypeSeg button").forEach(function(x){ x.classList.toggle("active", x===b); });
+  document.getElementById("noteTextRow").style.display = noteType==="text" ? "" : "none";
+  document.getElementById("noteChecklistRow").style.display = noteType==="checklist" ? "" : "none";
+});
+function renderPendingChecklist(){
+  const wrap = document.getElementById("noteChecklistItems");
+  wrap.innerHTML = pendingChecklistItems.map(function(item,i){
+    return '<div class="list-row" style="padding:6px 0"><span style="flex:1;font-size:13.5px">'+esc(item)+'</span>'+
+      '<button class="icon-btn" data-remove-item="'+i+'" style="width:24px;height:24px" aria-label="Kaldır"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button></div>';
+  }).join("");
+  wrap.querySelectorAll("[data-remove-item]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      pendingChecklistItems.splice(parseInt(btn.dataset.removeItem,10),1);
+      renderPendingChecklist();
+    });
+  });
+}
+document.getElementById("noteChecklistAddItemBtn").addEventListener("click", function(){
+  const input = document.getElementById("noteChecklistItemInput");
+  const val = input.value.trim(); if (!val) return;
+  pendingChecklistItems.push(val); input.value = "";
+  renderPendingChecklist();
+});
 document.getElementById("noteAddBtn").addEventListener("click", function(){
   const text = document.getElementById("noteInput").value.trim();
+  const tag = document.getElementById("noteTagInput").value.trim();
+  if (noteType==="checklist"){
+    if (!pendingChecklistItems.length && !pendingNotePhoto) return;
+    const list = loadNotes();
+    const now = new Date();
+    const timeStr = String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+    list.push({id:uid(), text:"", date:todayISO(), time:timeStr, photo:pendingNotePhoto, pinned:false, tag:tag,
+      checklist:pendingChecklistItems.map(function(t){ return {text:t, done:false}; })});
+    saveNotes(list);
+    pendingChecklistItems = []; renderPendingChecklist();
+    document.getElementById("noteTagInput").value = "";
+    clearPendingNotePhoto(); addXP(1); renderNotes();
+    return;
+  }
   if (!text && !pendingNotePhoto) return;
   const list = loadNotes();
-  list.push({id:uid(), text:text, date:todayISO(), photo:pendingNotePhoto});
+  const now = new Date();
+  const timeStr = String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+  list.push({id:uid(), text:text, date:todayISO(), time:timeStr, photo:pendingNotePhoto, pinned:false, tag:tag, checklist:null});
   saveNotes(list);
   document.getElementById("noteInput").value = "";
+  document.getElementById("noteTagInput").value = "";
   clearPendingNotePhoto();
   addXP(1);
   renderNotes();
 });
 function deleteNote(id){ saveNotes(loadNotes().filter(function(n){ return n.id!==id; })); renderNotes(); }
+function togglePinNote(id){
+  const list = loadNotes(); const n = list.find(function(x){ return x.id===id; }); if (!n) return;
+  n.pinned = !n.pinned; saveNotes(list); renderNotes();
+}
+function editNoteText(id){
+  const list = loadNotes(); const n = list.find(function(x){ return x.id===id; }); if (!n) return;
+  showPrompt("Notu düzenle:", n.text||"", function(val){
+    if (val===null) return;
+    n.text = val.trim(); saveNotes(list); renderNotes();
+  });
+}
+function toggleChecklistItem(noteId, itemIdx){
+  const list = loadNotes(); const n = list.find(function(x){ return x.id===noteId; }); if (!n || !n.checklist) return;
+  n.checklist[itemIdx].done = !n.checklist[itemIdx].done; saveNotes(list); renderNotes();
+}
+function addChecklistItemToExisting(noteId){
+  const list = loadNotes(); const n = list.find(function(x){ return x.id===noteId; }); if (!n || !n.checklist) return;
+  showPrompt("Yeni liste öğesi:", "", function(val){
+    if (!val || !val.trim()) return;
+    n.checklist.push({text:val.trim(), done:false}); saveNotes(list); renderNotes();
+  });
+}
+let noteTagFilter = "Tümü";
+let noteSearchQuery = "";
+function renderNoteTagFilter(all){
+  const wrap = document.getElementById("noteTagFilter");
+  const tags = ["Tümü"].concat(Array.from(new Set(all.map(function(n){ return n.tag; }).filter(Boolean))).sort(function(a,b){ return a.localeCompare(b,"tr"); }));
+  if (tags.length<=2){ wrap.innerHTML = ""; noteTagFilter = "Tümü"; return; }
+  if (tags.indexOf(noteTagFilter)===-1) noteTagFilter = "Tümü";
+  wrap.innerHTML = tags.map(function(t){
+    return '<span class="chip filter-chip'+(t===noteTagFilter?" active":"")+'" data-tag="'+esc(t)+'">'+esc(t)+'</span>';
+  }).join("");
+  wrap.querySelectorAll("[data-tag]").forEach(function(chip){
+    chip.addEventListener("click", function(){ noteTagFilter = chip.dataset.tag; renderNotes(); });
+  });
+}
 function renderNotes(){
-  const list = loadNotes().slice().reverse();
+  const all = loadNotes();
+  renderNoteTagFilter(all);
+  let list = noteTagFilter==="Tümü" ? all.slice() : all.filter(function(n){ return n.tag===noteTagFilter; });
+  if (noteSearchQuery.trim()){
+    const q = noteSearchQuery.trim().toLocaleLowerCase("tr-TR");
+    list = list.filter(function(n){
+      const inText = (n.text||"").toLocaleLowerCase("tr-TR").includes(q);
+      const inChecklist = n.checklist && n.checklist.some(function(item){ return item.text.toLocaleLowerCase("tr-TR").includes(q); });
+      return inText || inChecklist;
+    });
+  }
+  // Sıralama: önce pinlenmiş (kendi içinde en yeni üstte), sonra pinlenmemiş (en yeni üstte)
+  list = list.slice().reverse().sort(function(a,b){ return (b.pinned?1:0)-(a.pinned?1:0); });
   const wrap = document.getElementById("notesList");
-  wrap.innerHTML = list.length ? list.map(function(n){
+  if (!all.length){ wrap.innerHTML = '<div class="empty"><span class="big">Henüz not yok</span>Fikir, alışveriş listesi ya da hızlı bir hatırlatma ekle.</div>'; return; }
+  if (!list.length){ wrap.innerHTML = '<div class="empty">Aramayla eşleşen not yok</div>'; return; }
+  wrap.innerHTML = list.map(function(n){
+    const checklistHtml = n.checklist ? n.checklist.map(function(item,i){
+      return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0">'+
+        '<button class="check'+(item.done?" on":"")+'" data-toggle-item="'+n.id+'" data-item-idx="'+i+'" style="width:20px;height:20px">'+CHECK_SVG+'</button>'+
+        '<span style="flex:1;font-size:13.5px'+(item.done?";text-decoration:line-through;color:var(--ink-soft)":"")+'">'+esc(item.text)+'</span></div>';
+    }).join("") + '<button class="icon-btn" data-add-item="'+n.id+'" style="width:auto;padding:4px 8px;font-size:12px;color:var(--accent)">+ Öğe ekle</button>' : "";
+    const metaParts = [n.date+(n.time?" · "+n.time:"")];
+    if (n.tag) metaParts.push("#"+esc(n.tag));
     return '<div class="card">'+
+      (n.pinned ? '<div style="font-size:10px;color:var(--accent);font-weight:700;margin-bottom:4px">📌 SABİTLENMİŞ</div>' : "")+
       (n.photo ? '<img src="'+n.photo+'" style="max-width:100%;border-radius:12px;margin-bottom:8px;display:block">' : '')+
       (n.text ? '<div style="font-size:14px">'+esc(n.text)+'</div>' : '')+
+      (checklistHtml||"")+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">'+
-        '<span style="font-size:11px;color:var(--ink-faint)">'+n.date+'</span>'+
-        '<button class="icon-btn" data-del="'+n.id+'" style="width:26px;height:26px" aria-label="Sil"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button>'+
+        '<span style="font-size:11px;color:var(--ink-faint)">'+metaParts.join(" · ")+'</span>'+
+        '<span style="display:flex;gap:4px">'+
+          '<button class="icon-btn" data-pin="'+n.id+'" style="width:26px;height:26px" aria-label="Sabitle"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 2l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6Z" fill="'+(n.pinned?"var(--accent)":"none")+'" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></button>'+
+          (n.checklist ? "" : '<button class="icon-btn" data-edit="'+n.id+'" style="width:26px;height:26px" aria-label="Düzenle"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M4 20l1-4.5L15.5 5 19 8.5 8.5 19 4 20Z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>')+
+          '<button class="icon-btn" data-del="'+n.id+'" style="width:26px;height:26px" aria-label="Sil"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button>'+
+        '</span>'+
       '</div></div>';
-  }).join("") : '<div class="empty"><span class="big">Henüz not yok</span>Fikir, alışveriş listesi ya da hızlı bir hatırlatma ekle.</div>';
+  }).join("");
   wrap.querySelectorAll("[data-del]").forEach(function(btn){
     btn.addEventListener("click", function(){ showConfirm("Bu notu silmek istiyor musunuz?", function(){ deleteNote(btn.dataset.del); }); });
   });
+  wrap.querySelectorAll("[data-pin]").forEach(function(btn){
+    btn.addEventListener("click", function(){ togglePinNote(btn.dataset.pin); });
+  });
+  wrap.querySelectorAll("[data-edit]").forEach(function(btn){
+    btn.addEventListener("click", function(){ editNoteText(btn.dataset.edit); });
+  });
+  wrap.querySelectorAll("[data-toggle-item]").forEach(function(btn){
+    btn.addEventListener("click", function(){ toggleChecklistItem(btn.dataset.toggleItem, parseInt(btn.dataset.itemIdx,10)); });
+  });
+  wrap.querySelectorAll("[data-add-item]").forEach(function(btn){
+    btn.addEventListener("click", function(){ addChecklistItemToExisting(btn.dataset.addItem); });
+  });
 }
+document.getElementById("noteSearchInput").addEventListener("input", function(){
+  noteSearchQuery = this.value; renderNotes();
+});
 VIEW_RENDER.notes = renderNotes;
 
 /* ---------- Başarılarım / Gamification ---------- */
@@ -3744,6 +3895,27 @@ const ACHIEVEMENTS = [
   {title:"Seviye 5", desc:"Seviye 5'e ulaş", check:function(){ return levelFromXP(get(STORAGE_KEYS.xp,{xp:0}).xp) >= 5; }},
   {title:"Seviye 10", desc:"Seviye 10'a ulaş", check:function(){ return levelFromXP(get(STORAGE_KEYS.xp,{xp:0}).xp) >= 10; }}
 ];
+/* Rozet açılış bildirimi: hangi rozetlerin daha önce açıldığı
+   localStorage'da saklanır. Her kontrol turunda, önceden kayıtlı
+   olmayan ama şimdi "unlocked" çıkan bir rozet varsa toast gösterilir
+   ve kayda eklenir — böylece kullanıcı Başarımlar sayfasına girmeden
+   de yeni bir rozet kazandığını anında fark eder. */
+function loadUnlockedAchievements(){ return get(STORAGE_KEYS.unlockedAchievements, []); }
+function saveUnlockedAchievements(list){ set(STORAGE_KEYS.unlockedAchievements, list); }
+function checkAndNotifyNewAchievements(){
+  const unlocked = loadUnlockedAchievements();
+  let changed = false;
+  ACHIEVEMENTS.forEach(function(a){
+    let isUnlocked = false;
+    try{ isUnlocked = !!a.check(); }catch(e){ isUnlocked = false; }
+    if (isUnlocked && unlocked.indexOf(a.title)===-1){
+      unlocked.push(a.title);
+      changed = true;
+      showToast("🏆 Yeni rozet: "+a.title);
+    }
+  });
+  if (changed) saveUnlockedAchievements(unlocked);
+}
 function renderAchievements(){
   const s = get(STORAGE_KEYS.xp, {xp:0});
   const lvl = levelFromXP(s.xp);
@@ -3985,7 +4157,8 @@ function renderCardFinance(){
 function renderCardNotes(){
   const list = loadNotes().slice().reverse().slice(0,3);
   document.getElementById("cardNotesBody").innerHTML = list.length ? list.map(function(n){
-    return '<div class="list-row"><div class="name"><span class="t">'+(n.photo?"📷 ":"")+esc(n.text||"(fotoğraf)")+'</span><span class="s">'+n.date+'</span></div></div>';
+    const label = n.checklist ? "☑ "+(n.checklist.length+" öğelik liste") : (n.photo?"📷 ":"")+esc(n.text||"(fotoğraf)");
+    return '<div class="list-row"><div class="name"><span class="t">'+label+'</span><span class="s">'+n.date+'</span></div></div>';
   }).join("") : '<div class="empty">Henüz not yok</div>';
 }
 function renderCardSuggestions(){
