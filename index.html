@@ -323,6 +323,7 @@ nav.tabbar button.active::before{
   border-top:3px solid var(--margin);
 }
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -823,8 +824,11 @@ nav.tabbar button.active::before{
     <div class="h2" id="financeTxFormTitle" style="margin-top:0">Yeni İşlem</div>
     <div class="field-row">
       <input type="file" id="receiptPhotoInput" accept="image/*" capture="environment" style="display:none">
-      <button class="btn" id="receiptScanBtn" type="button" style="width:100%">📷 Makbuzdan Doldur</button>
+      <button class="btn" id="receiptScanBtn" type="button" style="flex:1">📷 Makbuzdan Doldur</button>
+      <button class="btn" id="gmailScanBtn" type="button" style="flex:1">✉️ Gmail'den Tara</button>
     </div>
+    <div id="financeScanStatus" style="display:none;text-align:center;padding:8px;font-size:12px;color:var(--ink-soft)"></div>
+    <div id="gmailResultsPanel" style="display:none;margin-bottom:14px"></div>
     <div id="receiptScanStatus" style="display:none;font-size:12px;color:var(--ink-soft);margin:-8px 0 12px;text-align:center"></div>
     <div class="segmented" id="financeTypeSeg">
       <button data-type="expense" class="active" type="button">Gider</button>
@@ -881,22 +885,8 @@ nav.tabbar button.active::before{
 
 <section class="view" data-view="notes">
   <div class="h1">Notlar</div>
-  <div class="segmented" id="noteTypeSeg">
-    <button data-type="text" class="active" type="button">Not</button>
-    <button data-type="checklist" type="button">Liste</button>
-  </div>
-  <div class="field-row" style="flex-wrap:wrap" id="noteTextRow">
+  <div class="field-row" style="flex-wrap:wrap">
     <input class="field" id="noteInput" placeholder="Not yaz — fikir, alışveriş listesi..." maxlength="300" style="flex:1 1 100%">
-  </div>
-  <div id="noteChecklistRow" style="display:none">
-    <div id="noteChecklistItems"></div>
-    <div class="field-row">
-      <input class="field" id="noteChecklistItemInput" placeholder="Liste öğesi ekle..." maxlength="80" style="flex:1">
-      <button class="btn-icon" id="noteChecklistAddItemBtn" type="button" aria-label="Öğe ekle"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></button>
-    </div>
-  </div>
-  <div class="field-row">
-    <input class="field" id="noteTagInput" placeholder="Etiket (isteğe bağlı)..." maxlength="24" style="flex:1">
   </div>
   <div class="field-row">
     <input type="file" id="notePhotoInput" accept="image/*" capture="environment" style="display:none">
@@ -904,10 +894,6 @@ nav.tabbar button.active::before{
     <button class="btn-icon" id="noteAddBtn" type="button" aria-label="Ekle"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg></button>
   </div>
   <div id="notePhotoPreview" style="display:none;margin-bottom:14px"></div>
-  <div class="field-row">
-    <input class="field" id="noteSearchInput" placeholder="Notlarda ara..." style="flex:1">
-  </div>
-  <div id="noteTagFilter" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;-webkit-overflow-scrolling:touch"></div>
   <div id="notesList"></div>
 </section>
 
@@ -1006,6 +992,14 @@ nav.tabbar button.active::before{
     </div>
   </div>
 
+  <div class="h2">Gmail Bağlantısı</div>
+  <div class="card">
+    <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;line-height:1.5">
+      Finans'ta "Gmail'den Tara" özelliğinin çalışması için Google Cloud Console'dan bir OAuth Client ID almanız gerekiyor (ücretsiz). Aşağıya yapıştırın.
+    </div>
+    <input class="field" id="gmailClientIdInput" placeholder="Google OAuth Client ID" style="width:100%;font-size:13px">
+  </div>
+
   <div class="h2">Veri</div>
   <div class="card" style="padding:4px 12px">
     <div class="list-row" id="exportDataRow" style="cursor:pointer">
@@ -1017,6 +1011,12 @@ nav.tabbar button.active::before{
   </div>
   <input type="file" id="importFileInput" accept=".json,application/json" style="display:none">
   <button class="btn" id="resetDataBtn" type="button" style="width:100%;margin:12px 0 4px;background:rgba(178,58,46,.12);color:var(--margin)">Tüm Verileri Sıfırla</button>
+
+  <div class="h2">Hakkında</div>
+  <div class="card ruled" style="text-align:center;padding:20px 16px;margin-bottom:4px">
+    <div style="font-family:var(--serif);font-size:18px">Günlük Ajandam</div>
+    <div style="font-size:12px;color:var(--ink-soft);margin-top:4px">Kişisel günlük planlama uygulaması · v1.0</div>
+  </div>
 </div>
 
 <div class="sheet-backdrop" id="confirmBackdrop"></div>
@@ -1066,7 +1066,7 @@ const STORAGE_KEYS = {
   dashCards:"gunlukAjandam_dashCards", taskCleanupDate:"gunlukAjandam_taskCleanupDate",
   budget:"gunlukAjandam_budget", recurringFinance:"gunlukAjandam_recurringFinance",
   focusDailyGoal:"gunlukAjandam_focusDailyGoal", finishedBooks:"gunlukAjandam_finishedBooks",
-  weightGoal:"gunlukAjandam_weightGoal", unlockedAchievements:"gunlukAjandam_unlockedAchievements"
+  weightGoal:"gunlukAjandam_weightGoal", gmailClientId:"gunlukAjandam_gmailClientId"
 };
 
 function todayISO(){ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
@@ -1099,21 +1099,12 @@ function addXP(n){
     pulseXPChip();
   }
 }
-/* Seviye eşiği: 1-4. seviyeler eski eğriyle birebir aynı (mevcut
-   kullanıcıların seviyesi bu değişiklikle geriye dönük düşmesin diye).
-   4. seviyeden sonra, her yeni seviye için gereken EK XP miktarının
-   kendisi %35 büyüyerek katlanır — bu, önceki lineer-artan eğriden
-   çok daha dik bir zorlaşma sağlar (seviye 10: eskiden 3700, şimdi
-   ~8200 XP gerektirir). */
 function levelThreshold(level){
+  // Seviye 1-3 arası düz 100 XP; 3'ten sonra her seviye öncekinden daha zor.
   if (level<=1) return 0;
-  if (level<=4) return [0,100,200,400][level-1];
-  let total = 400, increment = 400;
-  for (let l=5; l<=level; l++){
-    increment = Math.round(increment*1.35);
-    total += increment;
-  }
-  return total;
+  if (level<=3) return (level-1)*100;
+  const m = level-3;
+  return 200 + 50*m*(m+3);
 }
 function levelFromXP(xp){
   let level = 1;
@@ -1152,7 +1143,6 @@ function showView(name){
   closeSheet("moreSheet","moreBackdrop");
   window.scrollTo(0,0);
   if (typeof VIEW_RENDER[name] === "function") VIEW_RENDER[name]();
-  if (typeof checkAndNotifyNewAchievements === "function") checkAndNotifyNewAchievements();
 }
 const VIEW_RENDER = {}; // her modül burada kendi render fonksiyonunu kaydeder
 
@@ -1364,7 +1354,9 @@ function addSubtask(id){
   showPrompt("Alt görev:", "", function(val){
     if (val && val.trim()){
       t.subtasks.push({id:uid(), title:val.trim(), done:false});
-      saveTasks(list); renderTasks();
+      saveTasks(list);
+      taskExpandedIds.add(id);
+      renderTasks();
     }
   });
 }
@@ -1417,7 +1409,8 @@ function renderTasks(){
     const subDone = subtasks.filter(s=>s.done).length;
     const expanded = taskExpandedIds.has(t.id);
     const subBadge = subtasks.length ?
-      '<button class="icon-btn" data-id="'+t.id+'" data-act="toggle-expand" aria-label="Alt görevler" style="width:auto;padding:0 6px;font-size:11px;color:var(--ink-soft)">'+subDone+'/'+subtasks.length+' '+(expanded?"▲":"▼")+'</button>' : "";
+      '<button class="icon-btn" data-id="'+t.id+'" data-act="toggle-expand" aria-label="Alt görevler" style="width:auto;padding:0 6px;font-size:11px;color:var(--ink-soft)">'+subDone+'/'+subtasks.length+' '+(expanded?"▲":"▼")+'</button>' :
+      '<button class="icon-btn" data-id="'+t.id+'" data-act="sub-add" aria-label="Alt görev ekle" style="width:30px;height:30px"><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>';
     const metaParts = [PRIORITY_LABEL[t.priority]+' öncelik'];
     if (t.due) metaParts.push(t.due);
     if (t.tag) metaParts.push("#"+esc(t.tag));
@@ -1425,14 +1418,14 @@ function renderTasks(){
     if (expanded && subtasks.length){
       subtaskHtml = '<div style="padding:2px 0 6px 40px">' + subtasks.map(function(s){
         return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0">'+
-          '<button class="check'+(s.done?" on":"")+'" data-id="'+t.id+'" data-sub-id="'+s.id+'" data-act="sub-toggle" style="width:20px;height:20px" aria-label="Alt görevi tamamla">'+CHECK_SVG+'</button>'+
+          '<button class="check'+(s.done?" on":"")+'" data-id="'+t.id+'" data-sub-id="'+s.id+'" data-act="sub-toggle" role="checkbox" aria-checked="'+(s.done?"true":"false")+'" style="width:20px;height:20px" aria-label="Alt görevi tamamla">'+CHECK_SVG+'</button>'+
           '<span style="flex:1;font-size:13px'+(s.done?";text-decoration:line-through;color:var(--ink-soft)":"")+'">'+esc(s.title)+'</span>'+
           '<button class="icon-btn" data-id="'+t.id+'" data-sub-id="'+s.id+'" data-act="sub-delete" style="width:22px;height:22px" aria-label="Alt görevi sil"><svg viewBox="0 0 24 24" style="width:11px;height:11px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button>'+
         '</div>';
       }).join("") + '<button class="icon-btn" data-id="'+t.id+'" data-act="sub-add" style="width:auto;padding:2px 8px;font-size:12px;color:var(--accent)" aria-label="Alt görev ekle">+ Alt görev</button></div>';
     }
     return '<div class="list-row'+(t.status==="done"?" done":"")+'" style="flex-wrap:wrap">'+
-      '<button class="check'+(t.status==="done"?" on":"")+'" data-id="'+t.id+'" data-act="done" aria-label="Tamamla">'+CHECK_SVG+'</button>'+
+      '<button class="check'+(t.status==="done"?" on":"")+'" data-id="'+t.id+'" data-act="done" role="checkbox" aria-checked="'+(t.status==="done"?"true":"false")+'" aria-label="Tamamla">'+CHECK_SVG+'</button>'+
       '<div class="name" data-id="'+t.id+'" data-act="done" style="cursor:pointer"><span class="t">'+esc(t.title)+'</span><span class="s">'+metaParts.join(" · ")+'</span></div>'+
       subBadge+startBtn+
       '<button class="icon-btn" data-id="'+t.id+'" data-act="priority" aria-label="Öncelik değiştir" style="width:30px;height:30px"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 3v18M6 8l6-5 6 5M6 16l6 5 6-5" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
@@ -1635,7 +1628,7 @@ function renderRoutinesToday(){
     const reminderMeta = r.reminderTime ? ' · 🔔 '+r.reminderTime : "";
     return '<div class="list-row" draggable="true" data-drag-id="'+r.id+'" style="flex-direction:column;align-items:stretch;gap:0'+(on?" done":"")+'">'+
       '<div style="display:flex;align-items:center;width:100%;flex-wrap:wrap">'+
-      '<button class="check'+(on?" on":"")+'" data-id="'+r.id+'" data-act="toggle">'+CHECK_SVG+'</button>'+
+      '<button class="check'+(on?" on":"")+'" data-id="'+r.id+'" data-act="toggle" role="checkbox" aria-checked="'+(on?"true":"false")+'" aria-label="Tamamla">'+CHECK_SVG+'</button>'+
       '<div class="name" data-id="'+r.id+'" data-act="toggle" style="cursor:pointer"><span class="t">'+esc(r.title)+'</span><span class="s">'+esc(r.category||"Genel")+' · '+frequencyLabel(r)+reminderMeta+'</span>'+noteHtml+'</div>'+
       '<button class="icon-btn" data-id="'+r.id+'" data-act="reminder" aria-label="Hatırlatıcı" style="width:30px;height:30px">'+
         '<svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 3a5 5 0 0 0-5 5v3.5L5 15h14l-2-3.5V8a5 5 0 0 0-5-5Z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/><path d="M10 18a2 2 0 0 0 4 0" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>'+
@@ -2032,13 +2025,13 @@ function renderUpcoming(){
 document.getElementById("eventAddBtn").addEventListener("click", addEvent);
 function addEvent(){
   const title = document.getElementById("eventTitle").value.trim();
+  if (!title){ showToast("Lütfen etkinliğe bir başlık gir.", true); document.getElementById("eventTitle").focus(); return; }
   const date = document.getElementById("eventDate").value || todayISO();
   const time = document.getElementById("eventTime").value || null;
   const endTime = document.getElementById("eventEndTime").value || null;
   const location = document.getElementById("eventLocation").value.trim();
   const note = document.getElementById("eventNote").value.trim();
   const recurringType = document.getElementById("eventRecurring").value;
-  if (!title) return;
   if (time && endTime && endTime<=time){ showToast("Bitiş saati başlangıçtan sonra olmalı.", true); return; }
   const recurring = recurringType==="none" ? null : {type:recurringType};
   const list = loadEvents();
@@ -2059,7 +2052,13 @@ function addEvent(){
 VIEW_RENDER.calendar = function(){
   calSelectedDate = todayISO();
   calMonthDate = todayISO().slice(0,7);
-  if (!editingEventId) document.getElementById("eventDate").value = todayISO();
+  // Takvim sekmesine her girişte düzenleme modunu sıfırla. Aksi halde:
+  // kullanıcı bir etkinlikte "düzenle" ikonuna basar, sonra başka bir
+  // sekmeye geçip iptal etmeden geri dönerse, "yeni" bir etkinlik eklemeye
+  // çalıştığında bu aslında o ESKİ etkinliği sessizce günceller — hiçbir
+  // yeni etkinlik oluşmaz. Kullanıcıya "hiçbir şey ekleyemiyorum" gibi
+  // görünen asıl sebep buydu.
+  cancelEditEvent();
   renderDayView(); renderUpcoming();
   if (document.getElementById("calMonthSub").style.display!=="none") renderMonth();
 };
@@ -2841,17 +2840,18 @@ function renderPrayerList(){
   const wrap = document.getElementById("prayerList");
   wrap.innerHTML = PRAYER_NAMES.map(function(name){
     const on = !!rec[name];
-    return '<div class="list-row"><button class="check'+(on?" on":"")+'" data-prayer="'+name+'">'+CHECK_SVG+'</button><div class="name"><span class="t">'+name+'</span></div></div>';
+    return '<div class="list-row"><button class="check'+(on?" on":"")+'" data-prayer="'+name+'" role="checkbox" aria-checked="'+(on?"true":"false")+'" aria-label="'+name+' namazı kılındı">'+CHECK_SVG+'</button><div class="name" data-prayer="'+name+'" style="cursor:pointer"><span class="t">'+name+'</span></div></div>';
   }).join("");
-  wrap.querySelectorAll("[data-prayer]").forEach(function(btn){
-    btn.addEventListener("click", function(){
-      const willComplete = !btn.classList.contains("on");
-      if (willComplete) btn.classList.add("check-pop");
+  wrap.querySelectorAll("[data-prayer]").forEach(function(el){
+    el.addEventListener("click", function(){
+      const checkEl = wrap.querySelector('.check[data-prayer="'+el.dataset.prayer+'"]');
+      const willComplete = checkEl ? !checkEl.classList.contains("on") : true;
+      if (willComplete && checkEl) checkEl.classList.add("check-pop");
       setTimeout(function(){
         const p2 = loadPrayers(); const today2 = todayISO();
         if (!p2.daily[today2]) p2.daily[today2] = {};
-        const wasOn = !!p2.daily[today2][btn.dataset.prayer];
-        p2.daily[today2][btn.dataset.prayer] = !wasOn;
+        const wasOn = !!p2.daily[today2][el.dataset.prayer];
+        p2.daily[today2][el.dataset.prayer] = !wasOn;
         if (!wasOn) addXP(3);
         savePrayers(p2); renderPrayerList(); renderPrayerStreak();
       }, willComplete?150:0);
@@ -3023,7 +3023,7 @@ VIEW_RENDER.worship = function(){
 /* ---------- Finans Yönetimi ---------- */
 const FINANCE_CATEGORIES = {
   income: ["Maaş","Ek Gelir","Yatırım","Hediye","Diğer"],
-  expense: ["Genel","Market","Fatura","Ulaşım","Sağlık","Eğlence","Diğer"]
+  expense: ["Genel","Market","Yeme-İçme","Fatura","Ulaşım","Sağlık","Eğlence","Diğer"]
 };
 function populateFinanceCategories(){
   document.getElementById("financeTxCategory").innerHTML = FINANCE_CATEGORIES[financeTxType].map(function(c){
@@ -3486,26 +3486,32 @@ function loadTesseract(){
   return tesseractLoadPromise;
 }
 function resizeImageForOCR(dataUrl){
-  return new Promise(function(resolve){
+  return new Promise(function(resolve, reject){
     const img = new Image();
     img.onload = function(){
-      const maxDim = 1400;
+      // Makbuzlar genelde uzun ve yoğun metinli; daha büyük bir tuval OCR
+      // isabetini belirgin şekilde artırıyor, işlem süresi kabul edilebilir.
+      const maxDim = 1800;
       const scale = Math.min(1, maxDim/Math.max(img.width, img.height));
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(img.width*scale);
       canvas.height = Math.round(img.height*scale);
       canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/jpeg", 0.85));
+      resolve(canvas.toDataURL("image/jpeg", 0.92));
     };
+    img.onerror = function(){ reject(new Error("Görsel yüklenemedi")); };
     img.src = dataUrl;
   });
 }
+/* Kategori tahmini: fişteki "YİYECEK/İÇECEK" bölüm başlığı gibi kendi
+   etiketlerini de içeriyor, sadece işletme adı geçen kelimeleri değil. */
 const RECEIPT_CATEGORY_HINTS = {
   "Market":["market","manav","şarküteri","bakkal","migros","carrefour","a101","bim","şok"],
+  "Yeme-İçme":["yiyecek","içecek","restoran","restaurant","lokanta","cafe","kafe","kahve","pastane","fırın","büfe","tatlıcı"],
   "Fatura":["fatura","elektrik","doğalgaz","su idaresi","telekom","vodafone","turkcell"],
   "Ulaşım":["istanbulkart","akbil","taksi","otopark","akaryakıt","benzin","shell","opet","petrol ofisi"],
   "Sağlık":["eczane","hastane","poliklinik","medikal"],
-  "Eğlence":["sinema","cafe","kahve","restoran","lokanta","pastane","fırın"]
+  "Eğlence":["sinema","konser","tiyatro","bilet","oyun"]
 };
 function guessReceiptCategory(text){
   const lower = text.toLocaleLowerCase("tr-TR");
@@ -3515,22 +3521,54 @@ function guessReceiptCategory(text){
   return "Diğer";
 }
 function guessReceiptAmount(text){
-  const pricePattern = /(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/;
-  const totalKeywords = ["genel toplam","toplam","tutar"];
+  // OCR nokta/virgülü bazen boşlukla karıştırıyor ("1 440, 00" gibi) —
+  // desen bu yaygın gürültüyü tolere edecek şekilde gevşetildi.
+  const pricePattern = /\d{1,3}(?:[.,\s]\d{3})*[.,]\s?\d{2}/g;
+  const totalKeywords = ["toplam","tutar"];
   let fromKeyword = null;
   text.split("\n").forEach(function(line){
     const lower = line.toLocaleLowerCase("tr-TR");
-    if (!fromKeyword && totalKeywords.some(function(kw){ return lower.indexOf(kw)>=0; })){
-      const m = line.match(pricePattern);
-      if (m) fromKeyword = m[1];
+    if (totalKeywords.some(function(kw){ return lower.indexOf(kw)>=0; })){
+      const matches = line.match(pricePattern);
+      // Aynı anahtar kelimeyi içeren birden çok satır varsa (ör. "ARA TOPLAM"
+      // sonra "TOPLAM") EN SONUNCUSU kazanır — makbuzlarda gerçek toplam
+      // genelde ara toplamlardan sonra, en altta yer alır.
+      if (matches && matches.length) fromKeyword = matches[matches.length-1];
     }
   });
-  const raw = fromKeyword || (text.match(new RegExp(pricePattern,"g"))||[]).sort().reverse()[0];
-  if (!raw) return null;
-  return parseFloat(raw.replace(/\./g,"").replace(",","."));
+  if (fromKeyword) return parseFloat(fromKeyword.replace(/[.\s]/g,"").replace(",","."));
+
+  // Anahtar kelime hiç yakalanamadıysa (OCR "TOPLAM" yazısını bozmuş
+  // olabilir): en sık tekrar eden tutarı tercih et. Toplam genelde hem
+  // "TOPLAM" satırında hem ödeme satırında (KREDİ KARTI/NAKİT) tekrar
+  // ettiği için bu, tek seferlik OCR gürültüsüne karşı daha dayanıklı.
+  const all = text.match(pricePattern) || [];
+  if (!all.length) return null;
+  const counts = {};
+  all.forEach(function(s){
+    const n = parseFloat(s.replace(/[.\s]/g,"").replace(",","."));
+    if (!isNaN(n) && n>0) counts[n] = (counts[n]||0) + 1;
+  });
+  const nums = Object.keys(counts).map(Number);
+  if (!nums.length) return null;
+  const maxCount = Math.max.apply(null, nums.map(function(n){ return counts[n]; }));
+  const candidates = maxCount>1 ? nums.filter(function(n){ return counts[n]===maxCount; }) : nums;
+  return Math.max.apply(null, candidates);
 }
+const RECEIPT_TITLE_SKIP_PATTERNS = [
+  /^e[-\s]?ar[şs]iv\s*fatura$/i, /^e[-\s]?fatura$/i, /^fatura$/i,
+  /^(perakende\s+)?sat[ıi][şs]\s+fi[şs]i$/i, /^fi[şs]$/i, /^ödeme\s+belgesi$/i,
+  /^fatura\s+no\b/i, /^tarih\b/i, /^saat\b/i
+];
 function guessReceiptTitle(text){
-  const lines = text.split("\n").map(function(l){ return l.trim(); }).filter(function(l){ return l.length>2 && !/^\d+$/.test(l); });
+  const lines = text.split("\n").map(function(l){ return l.trim(); })
+    .filter(function(l){ return l.length>2 && !/^\d+$/.test(l); });
+  // İlk satır çoğu zaman "E-Arşiv Fatura" gibi belge türü başlığıdır, işletme
+  // adı değil — bunu atlayıp gerçek işletme adını (genelde 2. satır) buluyoruz.
+  for (let i=0;i<lines.length;i++){
+    const isBoilerplate = RECEIPT_TITLE_SKIP_PATTERNS.some(function(re){ return re.test(lines[i]); });
+    if (!isBoilerplate) return lines[i].slice(0,60);
+  }
   return lines.length ? lines[0].slice(0,60) : "";
 }
 document.getElementById("receiptScanBtn").addEventListener("click", function(){
@@ -3546,6 +3584,10 @@ async function handleReceiptPhoto(file){
   const input = document.getElementById("receiptPhotoInput");
   btn.disabled = true;
   statusEl.style.display = "block";
+  statusEl.style.userSelect = "text";
+  statusEl.style.webkitUserSelect = "text";
+  let stage = "hazırlık";
+  let hadError = false;
   try{
     statusEl.textContent = "Fotoğraf hazırlanıyor...";
     const dataUrl = await new Promise(function(resolve, reject){
@@ -3555,8 +3597,10 @@ async function handleReceiptPhoto(file){
       reader.readAsDataURL(file);
     });
     const resized = await resizeImageForOCR(dataUrl);
+    stage = "motor";
     statusEl.textContent = "Tarama motoru yükleniyor...";
     await loadTesseract();
+    stage = "okuma";
     statusEl.textContent = "Makbuz okunuyor...";
     const worker = await Tesseract.createWorker("tur");
     let text = "";
@@ -3577,12 +3621,177 @@ async function handleReceiptPhoto(file){
     document.getElementById("financeTxCategory").value = category;
     statusEl.textContent = amount ? "Dolduruldu — kontrol edip kaydet." : "Tutar bulunamadı, lütfen elle gir.";
   } catch(err){
-    statusEl.textContent = "Tarama başarısız oldu, lütfen elle gir.";
+    hadError = true;
+    console.error("Makbuz tarama hatası ("+stage+"):", err);
+    const reason = (err && (err.message || err.name)) ? String(err.message || err.name) : "bilinmeyen hata";
+    const stageLabel = stage==="motor" ? "tarama motoru yüklenirken" : stage==="okuma" ? "makbuz okunurken" : "hazırlık sırasında";
+    // Tarama motoru arka planda bir Web Worker açıyor; dosya doğrudan
+    // file:// ile açıldığında bazı tarayıcılar bu worker'ın oluşturulmasını
+    // güvenlik politikası gereği engelliyor (bilinen bir Tesseract.js
+    // kısıtı). En sık başarısızlık nedeni bu olduğundan, dosya file://
+    // üzerinden açıksa kullanıcıyı doğrudan buna yönlendiriyoruz.
+    const fileHint = location.protocol==="file:"
+      ? " Bu genelde index.html doğrudan (file://) açıldığında olur — dosyayı bir web sunucusundan (http/https, örn. GitHub Pages) açmayı dene."
+      : "";
+    statusEl.textContent = "Okunamadı ("+stageLabel+"): "+reason.slice(0,120)+"."+fileHint+" Elle de girebilirsin. (Kopyalamak için metne basılı tut.)";
   } finally {
     btn.disabled = false;
     input.value = "";
-    setTimeout(function(){ statusEl.style.display = "none"; }, 3500);
+    if (!hadError){
+      setTimeout(function(){ statusEl.style.display = "none"; }, 3500);
+    }
   }
+}
+
+/* ---------- Finans: Gmail'den tarama ----------
+   Gmail API'ye bağlanmak için Google Cloud Console'da bir OAuth Client ID
+   oluşturup Ayarlar > Gmail Bağlantısı'na girmeniz gerekiyor; Client ID
+   girilmeden bu özellik çalışmaz (buton tıklanınca kullanıcıyı bilgilendirir).
+   Bulunan e-postadaki görsel eki, makbuz taramasıyla AYNI OCR hattından
+   (loadTesseract/resizeImageForOCR) ve aynı guessReceipt* tahmin
+   fonksiyonlarından geçer — iki giriş yolu, tek çıkarım mantığı. */
+function loadGmailClientId(){ return get(STORAGE_KEYS.gmailClientId, ""); }
+document.getElementById("gmailClientIdInput").addEventListener("change", function(){
+  set(STORAGE_KEYS.gmailClientId, this.value.trim());
+  gmailTokenClient = null;
+});
+let gmailTokenClient = null, gmailAccessToken = null;
+function initGmailTokenClient(){
+  const clientId = loadGmailClientId();
+  if (!clientId || typeof google==="undefined" || !google.accounts) return null;
+  if (gmailTokenClient) return gmailTokenClient;
+  gmailTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: "https://www.googleapis.com/auth/gmail.readonly",
+    callback: function(resp){
+      if (resp && resp.access_token){ gmailAccessToken = resp.access_token; searchGmailForFinance(); }
+      else { financeScanStatus(null); showToast("Gmail girişi tamamlanamadı.", true); }
+    }
+  });
+  return gmailTokenClient;
+}
+document.getElementById("gmailScanBtn").addEventListener("click", function(){
+  if (!loadGmailClientId()){ showToast("Önce Ayarlar'dan bir Gmail Client ID gir.", true); return; }
+  if (typeof google==="undefined" || !google.accounts){ showToast("Google girişi yüklenemedi, internet bağlantını kontrol et.", true); return; }
+  const client = initGmailTokenClient();
+  if (client) client.requestAccessToken();
+});
+function gmailFetch(path){
+  return fetch("https://gmail.googleapis.com/gmail/v1/users/me/"+path, {
+    headers:{ "Authorization":"Bearer "+gmailAccessToken }
+  }).then(function(r){
+    if (!r.ok) throw new Error("Gmail API "+r.status);
+    return r.json();
+  });
+}
+function b64urlToBytes(b64url){
+  let b64 = b64url.replace(/-/g,"+").replace(/_/g,"/");
+  while (b64.length % 4 !== 0) b64 += "=";
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  return arr;
+}
+function financeScanStatus(msg){
+  const el = document.getElementById("financeScanStatus");
+  if (msg===null){ el.style.display = "none"; return; }
+  el.style.display = "block"; el.textContent = msg;
+}
+function applyGuessedToForm(text){
+  const amount = guessReceiptAmount(text);
+  const title = guessReceiptTitle(text);
+  const category = guessReceiptCategory(text);
+  if (amount) document.getElementById("financeTxAmount").value = amount;
+  if (title) document.getElementById("financeTxTitle").value = title;
+  financeTxType = "expense";
+  document.querySelectorAll("#financeTypeSeg button").forEach(function(x){ x.classList.toggle("active", x.dataset.type==="expense"); });
+  populateFinanceCategories();
+  document.getElementById("financeTxCategory").value = category;
+  document.getElementById("financeTxDate").value = todayISO();
+  financeScanStatus(amount ? "Dolduruldu — kontrol edip kaydet." : "Tutar bulunamadı, lütfen elle gir.");
+  document.getElementById("financeTxAmount").scrollIntoView({behavior: reduceMotion()?"auto":"smooth", block:"center"});
+  setTimeout(function(){ financeScanStatus(null); }, 4000);
+}
+function searchGmailForFinance(){
+  financeScanStatus("Gmail'de taranıyor…");
+  const q = encodeURIComponent("has:attachment newer_than:30d (fatura OR fiş OR ekstre OR ödeme OR makbuz OR invoice OR receipt)");
+  gmailFetch("messages?q="+q+"&maxResults=8").then(function(data){
+    financeScanStatus(null);
+    const panel = document.getElementById("gmailResultsPanel");
+    if (!data.messages || !data.messages.length){
+      panel.style.display = "block";
+      panel.innerHTML = '<div class="empty">Son 30 günde uygun e-posta bulunamadı</div>';
+      return;
+    }
+    panel.style.display = "block";
+    panel.innerHTML = '<div class="h2" style="margin-top:0">Bulunan E-postalar</div><div class="card" id="gmailMsgList" style="padding:4px 12px"></div>';
+    const list = document.getElementById("gmailMsgList");
+    list.innerHTML = data.messages.map(function(m){
+      return '<div class="list-row" data-msg="'+m.id+'" style="cursor:pointer"><div class="name"><span class="t">Yükleniyor…</span></div></div>';
+    }).join("");
+    data.messages.forEach(function(m){
+      gmailFetch("messages/"+m.id+"?format=metadata&metadataHeaders=Subject&metadataHeaders=From").then(function(msg){
+        const row = list.querySelector('[data-msg="'+m.id+'"]'); if (!row) return;
+        const headers = (msg.payload && msg.payload.headers) || [];
+        const subject = (headers.find(function(h){ return h.name==="Subject"; })||{}).value || "(konu yok)";
+        const from = (headers.find(function(h){ return h.name==="From"; })||{}).value || "";
+        row.innerHTML = '<div class="name"><span class="t">'+esc(subject)+'</span><span class="s">'+esc(from)+'</span></div>';
+        row.addEventListener("click", function(){ processGmailMessage(m.id); });
+      }).catch(function(){});
+    });
+  }).catch(function(){
+    financeScanStatus(null);
+    showToast("Gmail'e erişilemedi.", true);
+  });
+}
+function processGmailMessage(msgId){
+  financeScanStatus("E-posta işleniyor…");
+  document.getElementById("gmailResultsPanel").style.display = "none";
+  gmailFetch("messages/"+msgId+"?format=full").then(function(msg){
+    const parts = [];
+    (function walk(p){ if (!p) return; if (p.parts) p.parts.forEach(walk); else parts.push(p); })(msg.payload);
+    const imgAttachment = parts.find(function(p){ return p.filename && p.body && p.body.attachmentId && /\.(png|jpe?g)$/i.test(p.filename); });
+    const textPart = parts.find(function(p){ return p.mimeType==="text/plain" && p.body && p.body.data; });
+    if (imgAttachment){
+      gmailFetch("messages/"+msgId+"/attachments/"+imgAttachment.body.attachmentId).then(async function(att){
+        const blobUrl = URL.createObjectURL(new Blob([b64urlToBytes(att.data)], {type: imgAttachment.mimeType || "image/jpeg"}));
+        try{
+          const resized = await resizeImageForOCR(blobUrl);
+          financeScanStatus("Ek okunuyor…");
+          await loadTesseract();
+          const worker = await Tesseract.createWorker("tur");
+          let text = "";
+          try{
+            const result = await worker.recognize(resized);
+            text = (result && result.data && result.data.text) || "";
+          } finally {
+            await worker.terminate();
+          }
+          finishGmailParse(text);
+        } catch(e){
+          finishGmailParse("");
+        } finally {
+          URL.revokeObjectURL(blobUrl);
+        }
+      }).catch(function(){ finishGmailParse(""); });
+    } else if (textPart){
+      const text = new TextDecoder("utf-8").decode(b64urlToBytes(textPart.body.data));
+      finishGmailParse(text);
+    } else {
+      finishGmailParse("");
+    }
+  }).catch(function(){
+    financeScanStatus(null);
+    showToast("E-posta okunamadı.", true);
+  });
+}
+function finishGmailParse(text){
+  if (!text.trim()){
+    financeScanStatus("E-postadan metin çıkarılamadı. Bilgileri elle gir.");
+    setTimeout(function(){ financeScanStatus(null); }, 3000);
+    return;
+  }
+  applyGuessedToForm(text);
 }
 
 VIEW_RENDER.finance = function(){
@@ -3714,157 +3923,34 @@ function clearPendingNotePhoto(){
   document.getElementById("notePhotoPreview").innerHTML = "";
   document.getElementById("notePhotoInput").value = "";
 }
-let pendingChecklistItems = [];
-let noteType = "text";
-document.getElementById("noteTypeSeg").addEventListener("click", function(e){
-  const b = e.target.closest("button[data-type]"); if (!b) return;
-  noteType = b.dataset.type;
-  document.querySelectorAll("#noteTypeSeg button").forEach(function(x){ x.classList.toggle("active", x===b); });
-  document.getElementById("noteTextRow").style.display = noteType==="text" ? "" : "none";
-  document.getElementById("noteChecklistRow").style.display = noteType==="checklist" ? "" : "none";
-});
-function renderPendingChecklist(){
-  const wrap = document.getElementById("noteChecklistItems");
-  wrap.innerHTML = pendingChecklistItems.map(function(item,i){
-    return '<div class="list-row" style="padding:6px 0"><span style="flex:1;font-size:13.5px">'+esc(item)+'</span>'+
-      '<button class="icon-btn" data-remove-item="'+i+'" style="width:24px;height:24px" aria-label="Kaldır"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button></div>';
-  }).join("");
-  wrap.querySelectorAll("[data-remove-item]").forEach(function(btn){
-    btn.addEventListener("click", function(){
-      pendingChecklistItems.splice(parseInt(btn.dataset.removeItem,10),1);
-      renderPendingChecklist();
-    });
-  });
-}
-document.getElementById("noteChecklistAddItemBtn").addEventListener("click", function(){
-  const input = document.getElementById("noteChecklistItemInput");
-  const val = input.value.trim(); if (!val) return;
-  pendingChecklistItems.push(val); input.value = "";
-  renderPendingChecklist();
-});
 document.getElementById("noteAddBtn").addEventListener("click", function(){
   const text = document.getElementById("noteInput").value.trim();
-  const tag = document.getElementById("noteTagInput").value.trim();
-  if (noteType==="checklist"){
-    if (!pendingChecklistItems.length && !pendingNotePhoto) return;
-    const list = loadNotes();
-    const now = new Date();
-    const timeStr = String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
-    list.push({id:uid(), text:"", date:todayISO(), time:timeStr, photo:pendingNotePhoto, pinned:false, tag:tag,
-      checklist:pendingChecklistItems.map(function(t){ return {text:t, done:false}; })});
-    saveNotes(list);
-    pendingChecklistItems = []; renderPendingChecklist();
-    document.getElementById("noteTagInput").value = "";
-    clearPendingNotePhoto(); addXP(1); renderNotes();
-    return;
-  }
   if (!text && !pendingNotePhoto) return;
   const list = loadNotes();
-  const now = new Date();
-  const timeStr = String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
-  list.push({id:uid(), text:text, date:todayISO(), time:timeStr, photo:pendingNotePhoto, pinned:false, tag:tag, checklist:null});
+  list.push({id:uid(), text:text, date:todayISO(), photo:pendingNotePhoto});
   saveNotes(list);
   document.getElementById("noteInput").value = "";
-  document.getElementById("noteTagInput").value = "";
   clearPendingNotePhoto();
   addXP(1);
   renderNotes();
 });
 function deleteNote(id){ saveNotes(loadNotes().filter(function(n){ return n.id!==id; })); renderNotes(); }
-function togglePinNote(id){
-  const list = loadNotes(); const n = list.find(function(x){ return x.id===id; }); if (!n) return;
-  n.pinned = !n.pinned; saveNotes(list); renderNotes();
-}
-function editNoteText(id){
-  const list = loadNotes(); const n = list.find(function(x){ return x.id===id; }); if (!n) return;
-  showPrompt("Notu düzenle:", n.text||"", function(val){
-    if (val===null) return;
-    n.text = val.trim(); saveNotes(list); renderNotes();
-  });
-}
-function toggleChecklistItem(noteId, itemIdx){
-  const list = loadNotes(); const n = list.find(function(x){ return x.id===noteId; }); if (!n || !n.checklist) return;
-  n.checklist[itemIdx].done = !n.checklist[itemIdx].done; saveNotes(list); renderNotes();
-}
-function addChecklistItemToExisting(noteId){
-  const list = loadNotes(); const n = list.find(function(x){ return x.id===noteId; }); if (!n || !n.checklist) return;
-  showPrompt("Yeni liste öğesi:", "", function(val){
-    if (!val || !val.trim()) return;
-    n.checklist.push({text:val.trim(), done:false}); saveNotes(list); renderNotes();
-  });
-}
-let noteTagFilter = "Tümü";
-let noteSearchQuery = "";
-function renderNoteTagFilter(all){
-  const wrap = document.getElementById("noteTagFilter");
-  const tags = ["Tümü"].concat(Array.from(new Set(all.map(function(n){ return n.tag; }).filter(Boolean))).sort(function(a,b){ return a.localeCompare(b,"tr"); }));
-  if (tags.length<=2){ wrap.innerHTML = ""; noteTagFilter = "Tümü"; return; }
-  if (tags.indexOf(noteTagFilter)===-1) noteTagFilter = "Tümü";
-  wrap.innerHTML = tags.map(function(t){
-    return '<span class="chip filter-chip'+(t===noteTagFilter?" active":"")+'" data-tag="'+esc(t)+'">'+esc(t)+'</span>';
-  }).join("");
-  wrap.querySelectorAll("[data-tag]").forEach(function(chip){
-    chip.addEventListener("click", function(){ noteTagFilter = chip.dataset.tag; renderNotes(); });
-  });
-}
 function renderNotes(){
-  const all = loadNotes();
-  renderNoteTagFilter(all);
-  let list = noteTagFilter==="Tümü" ? all.slice() : all.filter(function(n){ return n.tag===noteTagFilter; });
-  if (noteSearchQuery.trim()){
-    const q = noteSearchQuery.trim().toLocaleLowerCase("tr-TR");
-    list = list.filter(function(n){
-      const inText = (n.text||"").toLocaleLowerCase("tr-TR").includes(q);
-      const inChecklist = n.checklist && n.checklist.some(function(item){ return item.text.toLocaleLowerCase("tr-TR").includes(q); });
-      return inText || inChecklist;
-    });
-  }
-  // Sıralama: önce pinlenmiş (kendi içinde en yeni üstte), sonra pinlenmemiş (en yeni üstte)
-  list = list.slice().reverse().sort(function(a,b){ return (b.pinned?1:0)-(a.pinned?1:0); });
+  const list = loadNotes().slice().reverse();
   const wrap = document.getElementById("notesList");
-  if (!all.length){ wrap.innerHTML = '<div class="empty"><span class="big">Henüz not yok</span>Fikir, alışveriş listesi ya da hızlı bir hatırlatma ekle.</div>'; return; }
-  if (!list.length){ wrap.innerHTML = '<div class="empty">Aramayla eşleşen not yok</div>'; return; }
-  wrap.innerHTML = list.map(function(n){
-    const checklistHtml = n.checklist ? n.checklist.map(function(item,i){
-      return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0">'+
-        '<button class="check'+(item.done?" on":"")+'" data-toggle-item="'+n.id+'" data-item-idx="'+i+'" style="width:20px;height:20px">'+CHECK_SVG+'</button>'+
-        '<span style="flex:1;font-size:13.5px'+(item.done?";text-decoration:line-through;color:var(--ink-soft)":"")+'">'+esc(item.text)+'</span></div>';
-    }).join("") + '<button class="icon-btn" data-add-item="'+n.id+'" style="width:auto;padding:4px 8px;font-size:12px;color:var(--accent)">+ Öğe ekle</button>' : "";
-    const metaParts = [n.date+(n.time?" · "+n.time:"")];
-    if (n.tag) metaParts.push("#"+esc(n.tag));
+  wrap.innerHTML = list.length ? list.map(function(n){
     return '<div class="card">'+
-      (n.pinned ? '<div style="font-size:10px;color:var(--accent);font-weight:700;margin-bottom:4px">📌 SABİTLENMİŞ</div>' : "")+
       (n.photo ? '<img src="'+n.photo+'" style="max-width:100%;border-radius:12px;margin-bottom:8px;display:block">' : '')+
       (n.text ? '<div style="font-size:14px">'+esc(n.text)+'</div>' : '')+
-      (checklistHtml||"")+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">'+
-        '<span style="font-size:11px;color:var(--ink-faint)">'+metaParts.join(" · ")+'</span>'+
-        '<span style="display:flex;gap:4px">'+
-          '<button class="icon-btn" data-pin="'+n.id+'" style="width:26px;height:26px" aria-label="Sabitle"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 2l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6Z" fill="'+(n.pinned?"var(--accent)":"none")+'" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></button>'+
-          (n.checklist ? "" : '<button class="icon-btn" data-edit="'+n.id+'" style="width:26px;height:26px" aria-label="Düzenle"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M4 20l1-4.5L15.5 5 19 8.5 8.5 19 4 20Z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>')+
-          '<button class="icon-btn" data-del="'+n.id+'" style="width:26px;height:26px" aria-label="Sil"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button>'+
-        '</span>'+
+        '<span style="font-size:11px;color:var(--ink-faint)">'+n.date+'</span>'+
+        '<button class="icon-btn" data-del="'+n.id+'" style="width:26px;height:26px" aria-label="Sil"><svg viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button>'+
       '</div></div>';
-  }).join("");
+  }).join("") : '<div class="empty"><span class="big">Henüz not yok</span>Fikir, alışveriş listesi ya da hızlı bir hatırlatma ekle.</div>';
   wrap.querySelectorAll("[data-del]").forEach(function(btn){
     btn.addEventListener("click", function(){ showConfirm("Bu notu silmek istiyor musunuz?", function(){ deleteNote(btn.dataset.del); }); });
   });
-  wrap.querySelectorAll("[data-pin]").forEach(function(btn){
-    btn.addEventListener("click", function(){ togglePinNote(btn.dataset.pin); });
-  });
-  wrap.querySelectorAll("[data-edit]").forEach(function(btn){
-    btn.addEventListener("click", function(){ editNoteText(btn.dataset.edit); });
-  });
-  wrap.querySelectorAll("[data-toggle-item]").forEach(function(btn){
-    btn.addEventListener("click", function(){ toggleChecklistItem(btn.dataset.toggleItem, parseInt(btn.dataset.itemIdx,10)); });
-  });
-  wrap.querySelectorAll("[data-add-item]").forEach(function(btn){
-    btn.addEventListener("click", function(){ addChecklistItemToExisting(btn.dataset.addItem); });
-  });
 }
-document.getElementById("noteSearchInput").addEventListener("input", function(){
-  noteSearchQuery = this.value; renderNotes();
-});
 VIEW_RENDER.notes = renderNotes;
 
 /* ---------- Başarılarım / Gamification ---------- */
@@ -3895,27 +3981,6 @@ const ACHIEVEMENTS = [
   {title:"Seviye 5", desc:"Seviye 5'e ulaş", check:function(){ return levelFromXP(get(STORAGE_KEYS.xp,{xp:0}).xp) >= 5; }},
   {title:"Seviye 10", desc:"Seviye 10'a ulaş", check:function(){ return levelFromXP(get(STORAGE_KEYS.xp,{xp:0}).xp) >= 10; }}
 ];
-/* Rozet açılış bildirimi: hangi rozetlerin daha önce açıldığı
-   localStorage'da saklanır. Her kontrol turunda, önceden kayıtlı
-   olmayan ama şimdi "unlocked" çıkan bir rozet varsa toast gösterilir
-   ve kayda eklenir — böylece kullanıcı Başarımlar sayfasına girmeden
-   de yeni bir rozet kazandığını anında fark eder. */
-function loadUnlockedAchievements(){ return get(STORAGE_KEYS.unlockedAchievements, []); }
-function saveUnlockedAchievements(list){ set(STORAGE_KEYS.unlockedAchievements, list); }
-function checkAndNotifyNewAchievements(){
-  const unlocked = loadUnlockedAchievements();
-  let changed = false;
-  ACHIEVEMENTS.forEach(function(a){
-    let isUnlocked = false;
-    try{ isUnlocked = !!a.check(); }catch(e){ isUnlocked = false; }
-    if (isUnlocked && unlocked.indexOf(a.title)===-1){
-      unlocked.push(a.title);
-      changed = true;
-      showToast("🏆 Yeni rozet: "+a.title);
-    }
-  });
-  if (changed) saveUnlockedAchievements(unlocked);
-}
 function renderAchievements(){
   const s = get(STORAGE_KEYS.xp, {xp:0});
   const lvl = levelFromXP(s.xp);
@@ -4026,7 +4091,7 @@ function renderDashCardSettings(){
   const wrap = document.getElementById("dashCardSettingsList");
   wrap.innerHTML = cards.map(function(c,i){
     return '<div class="list-row">'+
-      '<button class="check'+(c.on?" on":"")+'" data-toggle="'+c.key+'" style="flex:none">'+CHECK_SVG+'</button>'+
+      '<button class="check'+(c.on?" on":"")+'" data-toggle="'+c.key+'" role="checkbox" aria-checked="'+(c.on?"true":"false")+'" aria-label="'+DASH_CARD_LABELS[c.key]+' kartını göster" style="flex:none">'+CHECK_SVG+'</button>'+
       '<div class="name"><span class="t">'+DASH_CARD_LABELS[c.key]+'</span></div>'+
       '<button class="icon-btn" data-move="up" data-key="'+c.key+'" style="width:28px;height:28px"'+(i===0?" disabled":"")+'><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M6 15l6-6 6 6" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
       '<button class="icon-btn" data-move="down" data-key="'+c.key+'" style="width:28px;height:28px"'+(i===cards.length-1?" disabled":"")+'><svg viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>';
@@ -4157,8 +4222,7 @@ function renderCardFinance(){
 function renderCardNotes(){
   const list = loadNotes().slice().reverse().slice(0,3);
   document.getElementById("cardNotesBody").innerHTML = list.length ? list.map(function(n){
-    const label = n.checklist ? "☑ "+(n.checklist.length+" öğelik liste") : (n.photo?"📷 ":"")+esc(n.text||"(fotoğraf)");
-    return '<div class="list-row"><div class="name"><span class="t">'+label+'</span><span class="s">'+n.date+'</span></div></div>';
+    return '<div class="list-row"><div class="name"><span class="t">'+(n.photo?"📷 ":"")+esc(n.text||"(fotoğraf)")+'</span><span class="s">'+n.date+'</span></div></div>';
   }).join("") : '<div class="empty">Henüz not yok</div>';
 }
 function renderCardSuggestions(){
@@ -4321,10 +4385,14 @@ document.getElementById("resetDataBtn").addEventListener("click", function(){
 });
 
 /* ---------- PWA: manifest ----------
-   "Ana ekrana ekle" ikonu, adı ve standalone modu için. Not: Service Worker
-   (tam offline önbellekleme) kasıtlı olarak eklenmedi — spesifikasyon Blob
-   URL'den service worker kaydını yasaklıyor (Chrome/Firefox hata veriyor),
-   ve tek-dosya mimarisi ayrı bir .js dosyası barındırmayı engelliyor. */
+   "Ana ekrana ekle" ikonu, adı ve standalone modu için — Blob URL olarak
+   enjekte edilir, tek dosyalık mimariyi bozmaz. Service Worker (tam
+   offline önbellekleme) burada KAYITLI DEĞİL: spesifikasyon, script
+   URL'sinin aynı origin'den http(s) ile servis edilmesini şart koşuyor;
+   Blob/data URL'den kayıt Chrome/Firefox'ta hata verir. Bu yüzden ayrı,
+   opsiyonel bir sw.js dosyası olarak sağlanır (bkz. aşağıdaki kayıt
+   bloğu) — index.html tek başına da, sw.js ile birlikte sunulduğunda da
+   sorunsuz çalışır. */
 (function initPWAManifest(){
   try{
     const manifestJSON = '{"name": "Günlük Ajandam", "short_name": "Ajandam", "description": "Kişisel gelişim ve hayat yönetimi ajandası", "start_url": "./", "scope": "./", "display": "standalone", "background_color": "#f6f3eb", "theme_color": "#f6f3eb", "orientation": "portrait", "icons": [{"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAdWklEQVR4nO2de3BU153nv79zz310q9WSAAljbN6Y98sYMEIgZCFAYLCdScY7m5lkMzWPrWzKu7U7s3/M7tb8MVO7W7U1qamZrdTM/JHZ7DqZqWQmcXb9SjB+YF42NraxwbxsY+MQA1bQo7vv85yzf1w1JjZq6FZL3dI9n6pbpRJC+t3b53vP+Z3ze9CC1ZsVagwD4ILwmJ1DOw/weJDGE4GDLCmIWhunmdSwWhug0dQSLQBNotEC0CQaLQBNotEC0CQaLQBNotEC0CQaLQBNotEC0CQaLQBNotEC0CQaDqDmsUA3QDd8XU92aSYpHCC69Y+NB583o17s0kxmODeNi7U2gimQQSQ5oQ2AYzEaMEzezyENIj0TaMYOnnass7U2ggFQZERWRBkQOQ0G63Ms50xaRbbQAtCMIXww53bX2ohiPkDBUgApXAvlvHwhN8/Q+QCaMYZDqXoYY4TY6WXx10pBKQmo4vc1mjGBAzBqbcRNINSnXZpJhj4H0CQaLQBNotEC0CQaLQBNotEC0CQaLQBNotEC0CQaLQBNotEC0CQaLQBNotEC0CQaLQBNouEAwlobEUd9kkJsDwGQAMQN39doxgTe0px9qtZGGAByxKPGoLAFRG2tNj+TzTSfmCKFE+mEGM0Ywq/1Dz5cayOKCTFDtgS4wtUgWjI41L8EOiFGM8boqhCaRFNcc9cj9WqXZhKhd4E0iUYLQJNotAA0iUYLQJNotAA0iUYLQJNotAA0iUYLQJNotAA0iUYLQJNotAA0iYYjjr2vFwifVYrWwXCaMYcDVCezwI2xb0S6RZJmPODN2cYna22EAZDJWNgQ5DtANG2azc40pptOtsjIiYjqaYbSTDL4YG6oo9ZGMAUqEFOuKTNxhxgxOxcOthmQTLdI0owlXErVXGsjAEAped0ZEQqOktKRpCAn6fBnjIFGscoTUgJqkj6ccYTX2oAkQkRwXQ+e76OSvB+DMTQ0pMAYaQ2MEi2AcYaI4PsBli9ZiGWL50NKdfsaUABjhP7BHA4eeR1BGMIwDCitgorRAhhHGGPIF1zcv3Yl/vff/DekM42Id3vLUAAUABP/+MMf44//9C+QTht6FhgFWgDjjBQCX3t0D9KZDPp/1QdulNcLUCnAMBgefrAb3/3BT3D67AdIpRxIqTfLKqFOzgAmP0QEPwgwZ9ZMtK9fDb9QgGVaMAyjrItzA0JKOOk0dvVsgR8Eo3Kmk44WwDjBGIPreujqWI9p01sRhlHFR32MMYggxK7uDkxpaUIURVoEFaIFME5IKeE4Nnp7NkMJOapzbkYEz/OwYMFctK9bjULB1QKoEC2AcYAxgut5WLZoAe5duQS+54Kx0T16pQBmGNizs0tHjYwCLYBxgIghCELseKAd6cZGRNHoCz4yRghcF1s2rsX8OXfB9309C1SAFsAYQwCiKEJLcxbbu9ohwuo4rUSEIAwxpXUKerra4Xr+qGeVJKKf2BhDjKHgeli3ZjnuWTgXXhUHKhFBRhEe3N6JTEMDhNClhMtFC2CMIQKUlNi1bQsM04Sq4n49Ywye62H50nuwdvVSFFxPzwJlohNixhAiQuCHmDljOtu66T6EXvUHqJQSlmNjz45OHDj8miIdPVsWHFSnCTFENNHrQzNmIO/l8VD7WsyYeQdygzkYRnUfN2MMoeeje8sGzJxxB10bGCBucCitg9uCNzjO0VobwQAiYpGjcstB1JQ12cUUdz7MQJnRRJ0JCMSYoSIRskd2d6+AQgolAn+KAW3lOsjDJ8zqzpl30t6dWy79/Q+eeD/blDWjSEzM5zbOcCFFttZGxA3BpJQMHAoIpbSFlNmQJK+n9Vk5EDHkCzm1fPECtuHeFcx3XTB289GtlIIxHBMkhChfBIj9jId3dduP/+ippiAMDR0hentwzw+X1toIBsAnQmApgCm4Am1BGLT5mLgtkgzDwOBQHhvuWw27oQG5gYHrg/zzmJzjat81AEDr1BZEZe7mEDHyXRcLF8yZumD+nKnvnDqHdMqOQ601JeGAqo+XbPxZDS+QlYJSaiI3iBQiQmMmjd7uTZBRyEZytYQQSGWy+MlT/wQhBB775u/CH7g2olhuBhEQCYFMU5N6sGezOv7mO2hIO6iv/Y36hNXZVYTqwJaKL8YYK7geW7NiCVu6eD7zXQ+M3XxZwxiDiALsf+kont1/EGHgwahgp4iIIQp82tHVzqZNbWFhFDGi2j+Ler/Kf9KaW0JEiCKB3m0dsJxUnL97E5RSsB0b5899gHfPvo8z5y/g5KmzsFNO2csXxgi+52P+/NnYtH4NCoXRxxslAf2EqgwRIQxDTG+bige2bEDkj3zyK6WEYVrY//IrGBjKwfV8PLv/IBg3oSpYmSoVnzzv6d0KRjpf+HbQAqgyjAgF18Om9asxe1bpIDXDMOC7Bex78TAMw4Btmdj34hEM9ffD5LzsAcwYwXc9bN5wLxbMmwVPB8jdEi2AKqMAMGLY1bMFVKJqg5QStmPj1On38Papc3BsC5Zl4cz5C3jl9beHl0HlzQLF2ad5agu2P7CpqnFHkxX9dKpIseLD3DkzsWnDagQlnF+lFBg3se/FwxjK5WEYRuw7hBGe2neg4hh/IgYZRdjdswXZxowOkLsFWgBVhDEG1/PwwOYNmDJtKoIwHHEJwjlHfmgQzx94FbZlQSkFKSXSaQcvH3kdl37xCWzbLLvkCWMEz/WwbMlC3Ld6mXaGb4F+MlVESol0ysGubZuhSpzoFpc/b544jdPn3ofj2JBSQikFyzLx8aUreOnQMZhOZdUepJQwbQt7dnZCyNGlX052tACqRDHpffmShVi1YjG8EqHJSimQYeDnLxz+QiKLGi5+9fRzL0OEYUVvb8YYQjeeie6+6w74/sgzUdLRAqgSxQytnd0dSJVITlEKME0T1/qu4YVDx66//a//+/AscuyNd3Dm3AdwbLsiZ9gPAtwx4w480LFB5wmUQD+VKkAUpz1ObWlGz9aNEIE/YpS5UvHy59Xjb+P9Cxfh2PavrfMVYv/gWv8g9j1/GGzYPyjfJoKSAnt2boXjWLpw1ggwfJZ8Ug/XjdTaltu+GGOqUPDUhrUrsGD+bPieX3L3ByD1s+cPqSgSxQSWX7uUlMqyTPXsC4dUYWhIcV5+AT/GGHzXw32rl2Hl0nvgup5ijNX8WdXbxT7rxlIP143U2pbyLgVFvT1bwDgfsaS7Ugq2ZeHy5St08OgblHJSJCW+8LukAqVSKTp15n06/ta7ZFfoDEdCwGlowO6eLQjCiIhq/5zq7eLcNC6W/WSrDFMgg0hyQhsAx2I0YJi8n0MaVOcpfgSiMAzl3Nl3pTrb17aGJfb+pZQwUw5OHDx27ZefXBlqampkYoSgH24wyufy8qXDx+yOTeumV7IMYoxB+B62P9COv/3ej64UPM8zucFUnT/T8YSnHetsrY1gABQZkRVRBkROg8H6HMs5k1aRXe8dYjjnuHzVix59aMf06TPaWnMDI6c9EpFSQtLzB1+9YpnmB+mUYwkR3fT+iAxMaWkSB48eb/r0ytW2bLaRyi2BSERw/QBz587Cl/du//C7j//4WvO0ZiOKospudhLCB3Nud62NYABcEAqWQtwiSc7LF3LzDKr/hBgiBiklVq5YDAj1hYVcEakUbNumjy5+jKefe3mRIlrUP5BDqdxdxhjePHkOLx89jkce2oFgYAiGcfsCAAAogEC4d9XSdd/57g/RP5jXDvENcChVD2OMEDslLP5aqTgcUhW/X5cwRnBdlxbfM0+tX7OMPM9jI72hlZTgto2XDr2Oy1c+Vc1NjVIIWer+iJRSUJKe2neAPfTgthHFVQqDEXzXxaYNq+Wi+bPUexc+Itu2lU6ZjOEAyitQPz4Q6tOuX4OIwQ8C9GzdiIZstmTaIzEGEQb4+QuHwRgjpW59f2L4TODoa2/hg/c/wpxZM+EFAUZILR7JSIRRhGxzM9vRvQnf/s55pFIpHSM0jD4HGAVCRGjKZrDzgU2QJeJ+pFJwbAvn37uA42+dRDrl3Ha8v2mauPppP/a9dBSGbVdUWIuIIMMAu3o2oynbqAf/DWgBVAhjDIWCj3tXLsXiRfPhlSh6paSEYdl4/sCr6Ls2CF5GrL9SCqZp4Nn9B+EXCmXlCt9oq+f5WLJoAdbfuxx5HSB3Hf0UKoSIIKRAb89mmLcIVzCYgcAtYN9LR2Dy8praFQPsTpw8gxMnz8CpsB2SlArcMrFnZ1cci1SBPzEZ0QKoACJCEISYMb0VD3SsR+SP/PaXUsFO2Th5+j2cOHm2on5ejBnIF1w889xBUIVdIRkjhK6Hrk3rMOuuGfB93VoJ0AKoCMYIBdfFpg1rcPfdd5YcTEpJMG7iuRePXE98KZdid5n9B46iv+8aLJOXLYJigFzbjDZs67xfB8gNo59ABcSdGg3s3r4FwMhpj0opcG4gPziE/S+/AsuqrDq0UgqObeP8Bxdx+NhbsFKpiopeERGUENizo1N3lhxGC6BMiAie52PB3FnYeN+qku2O4rInKbz59mm8e/YDpBwHssL9dyJACImn9x2IFVjB6qVYTn31yqVYtWyRngWgBVA2jDF4vo/uzg1onjqlZLdHpQAyGH7+4uGSu0S3g5QK6ZSDg68cx8WPfgGnwjBpIQScdBoP7uhEWGLrNiloAZSJlBIN6RR6uzsgS8XmKAXT5Ojv+xVePPjqFxJfyiVOl+T45Sef4vmDx8Cdymp/MsYQ+T62b92I6W3ThkVQsVkTHi2AMmCMoeC6WLlsEVYuWwS/xFtdDFd9e/WNk3jvwsdfSHypBKUAzg08/dzLiPxgxKjTUsSVK3zMnn03OjeuHT4TqPtD9zFDC6AM4ro7EXq7O2Cn07c+USXCz54/VLVG1krFZwLH3zqFU6fPw6mwAnTxf+zt7Ro+lEtuXJAWwO0yPPhbp7ZgW+f9ECVKHiqlYJsmrl6+ikOvvIF0KgUoBSIa1QUQTM4xlMvHMUXcrqiEYpwt5uL+dauweOFcuGPQummiwAGEtTYijvokhdgeQrFnxmffrzEEgxjl3ILq6lhnzJ07i7mFQsnDLzPl4Pknn8O59z5EtjED1/OrYkkwvOz5v8++gN/72peRsq3h0idl5AkACKMIjU1N6O3uUG+fPCvS6ZRKYjV13tKcfarWRhgAcsSjxqCwBURtrTY/k800n5gihRPVSUJMHMIgo9/96iPrmWHMGo4nvumoK+bj3rtqKX76+F+NyTJDIW6hgOuzQ3kQkRJhQI8+smPwx0/ueyGIImWQQbJO2kWMF/xa/+DDtTaimBAzZEuAK1wNoiWDQ/1LUCcJMXHJkwgz2qZh4fzZCOK9/xFHHREgogjz5tyFhQvmjJldvudVvLPEGCPf9TBjxvSmBfNmP7zvxSOJLKXIUV8JJzcOqrqxq1j0amvHOrROb6XcwNAtuz0W64SqKi19RrJrNEgFGKaJvTu3qn0vHEYdPfJxo7jmrkfqxi4pJRzbwq6ezVBC3rZlVOHyZLxgjBC4Hjrb76M5s2bi0idX43CNBO0KJdP1L4Niwduli+dj7aqliLs9To7HFke1Bpg2vQ3btm5M5G5Qsu62Aord3rd3tSPd2IhIiPqZmqoAEUFFEfbs6ERDOnmpkloAtyCKBJqbs9jR1Q4RBhip5OFEpRggt2rFYqxZsSRxs0By7rQCiqEP69Ysw6J75pUseVhEDXd4rcVVKUIKWE4Ku3d0IgzLb9Q9kSm/6GSCICJIKbFr22YYpglZ8G5Zl4dzfr3Gy3hBiBPvRVxnsWwYY4g8Dz2d9+Ov72jFwFAOvMLMs4mGFsAIFDOoZs5oQ+emdYi8kUse3sjgYA5SSRDG5wSvOPgty0TKqSzgjojgBQHunjUTne334R9/8gyam7KJ8Ae0AEYgLnrlYXNvF2beNQO5odyIDayFkGjINODAoVfxzT/+czh2ZbH6lVDMT7575gx8/+/+OxpSqdhRr2QZoxT29nbhn598rqIYo4mIFsAIxOmMHLt7tsSBbLf4eTIYnnnuID650ocpzeP79iTGcPzEuzj62gn09nQizOXKFkDRGd6wdgWW3jMPp86+j3QC0ia1E3wTiAiuF+Ce+bOxYe1K+O7I/XaLiSqfXvkUB468jmwmDcYYOOfjdlkmBxHwzL6XUan3QYibfDRks+jdthlBkIyqEVoAN4ExBt/3sa1zI7ItzQijElXfpILlODj62gl8+NElWJZ1veHdeF1CSKScOF3y449/CavCdEnGGETgo3dbB6a0NCOuIj25RaAFcBOEEMhk0ujt3gRZYvADceAblMLP9h+EkLXZQizOQpc+uYoXD70Gs8L0y2LC/8IFc7Fx3Srkb2PXa6LDEMfe18tVfG2pWtnAGJMF15Nrli/GsqUL4d+i26Ntmbh06bI8fOxNmU45UkpRm2enYtuf3f+yjIJQVXqYpRTADIa9O7fG5alVzcfEmF4cqJejzRvfNMUWNjWwggiRkOjdtgWWk0LOH7nis5QK3HFw4Mjr7NInn6Ipm4EQcpwtHrZFKaTTKRx78xTOnf8A9yyYW1ElCsYIvuthS/tazJsziy5euky2ZUJVkHo5EeDN2cYna22EAZDJWNgQ5DtANG2azc40pptOtsjIiYjGbUQRgYSQ8o7Wqc6OBzZ1Rr5vlRpARAQRRTh1+vzhTDp9tbmpkYuoViNFgVsGXb7cF7x79v1FS5YuXqpcd8SknZGI855DNWXaNPrql3ef+x9//b/emTql2YqCsLJiRHUOH8wNddTaCKZABWLKNWUm7hAjZufCwTYDko1niyTDMKh/YEi1b+hhd82cbubzI6c9KqXgOBYuXLiIJ55+YSWYivoHBqmWnScYYySEkH//Dz91erdtBjc4lepAMxJERCoKsfn+NXd/+zvfm3atr58pmpzHwlxK1VxrI4C44kHxVS8UHCWlI0mN2HFxjKwAQOjZuhEwWMkS5lIqGJaNlw69hsuf9mVa6uDkVEoB27bxzqlzeOudM9iwbhUKJUQ8EsUEoEUL5zmrVyxxDr/6JjINqUl5JlAn6//aw4jg+x7mz56Jjg1rEJTo9ggUd38kjr3xDti4R/+MTDGA78ixN0FG5bnIUkqYjoOHerdCiOqUdalHtACGIcbgej62bd2IKa1TEQSlP3TGGLxCARcvXYbBjdtueDHmKAWDMZw8/d5w15rKPmLGGALXRc/Wdsy+6074/siHgRMZLYBhhBDINjbgoV1dwyUPR/5ZNVzjx/dDBH6xZ1d9KEAhHrwDgzkIISreSytmi02fMR27t2+ZtIV0J98dVYBhMOTzLtrXr8HKZYvh3eLDJiIopZBKOUinU4hLidTP21EqhWy2AYbBRiVLorix31f2bkdLU3a4wl3VzKwLtAAwfPjDGL765d1ghnFbJcyFkLBSDhYvnIswjMrr3DiGMEaIIoGVSxeBmdaoHFfGCJ7rYcmShdje1Y5cBQ51vTO57qYCGGPI5wtYv3Y5OjvWwy0URgx7vhEiQEUCD+3qgm1bqIeCUowxBEGIttYp2LtzKyLfv617uRVSCnz9tx5CQ7qyxhz1TOIFQESQSuEPvv4V2I5921uZcZfIAjauX42vPboXV/uugXOjZo4iYwxQCoO5PP7o33wdc+fPgueN3nFljMEtuFi7Zjl2bduMweFssclCYgVARLBME32/6sfO7k3o6WpHocweXkQEz/Xxn/7DH+J3fnMPPu3rRxQJcMMAIxpzr4AoXqZww4Dn+xjKFfCf//0f4F999RHkB/O3LN5Vxl9CFEX41u//SzQ3ZeGHYUW9zuqRRAmAMQbGWBzCIAQuX+3DymX34M/+5DFIIcveyizmDBMRvv3n/xH/9b/8OzRm0ui71g/X9yGVAmMEY/hvVuUeKP59jBGkVHBdH33X+nHnHW3427/8U/zbb34dhbxbUe+AEf8mi4W+aNF8/NmffAu+HyCXLwz/G4vvr2p/bXxJTEYYEaFQcCGEgGmZmNLchEd2d+OPvvUNtLZOueXOT6nfK4WALwR+/xuPYvvW+/GDf34G+w8cwce/uIx8wUUkBCzLhF1hnP6Nf8v1A4RhCM45GhvSWDhvNnq3deC3vrQLrdOnlUzdHA2GwZAfyuErD+9EtjGDv/yb/4Pz73+EXL4AJSVSKWdCOsi0YPXmmns1xeK4j9k5tPMAjwdpPBE4yFapOG7xdHTvzi48+qVecGbgrpnTMWvWTIS+jyAIq/LhCSHgODa47WBoYAAXPvoFBgaGUPAD/M+/+z7efPs0nIoT1+MKdffftxJ/+I1H4VgmpjRnMWf2TKQzjQhcF0EQVnHZc3OkjPOf3YKLM+cvIF9wcfb8BfzFd74HdwKeFSRiBlBKgRHD7/32b2DNvfdBhUMQQiI/FOfOVutDMwwDQRDC83yYnGP54gUAADKz+ODCRbzy+gmk0w6EqKzRte8H+Bdf6sW2rm6ocBAKiJcjAwPxUmSMB39sB0M+lwdjDKuWLwIxhk3t9+OZ/Qdx8OhxNGYaJlTMEAdQT9bS8KVQxaNVpRRM04CQgolgCIVCAYZhjMnbiohgGAakVCi4PoQQaMgaYESKiI3inlTswxCREHnK5/IwDB77GOPskBafW7yklMg0NsA0DHk7xQPqDV4/tf4+lxBD1d1GUZKGB+dnjvBYEqf0EJRixRPZYq+jynJ9hv+fAq7fQzUd3UooCoExBgli1++tTg4Fbwfe4DhHa20EA4iIRY7KLQdRU9ZkF1Pc+TADZUZVmgmEEnAca4VSqkHFjMunpJRSUipqaWr8xLGt9zIph0cVJM1wzsjz/KipsWGxlGrqeN5DKZRSSipFU5uz7zqW9auM4/BoAp2WcSFFttZGSAACUkoGDgWEUtpCymxIkldlfRZXeFZEzCBugfOAxsNZIwBEAow5CCNhRlGYjYQ0hKzAtRdAGEVCSMUZs8G5AW7wmofgKaWIGRb8IEgJqbKhFMaE8gE8P1xaayMYAJ8IgaUApuAKtAVh0OajertAOdfD4z/8f3jsX7fgsxCxsX6BKhARffzLK/jRT382lciY6npBRU4iMwQIDN//0VNYtHAu0o5NJdqUjQtKKVgmx4HDr+GV19+ew00O1wsmVE1RWrB6c80LQN6wDcqGt0HVE4GjqrUNWsQPQtaczcRN6zD2DlscZEcoFDwUXE/ZtjWqjEkiwPdDyjSkyHFsyLpwOgkDg0NQSinOjYk09gHEu0B14gT/GsXdoKri2BbyBXdcB44CYDAG27ZotGt2pQDbtuD5IQqeXweDP74/bhhxHnEd+CTlkohzgCJKKRiGgVpEsVTr1RjfA4NRR++t0fYnqCWJEgBQvYFYSybDPdQL9fMa0WhqgBaAJtFoAWgSjRaAJtFoAWgSjRaAJtFoAWgSjRaAJtFw1EtNv5gbj9LryS7NJIXXT/bC582oF7s0kxnOTeNirY1gCmQQSU5oA+BYjAYMk/dzSIPGsUGGJnnwtGOdrbURDIAiI7IiyoDIaTBYn2M5Z9IqssezQ4wmefDBnNtdayOK+QAFSyFukSTn5Qu5eUaV8wE0ms/DoVQ9jLFiJQgWf60UlJKAqp/C+5pJCQdqEh5/Kwj1aZdmkqHPATSJRgtAk2i0ADSJRgtAk2i0ADSJRgtAk2i0ADSJRgtAk2i0ADSJRgtAk2i0ADSJRgtAk2g4gLDWRsRRn6QQ20Mo9sz47PsazZjAW5qzT9XaCANAjnjUGBS2gKit1eZnspnmE1OkcCKdEKMZQ/i1/sGHa21EMSFmyJYAV7gaREsGh/qXQCfEaMYYXRVCk2iKa+56pF7t0kwi9C6QJtFoAWgSjRaAJtFoAWgSjRaAJtFoAWgSjRaAJtFoAWgSjRaAJtFoAWgSjRaAJtFwxLH39QLhs0rROhhOM+ZwgOpkFrgx9o1It0jSjAe8Odv4ZK2NMAAyGQsbgnwHiKZNs9mZxnTTyRYZORFRPc1QmkkGH8wNddTaCKZABWLKNWUm7hAjZufCwTYDkukWSZqxhEupmmttBAAoJa87I0LBUVI6khSkHv6aMaRO1v8aTW3QAtAkmv8PslghQG0hhf0AAAAASUVORK5CYII=", "sizes": "192x192", "type": "image/png", "purpose": "any"}, {"src": "data:image/png;base64,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", "sizes": "512x512", "type": "image/png", "purpose": "any"}, {"src": "data:image/png;base64,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", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}]}';
@@ -4336,6 +4404,18 @@ document.getElementById("resetDataBtn").addEventListener("click", function(){
   }catch(e){ console.error("Manifest yüklenemedi:", e); }
 })();
 
+/* ---------- PWA: Service Worker (opsiyonel çevrimdışı destek) ----------
+   index.html'i DEĞİŞTİRMEDEN çalışır: sw.js aynı klasörde ve http/https
+   (localhost dahil) üzerinden sunuluyorsa tarayıcı onu kaydeder ve uygulama
+   tamamen çevrimdışı açılabilir hale gelir. sw.js yoksa (dosya tek başına
+   paylaşılmış veya file:// ile açılmışsa) register() sessizce başarısız
+   olur — geri kalan hiçbir özelliği etkilemez. */
+if ("serviceWorker" in navigator && location.protocol !== "file:"){
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("./sw.js").catch(function(){});
+  });
+}
+
 /* ---------- Init ---------- */
 cleanupDoneTasks();
 initUser();
@@ -4344,6 +4424,7 @@ renderXP();
 initThemeUI();
 renderDashCardSettings();
 document.getElementById("waterTargetInput").value = loadWaterTarget();
+document.getElementById("gmailClientIdInput").value = loadGmailClientId();
 showView("dashboard");
 </script>
 </body>
