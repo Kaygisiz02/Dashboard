@@ -1827,6 +1827,14 @@ function allTaskTags() {
   return Object.keys(set2).sort();
 }
 
+var DEFAULT_TASK_TAGS = ['iş', 'ev', 'acil', 'kişisel', 'sağlık', 'alışveriş'];
+function taskTagOptions() {
+  var s = {};
+  DEFAULT_TASK_TAGS.forEach(function (t) { s[t] = true; });
+  getTasks().forEach(function (t) { (t.tags || []).forEach(function (tg) { s[tg] = true; }); });
+  return Object.keys(s).sort(function (a, b) { return a.localeCompare(b, 'tr'); });
+}
+
 function priorityLabel(p) { return p === 'high' ? 'Yüksek' : p === 'low' ? 'Düşük' : 'Orta'; }
 function statusLabel(s) { return s === 'done' ? 'Tamamlandı' : s === 'in-progress' ? 'Devam ediyor' : 'Yapılacak'; }
 
@@ -1945,7 +1953,9 @@ function openTaskSheet(id) {
         ['low', 'medium', 'high'].map(function (p) { return '<button data-v="' + p + '" class="' + (draft.priority === p ? 'active' : '') + '">' + priorityLabel(p) + '</button>'; }).join('') +
       '</div></div>' +
       '<div class="field-row"><div class="field"><label>Bitiş tarihi</label><input type="date" id="tf-due" value="' + esc(draft.due || '') + '"></div></div>' +
-      '<div class="field"><label>Etiketler (virgülle ayır)</label><input type="text" id="tf-tags" value="' + esc((draft.tags || []).join(', ')) + '" placeholder="iş, acil"></div>' +
+      '<div class="field"><label>Etiketler</label>' +
+      '<div class="pill-select" id="tf-tag-pills">' + taskTagOptions().map(function (t) { return '<button type="button" data-v="' + esc(t) + '" class="' + ((draft.tags || []).indexOf(t) !== -1 ? 'active' : '') + '">' + esc(t) + '</button>'; }).join('') + '</div>' +
+      '<input type="text" id="tf-tags" value="' + esc((draft.tags || []).join(', ')) + '" placeholder="Ya da virgülle yeni yaz" style="margin-top:.5rem"></div>' +
       '<div class="field"><label>Alt görevler</label><div id="tf-subtasks">' + subtasksHTML() + '</div>' +
         '<button class="link-btn" id="tf-add-sub" style="margin-top:.4rem">' + icon('plus') + ' Alt görev ekle</button></div>' +
       '<div class="stack" style="margin-top:1rem">' +
@@ -1971,6 +1981,23 @@ function openTaskSheet(id) {
       body.querySelectorAll('#tf-priority button').forEach(function (b) {
         b.addEventListener('click', function () { draft.priority = b.dataset.v; body.querySelectorAll('#tf-priority button').forEach(function (x) { x.classList.toggle('active', x === b); }); });
       });
+      function currentTagList() {
+        return document.getElementById('tf-tags').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      }
+      function syncTagPills() {
+        var current = currentTagList().map(function (s) { return s.toLowerCase(); });
+        body.querySelectorAll('#tf-tag-pills button').forEach(function (b) { b.classList.toggle('active', current.indexOf(b.dataset.v.toLowerCase()) !== -1); });
+      }
+      body.querySelectorAll('#tf-tag-pills button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var tags = currentTagList();
+          var idx = tags.findIndex(function (t) { return t.toLowerCase() === b.dataset.v.toLowerCase(); });
+          if (idx === -1) tags.push(b.dataset.v); else tags.splice(idx, 1);
+          document.getElementById('tf-tags').value = tags.join(', ');
+          syncTagPills();
+        });
+      });
+      document.getElementById('tf-tags').addEventListener('input', syncTagPills);
       function wireSubtaskRows() {
         body.querySelectorAll('#tf-subtasks [data-sub-toggle]').forEach(function (btn) {
           btn.addEventListener('click', function () {
@@ -2212,8 +2239,9 @@ function openRoutineSheet(id) {
       '<div class="field" id="rf-days-field" style="' + (draft.frequency === 'weekly' ? '' : 'display:none') + '"><label>Günler</label><div class="pill-select" id="rf-days">' +
         DAY_CODES.map(function (c) { return '<button data-v="' + c + '" class="' + (draft.days.indexOf(c) !== -1 ? 'active' : '') + '">' + DAY_LABELS[c] + '</button>'; }).join('') +
       '</div></div>' +
-      '<div class="field"><label>Kategori</label><input type="text" id="rf-category" value="' + esc(draft.category) + '" placeholder="Genel, ibadet, öğrenme…" list="rf-cat-list">' +
-        '<datalist id="rf-cat-list">' + routineCategories().map(function (c) { return '<option value="' + esc(c) + '">'; }).join('') + '</datalist></div>' +
+      '<div class="field"><label>Kategori</label>' +
+        '<div class="pill-select" id="rf-cat-pills">' + routineCategories().map(function (c) { return '<button type="button" data-v="' + esc(c) + '" class="' + (draft.category === c ? 'active' : '') + '">' + esc(c) + '</button>'; }).join('') + '</div>' +
+        '<input type="text" id="rf-category" value="' + esc(draft.category) + '" placeholder="Ya da yeni kategori yaz" style="margin-top:.5rem"></div>' +
       '<div class="field"><label>Hatırlatma saati (opsiyonel)</label><input type="time" id="rf-reminder" value="' + esc(draft.reminderTime || '') + '"></div>' +
       '<div class="field"><label>Not (opsiyonel)</label><textarea id="rf-note">' + esc(draft.note || '') + '</textarea></div>' +
       '<div class="stack">' +
@@ -2238,6 +2266,16 @@ function openRoutineSheet(id) {
           if (i === -1) draft.days.push(b.dataset.v); else draft.days.splice(i, 1);
           b.classList.toggle('active');
         });
+      });
+      body.querySelectorAll('#rf-cat-pills button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          document.getElementById('rf-category').value = b.dataset.v;
+          body.querySelectorAll('#rf-cat-pills button').forEach(function (x) { x.classList.toggle('active', x === b); });
+        });
+      });
+      document.getElementById('rf-category').addEventListener('input', function (e) {
+        var v = e.target.value;
+        body.querySelectorAll('#rf-cat-pills button').forEach(function (x) { x.classList.toggle('active', x.dataset.v === v); });
       });
       document.getElementById('rf-save').addEventListener('click', function () {
         var title = document.getElementById('rf-title').value.trim();
@@ -2275,10 +2313,13 @@ function openRoutineSheet(id) {
   });
 }
 
+var DEFAULT_ROUTINE_CATEGORIES = ['Genel', 'Sağlık', 'İbadet', 'Öğrenme', 'İş', 'Ev'];
+
 function routineCategories() {
   var s = {};
+  DEFAULT_ROUTINE_CATEGORIES.forEach(function (c) { s[c] = true; });
   getRoutines().forEach(function (r) { if (r.category) s[r.category] = true; });
-  return Object.keys(s);
+  return Object.keys(s).sort(function (a, b) { return a.localeCompare(b, 'tr'); });
 }
 
 function openReorderSheet() {
@@ -2602,6 +2643,14 @@ function goalCategories() {
   return Object.keys(s);
 }
 
+var DEFAULT_GOAL_CATEGORIES = ['Sağlık', 'Öğrenme', 'Kariyer', 'Kişisel', 'Finans', 'Spor'];
+function goalCategoryOptions() {
+  var s = {};
+  DEFAULT_GOAL_CATEGORIES.forEach(function (c) { s[c] = true; });
+  getGoals().forEach(function (g) { if (g.category) s[g.category] = true; });
+  return Object.keys(s).sort(function (a, b) { return a.localeCompare(b, 'tr'); });
+}
+
 function getGoalValue(g, key) { return (g.progress && g.progress[key]) || 0; }
 
 function setGoalValue(g, key, val) {
@@ -2699,8 +2748,9 @@ function openGoalSheet(id) {
       '</div></div>' +
       '<div class="field-row"><div class="field"><label>Hedef miktar</label><input type="number" id="gf-target" value="' + draft.target + '"></div>' +
       '<div class="field"><label>Birim</label><input type="text" id="gf-unit" value="' + esc(draft.unit) + '" placeholder="sayfa, km…"></div></div>' +
-      '<div class="field"><label>Kategori</label><input type="text" id="gf-category" value="' + esc(draft.category) + '" list="gf-cat-list">' +
-      '<datalist id="gf-cat-list">' + goalCategories().map(function (c) { return '<option value="' + esc(c) + '">'; }).join('') + '</datalist></div>' +
+      '<div class="field"><label>Kategori</label>' +
+      '<div class="pill-select" id="gf-cat-pills">' + goalCategoryOptions().map(function (c) { return '<button type="button" data-v="' + esc(c) + '" class="' + (draft.category === c ? 'active' : '') + '">' + esc(c) + '</button>'; }).join('') + '</div>' +
+      '<input type="text" id="gf-category" value="' + esc(draft.category) + '" placeholder="Ya da yeni kategori yaz" style="margin-top:.5rem"></div>' +
       '<div class="field"><label>Not</label><textarea id="gf-note">' + esc(draft.note || '') + '</textarea></div>' +
       (isNew ? '' : '<div class="field"><label>Dönem geçmişi</label>' + historyHTML(draft) + '</div>') +
       '<div class="stack">' +
@@ -2713,6 +2763,16 @@ function openGoalSheet(id) {
     title: isNew ? 'Yeni hedef' : 'Hedefi düzenle', bodyHTML: bodyHTML(), onOpen: function (body) {
       body.querySelectorAll('#gf-period button').forEach(function (b) {
         b.addEventListener('click', function () { draft.period = b.dataset.v; body.querySelectorAll('#gf-period button').forEach(function (x) { x.classList.toggle('active', x === b); }); });
+      });
+      body.querySelectorAll('#gf-cat-pills button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          document.getElementById('gf-category').value = b.dataset.v;
+          body.querySelectorAll('#gf-cat-pills button').forEach(function (x) { x.classList.toggle('active', x === b); });
+        });
+      });
+      document.getElementById('gf-category').addEventListener('input', function (e) {
+        var v = e.target.value;
+        body.querySelectorAll('#gf-cat-pills button').forEach(function (x) { x.classList.toggle('active', x.dataset.v === v); });
       });
       document.getElementById('gf-save').addEventListener('click', function () {
         var title = document.getElementById('gf-title').value.trim();
@@ -2768,6 +2828,14 @@ function vocabCategories() {
   var s = {};
   getVocab().forEach(function (v) { if (v.category) s[v.category] = true; });
   return Object.keys(s);
+}
+
+var DEFAULT_VOCAB_CATEGORIES = ['Genel', 'Günlük Konuşma', 'İş', 'Akademik', 'Seyahat'];
+function vocabCategoryOptions() {
+  var s = {};
+  DEFAULT_VOCAB_CATEGORIES.forEach(function (c) { s[c] = true; });
+  getVocab().forEach(function (v) { if (v.category) s[v.category] = true; });
+  return Object.keys(s).sort(function (a, b) { return a.localeCompare(b, 'tr'); });
 }
 
 function reviewVocab(v, knew) {
@@ -2876,15 +2944,26 @@ function openVocabSheet(id) {
     return '' +
       '<div class="field"><label>Kelime</label><input type="text" id="vf-word" value="' + esc(draft.word) + '"></div>' +
       '<div class="field"><label>Anlamı</label><input type="text" id="vf-meaning" value="' + esc(draft.meaning) + '"></div>' +
-      '<div class="field"><label>Kategori</label><input type="text" id="vf-category" value="' + esc(draft.category) + '" list="vf-cat-list">' +
-      '<datalist id="vf-cat-list">' + vocabCategories().map(function (c) { return '<option value="' + esc(c) + '">'; }).join('') + '</datalist></div>' +
+      '<div class="field"><label>Kategori</label>' +
+      '<div class="pill-select" id="vf-cat-pills">' + vocabCategoryOptions().map(function (c) { return '<button type="button" data-v="' + esc(c) + '" class="' + (draft.category === c ? 'active' : '') + '">' + esc(c) + '</button>'; }).join('') + '</div>' +
+      '<input type="text" id="vf-category" value="' + esc(draft.category) + '" placeholder="Ya da yeni kategori yaz" style="margin-top:.5rem"></div>' +
       '<div class="stack">' +
       '<button class="btn btn-primary btn-block" id="vf-save">Kaydet</button>' +
       (isNew ? '' : '<button class="btn btn-danger btn-block" id="vf-delete">Kelimeyi sil</button>') +
       '</div>';
   }
   openSheet({
-    title: isNew ? 'Yeni kelime' : 'Kelimeyi düzenle', bodyHTML: bodyHTML(), onOpen: function () {
+    title: isNew ? 'Yeni kelime' : 'Kelimeyi düzenle', bodyHTML: bodyHTML(), onOpen: function (body) {
+      body.querySelectorAll('#vf-cat-pills button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          document.getElementById('vf-category').value = b.dataset.v;
+          body.querySelectorAll('#vf-cat-pills button').forEach(function (x) { x.classList.toggle('active', x === b); });
+        });
+      });
+      document.getElementById('vf-category').addEventListener('input', function (e) {
+        var v2 = e.target.value;
+        body.querySelectorAll('#vf-cat-pills button').forEach(function (x) { x.classList.toggle('active', x.dataset.v === v2); });
+      });
       document.getElementById('vf-save').addEventListener('click', function () {
         var word = document.getElementById('vf-word').value.trim();
         var meaning = document.getElementById('vf-meaning').value.trim();
