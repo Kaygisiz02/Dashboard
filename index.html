@@ -409,6 +409,8 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .badge .badge-glyph { width: 2.6rem; height: 2.6rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent); }
 .badge-glyph svg { width: 20px; height: 20px; }
 .badge.locked { opacity: .38; filter: grayscale(1); box-shadow: none; }
+.badge.clickable { cursor: pointer; }
+.badge.clickable:active { transform: scale(.96); }
 .badge .badge-label { font-size: .7rem; font-weight: 500; color: var(--ink-soft); }
 .level-ring-lg { width: 4.6rem; height: 4.6rem; border-radius: 50%; border: 3px solid var(--accent); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 1.4rem; font-weight: 700; flex: none; }
 
@@ -462,6 +464,7 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
   <div id="dash-content">
     <section id="dash-greeting"></section>
     <section id="dash-hero"></section>
+    <section id="dash-agenda"></section>
     <div id="dash-suggestions"></div>
     <div class="section-title"><h2>Özet</h2><button class="link-btn" id="edit-cards-btn">Kartları düzenle</button></div>
     <div id="dash-cards"></div>
@@ -1197,7 +1200,9 @@ function buildHeader(pageKey) {
     });
     document.getElementById('settings-btn').addEventListener('click', openSettingsSheet);
   }
-  header.querySelector('.date').textContent = formatDateTR(todayISO(), { weekday: true });
+  var dateEl = header.querySelector('.date');
+  dateEl.textContent = formatDateTR(todayISO(), { weekday: true });
+  dateEl.style.display = (pageKey === 'today') ? 'none' : '';
   header.querySelector('.page-title').textContent = page.title;
   refreshXPChip();
 }
@@ -1641,13 +1646,12 @@ function renderHero() {
       '<hr class="divider">' +
       '<div id="dash-weather"></div>' +
     '</div>';
-  var wEl = document.getElementById('dash-weather');
-  wEl.innerHTML = '<button class="chip accent" id="weather-btn" style="cursor:pointer;border:none">' + icon('info') + ' Hava durumunu göster</button>';
-  document.getElementById('weather-btn').addEventListener('click', fetchWeather);
+  fetchWeather();
 }
 
 function fetchWeather() {
   var el = document.getElementById('dash-weather');
+  if (!el) return;
   el.innerHTML = '<span class="muted">Konum isteniyor…</span>';
   if (!navigator.geolocation) { el.innerHTML = '<span class="muted">Bu tarayıcı konumu desteklemiyor.</span>'; return; }
   navigator.geolocation.getCurrentPosition(function (pos) {
@@ -1659,10 +1663,51 @@ function fetchWeather() {
         var desc = WEATHER_CODES[c.weather_code] || '';
         el.innerHTML = '<span class="mono" style="font-size:1.15rem;font-weight:600">' + Math.round(c.temperature_2m) + '°C</span> <span class="muted">' + esc(desc) + '</span>';
       })
-      .catch(function () { el.innerHTML = '<span class="muted">Hava durumu şu an alınamadı.</span>'; });
+      .catch(function () { renderWeatherRetry('Hava durumu şu an alınamadı.'); });
   }, function () {
-    el.innerHTML = '<span class="muted">Konum izni verilmedi.</span>';
+    renderWeatherRetry('Konum izni verilmedi.');
   }, { timeout: 8000 });
+}
+
+function renderWeatherRetry(message) {
+  var el = document.getElementById('dash-weather');
+  if (!el) return;
+  el.innerHTML = '<span class="muted">' + esc(message) + '</span> <button class="chip accent" id="weather-btn" style="cursor:pointer;border:none;margin-left:.4rem">' + icon('info') + ' Tekrar dene</button>';
+  document.getElementById('weather-btn').addEventListener('click', fetchWeather);
+}
+
+function noteMiniRowHTML(n) {
+  var text = (n.text || (n.photo ? 'Fotoğraf' : '')).trim();
+  var preview = esc(text.slice(0, 48)) + (text.length > 48 ? '\u2026' : '');
+  return '<a href="javascript:void(0)" data-nav="notes" class="list-row" style="text-decoration:none;color:inherit">' +
+    icon('note') +
+    '<div class="row-main"><div class="row-title">' + (preview || 'Not') + '</div><div class="row-sub">Not</div></div></a>';
+}
+
+function computeTodayAgenda() {
+  var today = todayISO();
+  var events = getEvents().filter(function (e) { return occursOn(e, today); })
+    .sort(function (a, b) { return (a.time || '24:00').localeCompare(b.time || '24:00'); });
+  var tasks = getTasks().filter(function (t) { return t.due === today && t.status !== 'done'; });
+  var notes = getNotes().filter(function (n) { return (n.createdAt || '').slice(0, 10) === today; })
+    .sort(function (a, b) { return (a.createdAt || '').localeCompare(b.createdAt || ''); });
+  return { events: events, tasks: tasks, notes: notes };
+}
+
+function renderTodayAgenda() {
+  var el = document.getElementById('dash-agenda');
+  if (!el) return;
+  var agenda = computeTodayAgenda();
+  var total = agenda.events.length + agenda.tasks.length + agenda.notes.length;
+  if (!total) { el.innerHTML = ''; return; }
+  el.innerHTML =
+    '<div class="eyebrow" style="margin-top:1.2rem">Gündem</div>' +
+    '<div class="card" style="padding:.2rem .8rem">' +
+      agenda.events.map(eventRowHTML).join('') +
+      agenda.tasks.map(taskMiniRowHTML).join('') +
+      agenda.notes.map(noteMiniRowHTML).join('') +
+    '</div>';
+  wireEventOpen(el);
 }
 
 function renderSuggestions() {
@@ -1676,12 +1721,11 @@ function renderSuggestions() {
   }).join('');
 }
 
-var DEFAULT_CARD_ORDER = ['tasks', 'routines', 'calendar', 'stats', 'finance', 'notes'];
+var DEFAULT_CARD_ORDER = ['tasks', 'routines', 'calendar', 'finance', 'notes'];
 var CARD_META = {
   tasks: { title: 'Görevler', href: 'gorevler.html', ic: 'tasks' },
   routines: { title: 'Rutinler', href: 'rutinler.html', ic: 'routines' },
   calendar: { title: 'Takvim', href: 'takvim.html', ic: 'calendar' },
-  stats: { title: 'İstatistik', href: 'basarilarim.html', ic: 'trophy' },
   finance: { title: 'Finans', href: 'finans.html', ic: 'wallet' },
   notes: { title: 'Notlar', href: 'notlar.html', ic: 'note' }
 };
@@ -1689,6 +1733,7 @@ var CARD_META = {
 function getCardPrefs() {
   var prefs = get('dashboardCards', null);
   if (!prefs || !prefs.order) prefs = { order: DEFAULT_CARD_ORDER.slice(), hidden: [] };
+  prefs.order = prefs.order.filter(function (key) { return !!CARD_META[key]; });
   return prefs;
 }
 
@@ -1700,17 +1745,15 @@ function buildSummaryCard(key) {
     var open = get('tasks', []).filter(function (t) { return t.status !== 'done'; });
     stat = open.length; sub = 'açık görev';
   } else if (key === 'routines') {
-    var s = computeTodayStats();
-    stat = s.doneRoutines + '/' + s.routinesToday.length; sub = 'bugün tamamlanan';
+    var activeRoutines = getRoutines().filter(function (r) { return !r.archived; });
+    var bestStreak = activeRoutines.reduce(function (m, r) { return Math.max(m, computeRoutineStats(r).current); }, 0);
+    stat = bestStreak; sub = bestStreak > 0 ? 'en uzun aktif seri' : 'aktif seri yok';
   } else if (key === 'calendar') {
     var events = get('events', []);
     var upcoming = events.map(function (e) { return { e: e, next: nextOccurrence(e, today) }; })
       .filter(function (x) { return x.next; }).sort(function (a, b) { return a.next < b.next ? -1 : 1; });
     if (upcoming.length) { stat = formatDateTR(upcoming[0].next, { year: false }); sub = upcoming[0].e.title; }
     else { stat = 0; sub = 'yaklaşan etkinlik yok'; }
-  } else if (key === 'stats') {
-    var p = xpProgress(get('xp', 0));
-    stat = 'Sv. ' + p.level; sub = p.into + '/' + p.span + ' XP';
   } else if (key === 'finance') {
     var fin = get('finance', []);
     var monthPrefix = today.slice(0, 7);
@@ -1721,8 +1764,7 @@ function buildSummaryCard(key) {
     var notes = get('notes', []);
     stat = notes.length; sub = 'not';
   }
-  var navKey = key === 'stats' ? 'achievements' : key;
-  return '<a href="javascript:void(0)" data-nav="' + navKey + '" class="tile clickable">' +
+  return '<a href="javascript:void(0)" data-nav="' + key + '" class="tile clickable">' +
     '<div class="tile-icon">' + icon(meta.ic) + '</div>' +
     '<div class="tile-stat">' + esc(String(stat)) + '</div>' +
     '<div class="tile-label">' + esc(meta.title) + '</div>' +
@@ -1805,6 +1847,7 @@ function initDashboard() {
 function startDashboard() {
   renderGreeting();
   renderHero();
+  renderTodayAgenda();
   renderSuggestions();
   renderCards();
   var editBtn = document.getElementById('edit-cards-btn');
@@ -2585,12 +2628,13 @@ function openEventSheet(id) {
         saveEvents(all);
         closeSheet();
         renderCalendar();
+        if (document.getElementById('dash-agenda')) renderTodayAgenda();
         showToast('Kaydedildi');
       });
       if (!isNew) {
         document.getElementById('ef-delete').addEventListener('click', function () {
           confirmDialog({ title: 'Etkinlik silinsin mi?', danger: true, confirmText: 'Sil' }).then(function (ok) {
-            if (ok) { saveEvents(getEvents().filter(function (x) { return x.id !== draft.id; })); closeSheet(); renderCalendar(); }
+            if (ok) { saveEvents(getEvents().filter(function (x) { return x.id !== draft.id; })); closeSheet(); renderCalendar(); if (document.getElementById('dash-agenda')) renderTodayAgenda(); }
           });
         });
       }
@@ -3967,20 +4011,20 @@ function computeBadges() {
   var hasAnyContent = get('tasks', []).length > 0 || routines.length > 0 || goals.length > 0;
 
   return [
-    { id: 'first-step', label: 'İlk Adım', icon: 'page', unlocked: hasAnyContent },
-    { id: 'streak-7', label: '7 Günlük Seri', icon: 'flame', unlocked: maxRoutineStreak >= 7 },
-    { id: 'streak-30', label: '30 Günlük Seri', icon: 'flame', unlocked: maxRoutineStreak >= 30 },
-    { id: 'routine-consistency', label: 'Rutin Tutarlılığı', icon: 'routines', unlocked: totalDue > 0 && routineConsistency >= 80 },
-    { id: 'book-1', label: 'Kitap Kurdu', icon: 'book', unlocked: finishedBooks >= 1 },
-    { id: 'book-5', label: 'Okuma Tutkunu', icon: 'book', unlocked: finishedBooks >= 5 },
-    { id: 'reading-streak-7', label: '7 Gün Okuma', icon: 'flame', unlocked: readingStreak >= 7 },
-    { id: 'vocab-100', label: '100 Kelime', icon: 'book', unlocked: vocabCount >= 100 },
-    { id: 'vocab-300', label: 'Kelime Ustası', icon: 'book', unlocked: vocabCount >= 300 },
-    { id: 'goal-1', label: 'İlk Hedef', icon: 'target', unlocked: goalHits >= 1 },
-    { id: 'budget-discipline', label: 'Bütçe Disiplini', icon: 'wallet', unlocked: Object.keys(budget).length > 0 && !overBudgetThisMonth },
-    { id: 'savings', label: 'Tasarruf', icon: 'wallet', unlocked: monthNet > 0 },
-    { id: 'prayer-7', label: 'Namaz Serisi 7', icon: 'moon', unlocked: prayerStreak >= 7 },
-    { id: 'hatim-1', label: 'Hatim', icon: 'moon', unlocked: hatim.hatimCount >= 1 }
+    { id: 'first-step', label: 'İlk Adım', icon: 'page', unlocked: hasAnyContent, page: null },
+    { id: 'streak-7', label: '7 Günlük Seri', icon: 'flame', unlocked: maxRoutineStreak >= 7, page: 'routines' },
+    { id: 'streak-30', label: '30 Günlük Seri', icon: 'flame', unlocked: maxRoutineStreak >= 30, page: 'routines' },
+    { id: 'routine-consistency', label: 'Rutin Tutarlılığı', icon: 'routines', unlocked: totalDue > 0 && routineConsistency >= 80, page: 'routines' },
+    { id: 'book-1', label: 'Kitap Kurdu', icon: 'book', unlocked: finishedBooks >= 1, page: 'learning' },
+    { id: 'book-5', label: 'Okuma Tutkunu', icon: 'book', unlocked: finishedBooks >= 5, page: 'learning' },
+    { id: 'reading-streak-7', label: '7 Gün Okuma', icon: 'flame', unlocked: readingStreak >= 7, page: 'learning' },
+    { id: 'vocab-100', label: '100 Kelime', icon: 'book', unlocked: vocabCount >= 100, page: 'learning' },
+    { id: 'vocab-300', label: 'Kelime Ustası', icon: 'book', unlocked: vocabCount >= 300, page: 'learning' },
+    { id: 'goal-1', label: 'İlk Hedef', icon: 'target', unlocked: goalHits >= 1, page: 'goals' },
+    { id: 'budget-discipline', label: 'Bütçe Disiplini', icon: 'wallet', unlocked: Object.keys(budget).length > 0 && !overBudgetThisMonth, page: 'finance' },
+    { id: 'savings', label: 'Tasarruf', icon: 'wallet', unlocked: monthNet > 0, page: 'finance' },
+    { id: 'prayer-7', label: 'Namaz Serisi 7', icon: 'moon', unlocked: prayerStreak >= 7, page: 'worship' },
+    { id: 'hatim-1', label: 'Hatim', icon: 'moon', unlocked: hatim.hatimCount >= 1, page: 'worship' }
   ];
 }
 
@@ -4000,9 +4044,12 @@ function renderAchievements() {
   var unlockedCount = badges.filter(function (b) { return b.unlocked; }).length;
   document.getElementById('badge-summary').textContent = unlockedCount + ' / ' + badges.length + ' rozet';
   document.getElementById('badge-grid').innerHTML = badges.map(function (b) {
-    return '<div class="badge' + (b.unlocked ? '' : ' locked') + '">' +
-      '<div class="badge-glyph">' + icon(b.icon) + '</div>' +
-      '<div class="badge-label">' + esc(b.label) + '</div></div>';
+    var cls = 'badge' + (b.unlocked ? '' : ' locked') + (b.page ? ' clickable' : '');
+    var inner = '<div class="badge-glyph">' + icon(b.icon) + '</div>' +
+      '<div class="badge-label">' + esc(b.label) + '</div>';
+    return b.page
+      ? '<a href="javascript:void(0)" data-nav="' + b.page + '" class="' + cls + '" style="text-decoration:none;color:inherit">' + inner + '</a>'
+      : '<div class="' + cls + '">' + inner + '</div>';
   }).join('');
 }
 
