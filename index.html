@@ -463,10 +463,9 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 <main class="page" id="page-root">
   <div id="dash-content">
     <section id="dash-greeting"></section>
-    <section id="dash-hero"></section>
     <section id="dash-agenda"></section>
     <div id="dash-suggestions"></div>
-    <div class="section-title"><h2>Özet</h2><button class="link-btn" id="edit-cards-btn">Kartları düzenle</button></div>
+    <section id="dash-hero"></section>
     <div id="dash-cards"></div>
   </div>
 </main>
@@ -1684,11 +1683,35 @@ function noteMiniRowHTML(n) {
     '<div class="row-main"><div class="row-title">' + (preview || 'Not') + '</div><div class="row-sub">Not</div></div></a>';
 }
 
+function agendaTaskRowHTML(t) {
+  return '<div class="list-row" data-task-id="' + t.id + '">' +
+    '<button class="checkbox" data-agenda-task-toggle aria-label="Tamamlandı">' + icon('check') + '</button>' +
+    '<div class="row-main" data-agenda-task-open>' +
+      '<div class="row-title"><span class="priority-dot priority-' + t.priority + '"></span> ' + esc(t.title) + '</div>' +
+    '</div></div>';
+}
+
+function wireAgendaTasks(container) {
+  container.querySelectorAll('[data-agenda-task-toggle]').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      toggleTaskDone(btn.closest('[data-task-id]').dataset.taskId);
+      renderHero();
+      renderTodayAgenda();
+    });
+  });
+  container.querySelectorAll('[data-agenda-task-open]').forEach(function (row) {
+    row.addEventListener('click', function () { openTaskSheet(row.closest('[data-task-id]').dataset.taskId); });
+  });
+}
+
 function computeTodayAgenda() {
   var today = todayISO();
   var events = getEvents().filter(function (e) { return occursOn(e, today); })
     .sort(function (a, b) { return (a.time || '24:00').localeCompare(b.time || '24:00'); });
-  var tasks = getTasks().filter(function (t) { return t.due === today && t.status !== 'done'; });
+  var tasks = getTasks().filter(function (t) {
+    return t.status !== 'done' && (t.due === today || (t.createdAt || '').slice(0, 10) === today);
+  });
   var notes = getNotes().filter(function (n) { return (n.createdAt || '').slice(0, 10) === today; })
     .sort(function (a, b) { return (a.createdAt || '').localeCompare(b.createdAt || ''); });
   return { events: events, tasks: tasks, notes: notes };
@@ -1699,15 +1722,17 @@ function renderTodayAgenda() {
   if (!el) return;
   var agenda = computeTodayAgenda();
   var total = agenda.events.length + agenda.tasks.length + agenda.notes.length;
-  if (!total) { el.innerHTML = ''; return; }
   el.innerHTML =
-    '<div class="eyebrow" style="margin-top:1.2rem">Gündem</div>' +
-    '<div class="card" style="padding:.2rem .8rem">' +
-      agenda.events.map(eventRowHTML).join('') +
-      agenda.tasks.map(taskMiniRowHTML).join('') +
-      agenda.notes.map(noteMiniRowHTML).join('') +
-    '</div>';
+    '<div class="eyebrow" style="margin-top:.3rem">Gündem</div>' +
+    (total
+      ? '<div class="card" style="padding:.2rem .8rem">' +
+          agenda.events.map(eventRowHTML).join('') +
+          agenda.tasks.map(agendaTaskRowHTML).join('') +
+          agenda.notes.map(noteMiniRowHTML).join('') +
+        '</div>'
+      : '<div class="card"><div class="card-sub">Bugün için planlanmış görev, etkinlik ya da not yok.</div></div>');
   wireEventOpen(el);
+  wireAgendaTasks(el);
 }
 
 function renderSuggestions() {
@@ -1723,21 +1748,14 @@ function renderSuggestions() {
 
 var DEFAULT_CARD_ORDER = ['tasks', 'routines', 'calendar', 'finance', 'notes'];
 var CARD_META = {
-  tasks: { title: 'Görevler', href: 'gorevler.html', ic: 'tasks' },
-  routines: { title: 'Rutinler', href: 'rutinler.html', ic: 'routines' },
-  calendar: { title: 'Takvim', href: 'takvim.html', ic: 'calendar' },
-  finance: { title: 'Finans', href: 'finans.html', ic: 'wallet' },
-  notes: { title: 'Notlar', href: 'notlar.html', ic: 'note' }
+  tasks: { title: 'Görevler', ic: 'tasks' },
+  routines: { title: 'Rutinler', ic: 'routines' },
+  calendar: { title: 'Takvim', ic: 'calendar' },
+  finance: { title: 'Finans', ic: 'wallet' },
+  notes: { title: 'Notlar', ic: 'note' }
 };
 
-function getCardPrefs() {
-  var prefs = get('dashboardCards', null);
-  if (!prefs || !prefs.order) prefs = { order: DEFAULT_CARD_ORDER.slice(), hidden: [] };
-  prefs.order = prefs.order.filter(function (key) { return !!CARD_META[key]; });
-  return prefs;
-}
-
-function buildSummaryCard(key) {
+function categoryRowHTML(key) {
   var today = todayISO();
   var meta = CARD_META[key];
   var stat = '—', sub = '';
@@ -1764,71 +1782,20 @@ function buildSummaryCard(key) {
     var notes = get('notes', []);
     stat = notes.length; sub = 'not';
   }
-  return '<a href="javascript:void(0)" data-nav="' + key + '" class="tile clickable">' +
-    '<div class="tile-icon">' + icon(meta.ic) + '</div>' +
-    '<div class="tile-stat">' + esc(String(stat)) + '</div>' +
-    '<div class="tile-label">' + esc(meta.title) + '</div>' +
-    '<div class="tile-sub">' + esc(sub) + '</div></a>';
+  return '<a href="javascript:void(0)" data-nav="' + key + '" class="card clickable" style="display:flex;align-items:center;gap:.8rem;text-decoration:none;color:inherit">' +
+    '<div class="tile-icon" style="margin-bottom:0;flex:none">' + icon(meta.ic) + '</div>' +
+    '<div style="flex:1;min-width:0">' +
+      '<div style="font-weight:600;font-size:.95rem">' + esc(meta.title) + '</div>' +
+      '<div class="card-sub" style="margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(sub) + '</div>' +
+    '</div>' +
+    '<div class="card-stat" style="font-size:1rem;flex:none;text-align:right">' + esc(String(stat)) + '</div>' +
+    '<span class="muted" style="flex:none">' + icon('chevronR') + '</span>' +
+  '</a>';
 }
 
 function renderCards() {
-  var prefs = getCardPrefs();
   var el = document.getElementById('dash-cards');
-  var html = '';
-  prefs.order.forEach(function (key) {
-    if (prefs.hidden.indexOf(key) !== -1 || !CARD_META[key]) return;
-    html += buildSummaryCard(key);
-  });
-  el.innerHTML = html ? ('<div class="dash-grid">' + html + '</div>') : '<div class="empty"><div class="glyph">·</div><p>Tüm kartlar gizli — "Kartları düzenle"den açabilirsin.</p></div>';
-}
-
-function openCardEditor() {
-  var prefs = getCardPrefs();
-  function rowsHTML() {
-    return prefs.order.map(function (key, i) {
-      var meta = CARD_META[key];
-      var hidden = prefs.hidden.indexOf(key) !== -1;
-      return '<div class="list-row" data-key="' + key + '">' +
-        icon(meta.ic) +
-        '<span class="row-main"><span class="row-title' + (hidden ? ' done' : '') + '">' + esc(meta.title) + '</span></span>' +
-        '<div class="row-actions">' +
-        '<button class="icon-btn card-up" ' + (i === 0 ? 'disabled' : '') + ' aria-label="Yukarı">' + icon('arrowUp') + '</button>' +
-        '<button class="icon-btn card-down" ' + (i === prefs.order.length - 1 ? 'disabled' : '') + ' aria-label="Aşağı">' + icon('arrowDown') + '</button>' +
-        '<button class="checkbox' + (hidden ? '' : ' checked') + '" data-toggle aria-label="Görünürlük">' + icon('check') + '</button>' +
-        '</div></div>';
-    }).join('');
-  }
-  openSheet({
-    title: 'Kartları düzenle', bodyHTML: '<div id="card-editor-rows">' + rowsHTML() + '</div>',
-    onOpen: function (body) {
-      function wire() {
-        var rows = body.querySelectorAll('.list-row');
-        rows.forEach(function (row) {
-          var key = row.dataset.key;
-          row.querySelector('.card-up').addEventListener('click', function () {
-            var i = prefs.order.indexOf(key);
-            if (i > 0) { prefs.order.splice(i, 1); prefs.order.splice(i - 1, 0, key); commit(); }
-          });
-          row.querySelector('.card-down').addEventListener('click', function () {
-            var i = prefs.order.indexOf(key);
-            if (i < prefs.order.length - 1) { prefs.order.splice(i, 1); prefs.order.splice(i + 1, 0, key); commit(); }
-          });
-          row.querySelector('[data-toggle]').addEventListener('click', function () {
-            var i = prefs.hidden.indexOf(key);
-            if (i === -1) prefs.hidden.push(key); else prefs.hidden.splice(i, 1);
-            commit();
-          });
-        });
-      }
-      function commit() {
-        set('dashboardCards', prefs);
-        document.getElementById('card-editor-rows').innerHTML = rowsHTML();
-        wire();
-        renderCards();
-      }
-      wire();
-    }
-  });
+  el.innerHTML = DEFAULT_CARD_ORDER.map(categoryRowHTML).join('');
 }
 
 function initDashboard() {
@@ -1846,12 +1813,10 @@ function initDashboard() {
 
 function startDashboard() {
   renderGreeting();
-  renderHero();
   renderTodayAgenda();
   renderSuggestions();
+  renderHero();
   renderCards();
-  var editBtn = document.getElementById('edit-cards-btn');
-  if (editBtn) editBtn.addEventListener('click', openCardEditor);
 }
 
 /* ---- tasks.js ---- */
@@ -2085,13 +2050,19 @@ function openTaskSheet(id) {
         closeSheet();
         renderTagFilter();
         renderTaskList();
+        if (document.getElementById('dash-agenda')) { renderTodayAgenda(); renderHero(); }
         if (!wasDone && nowDone) addXP(8);
         showToast('Kaydedildi');
       });
       if (!isNew) {
         document.getElementById('tf-delete').addEventListener('click', function () {
           confirmDialog({ title: 'Görev silinsin mi?', danger: true, confirmText: 'Sil' }).then(function (ok) {
-            if (ok) { saveTasks(getTasks().filter(function (x) { return x.id !== draft.id; })); closeSheet(); renderTaskList(); }
+            if (ok) {
+              saveTasks(getTasks().filter(function (x) { return x.id !== draft.id; }));
+              closeSheet();
+              renderTaskList();
+              if (document.getElementById('dash-agenda')) { renderTodayAgenda(); renderHero(); }
+            }
           });
         });
       }
