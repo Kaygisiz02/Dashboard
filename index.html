@@ -478,8 +478,7 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
     <input type="search" id="task-search" placeholder="Görevlerde ara…">
   </div>
   <div class="segmented" id="task-status-filter">
-    <button data-v="all" class="active">Tümü</button>
-    <button data-v="todo">Yapılacak</button>
+    <button data-v="todo" class="active">Yapılacak</button>
     <button data-v="in-progress">Devam eden</button>
     <button data-v="done">Tamamlanan</button>
   </div>
@@ -1515,31 +1514,6 @@ function initCore() {
    Günlük Ajandam — dashboard.js (Bugün)
    ========================================================================== */
 
-var QUOTES_TR = [
-  'Damlaya damlaya göl olur.',
-  'Ağaç yaşken eğilir.',
-  'El elden üstündür.',
-  'Görünen köy kılavuz istemez.',
-  'Bir elin nesi var, iki elin sesi var.',
-  'Erken kalkan yol alır.',
-  'Sabreden derviş muradına ermiş.',
-  'Gülü seven dikenine katlanır.',
-  'Söz gümüşse sükût altındır.',
-  'Vakit nakittir.',
-  'Ne ekersen onu biçersin.',
-  'Acele işe şeytan karışır.',
-  'Bir musibet bin nasihatten yeğdir.',
-  'Emek olmadan yemek olmaz.',
-  'Azıcık aşım, kaygısız başım.',
-  'Komşu komşunun külüne muhtaçtır.'
-];
-function quoteOfDay() {
-  var d = parseISO(todayISO());
-  var start = new Date(d.getFullYear(), 0, 0);
-  var dayOfYear = Math.floor((d - start) / 86400000);
-  return QUOTES_TR[dayOfYear % QUOTES_TR.length];
-}
-
 var WEATHER_CODES = {
   0: 'Açık', 1: 'Çoğunlukla açık', 2: 'Parçalı bulutlu', 3: 'Kapalı',
   45: 'Sisli', 48: 'Kırağı sisi',
@@ -1603,10 +1577,6 @@ function computeSuggestions() {
     tips.push({ text: 'Bugün ' + missing + ' vakit namaz işaretlenmedi', href: 'ibadet.html', page: 'worship', icon: 'moon', weight: 6 });
   }
 
-  var events = get('events', []);
-  var todayEventCount = events.filter(function (e) { return nextOccurrence(e, today) === today; }).length;
-  if (todayEventCount) tips.push({ text: 'Bugün ' + todayEventCount + ' etkinliğin var', href: 'takvim.html', page: 'calendar', icon: 'calendar', weight: 5 });
-
   var vocab = get('vocab', []);
   var dueVocab = vocab.filter(function (v) { return v.srs && v.srs.dueDate && v.srs.dueDate <= today; }).length;
   if (dueVocab) tips.push({ text: dueVocab + ' kelime tekrar için hazır', href: 'ogrenme.html', page: 'learning', icon: 'book', weight: 4 });
@@ -1629,7 +1599,7 @@ function renderHero() {
   var el = document.getElementById('dash-hero');
   var pctBlock;
   if (stats.pct === null) {
-    pctBlock = '<div class="card"><div class="card-sub">Bugün için planlanmış görev veya rutin yok.</div></div>';
+    pctBlock = '';
   } else {
     pctBlock =
       '<div class="card">' +
@@ -1641,8 +1611,6 @@ function renderHero() {
   el.innerHTML =
     pctBlock +
     '<div class="card">' +
-      '<div class="card-sub" style="font-style:italic">\u201C' + esc(quoteOfDay()) + '\u201D</div>' +
-      '<hr class="divider">' +
       '<div id="dash-weather"></div>' +
     '</div>';
   fetchWeather();
@@ -1714,7 +1682,8 @@ function computeTodayAgenda() {
   });
   var notes = getNotes().filter(function (n) { return (n.createdAt || '').slice(0, 10) === today; })
     .sort(function (a, b) { return (a.createdAt || '').localeCompare(b.createdAt || ''); });
-  return { events: events, tasks: tasks, notes: notes };
+  var hasRoutinesToday = getRoutines().some(function (r) { return !r.archived && isRoutineDue(r, today); });
+  return { events: events, tasks: tasks, notes: notes, hasRoutinesToday: hasRoutinesToday };
 }
 
 function renderTodayAgenda() {
@@ -1722,15 +1691,26 @@ function renderTodayAgenda() {
   if (!el) return;
   var agenda = computeTodayAgenda();
   var total = agenda.events.length + agenda.tasks.length + agenda.notes.length;
-  el.innerHTML =
-    '<div class="eyebrow" style="margin-top:.3rem">Gündem</div>' +
-    (total
-      ? '<div class="card" style="padding:.2rem .8rem">' +
-          agenda.events.map(eventRowHTML).join('') +
-          agenda.tasks.map(agendaTaskRowHTML).join('') +
-          agenda.notes.map(noteMiniRowHTML).join('') +
-        '</div>'
-      : '<div class="card"><div class="card-sub">Bugün için planlanmış görev, etkinlik ya da not yok.</div></div>');
+  if (!total) {
+    el.innerHTML = agenda.hasRoutinesToday
+      ? ''
+      : '<div class="card"><div class="card-sub">Bugün için planlanmış görev, etkinlik ya da not yok.</div></div>';
+    return;
+  }
+  var html = '';
+  if (agenda.events.length) {
+    html += '<div class="eyebrow" style="margin-top:.3rem">Etkinlikler</div>' +
+      '<div class="card" style="padding:.2rem .8rem">' + agenda.events.map(eventRowHTML).join('') + '</div>';
+  }
+  if (agenda.tasks.length) {
+    html += '<div class="eyebrow" style="margin-top:.9rem">Görevler</div>' +
+      '<div class="card" style="padding:.2rem .8rem">' + agenda.tasks.map(agendaTaskRowHTML).join('') + '</div>';
+  }
+  if (agenda.notes.length) {
+    html += '<div class="eyebrow" style="margin-top:.9rem">Notlar</div>' +
+      '<div class="card" style="padding:.2rem .8rem">' + agenda.notes.map(noteMiniRowHTML).join('') + '</div>';
+  }
+  el.innerHTML = html;
   wireEventOpen(el);
   wireAgendaTasks(el);
 }
@@ -1824,7 +1804,7 @@ function startDashboard() {
    Günlük Ajandam — tasks.js (Görevler)
    ========================================================================== */
 
-var taskFilter = { status: 'all', tag: null, search: '', sort: 'due' };
+var taskFilter = { status: 'todo', tag: null, search: '', sort: 'due' };
 
 function getTasks() { return get('tasks', []); }
 function saveTasks(list) { set('tasks', list); }
@@ -1847,7 +1827,7 @@ function priorityLabel(p) { return p === 'high' ? 'Yüksek' : p === 'low' ? 'Dü
 function statusLabel(s) { return s === 'done' ? 'Tamamlandı' : s === 'in-progress' ? 'Devam ediyor' : 'Yapılacak'; }
 
 function taskMatchesFilter(t) {
-  if (taskFilter.status !== 'all' && t.status !== taskFilter.status) return false;
+  if (t.status !== taskFilter.status) return false;
   if (taskFilter.tag && (t.tags || []).indexOf(taskFilter.tag) === -1) return false;
   if (taskFilter.search) {
     var q = taskFilter.search.toLowerCase();
@@ -2071,7 +2051,7 @@ function openTaskSheet(id) {
 }
 
 function initTasks() {
-  taskFilter = { status: 'all', tag: null, search: '', sort: 'due' };
+  taskFilter = { status: 'todo', tag: null, search: '', sort: 'due' };
   document.getElementById('task-add-fab').innerHTML = icon('plus');
   document.getElementById('task-add-fab').addEventListener('click', function () { openTaskSheet(null); });
   document.getElementById('task-search').addEventListener('input', function (e) { taskFilter.search = e.target.value; renderTaskList(); });
