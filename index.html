@@ -223,23 +223,12 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .card-sub { font-size: .82rem; color: var(--ink-soft); }
 .card.clickable { cursor: pointer; }
 .card.clickable:active { transform: scale(.99); background: color-mix(in srgb, var(--paper-raised) 96%, var(--ink)); }
-
-.dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
-.tile {
-  display: block; text-decoration: none; color: inherit; cursor: pointer;
-  background: var(--paper-raised); border: 1px solid var(--rule); border-radius: var(--radius-m);
-  box-shadow: var(--shadow); padding: .95rem .9rem;
-}
-.tile:active { transform: scale(.97); }
 .tile-icon {
   width: 2.1rem; height: 2.1rem; border-radius: 50%;
   background: var(--accent-soft); color: var(--accent);
   display: flex; align-items: center; justify-content: center; margin-bottom: .65rem;
 }
 .tile-icon svg { width: 17px; height: 17px; }
-.tile-stat { font-family: var(--font-mono); font-size: 1.32rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; overflow-wrap: break-word; }
-.tile-label { font-size: .72rem; font-weight: 700; color: var(--ink-soft); margin-top: .3rem; text-transform: uppercase; letter-spacing: .03em; }
-.tile-sub { font-size: .76rem; color: var(--ink-soft); margin-top: .1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---- List rows -----------------------------------------------------------*/
 .list-row {
@@ -326,6 +315,13 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .pill-select { display: flex; flex-wrap: wrap; gap: .45rem; }
 .pill-select button { border: 1px solid var(--rule-strong); background: var(--paper-raised); border-radius: 999px; padding: .38rem .78rem; font-size: .82rem; font-weight: 500; cursor: pointer; }
 .pill-select button.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.pill-select-trigger {
+  display: inline-flex; align-items: center; gap: .3rem;
+  border: 1px solid var(--rule-strong); background: var(--paper-raised); border-radius: 999px;
+  padding: .38rem .7rem .38rem .78rem; font-size: .82rem; font-weight: 500; cursor: pointer; color: var(--ink);
+}
+.pill-select-trigger.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.pill-select-trigger svg { width: 15px; height: 15px; opacity: .75; }
 .cat-dropdown { position: absolute; left: 0; right: 0; top: calc(100% + .3rem); background: var(--paper-raised); border: 1px solid var(--rule-strong); border-radius: var(--radius-m); box-shadow: var(--shadow); max-height: 13rem; overflow-y: auto; -webkit-overflow-scrolling: touch; z-index: 5; padding: .35rem; }
 .cat-dropdown button { display: block; width: 100%; text-align: left; border: none; background: none; font: inherit; color: var(--ink); padding: .55rem .6rem; border-radius: var(--radius-s); cursor: pointer; }
 .cat-dropdown button:active { background: var(--accent-soft); }
@@ -466,9 +462,9 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 <main class="page" id="page-root">
   <div id="dash-content">
     <section id="dash-greeting"></section>
-    <section id="dash-hero"></section>
     <section id="dash-agenda"></section>
     <div id="dash-suggestions"></div>
+    <section id="dash-hero"></section>
     <div id="dash-cards"></div>
   </div>
 </main>
@@ -486,7 +482,7 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
     <button data-v="done">Tamamlanan</button>
   </div>
   <div class="section-title" style="margin-top:1rem">
-    <div class="pill-select" id="task-tag-filter"></div>
+    <button class="pill-select-trigger" id="task-tag-filter-btn" type="button"></button>
     <select id="task-sort" aria-label="Sırala" style="background:var(--paper-raised);border:1px solid var(--rule-strong);border-radius:6px;padding:.4rem .5rem;font-size:.78rem">
       <option value="due">Tarihe göre</option>
       <option value="priority">Önceliğe göre</option>
@@ -554,7 +550,7 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 <main class="page">
   <div class="eyebrow">Hedef Takibi</div>
   <h1>Hedefler</h1>
-  <div class="pill-select" id="goal-cat-filter" style="margin-bottom:.6rem"></div>
+  <button class="pill-select-trigger" id="goal-cat-filter-btn" type="button" style="margin-bottom:.6rem"></button>
   <div id="goal-list"></div>
 </main>
 <button class="fab" id="goal-add-fab" aria-label="Hedef ekle"></button>
@@ -573,7 +569,7 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
     <div id="vocab-review"></div>
     <div class="section-title"><h2>Tüm kelimeler</h2></div>
     <div class="field"><input type="search" id="vocab-search" placeholder="Kelime veya anlamda ara…"></div>
-    <div class="pill-select" id="vocab-cat-filter" style="margin:.5rem 0"></div>
+    <button class="pill-select-trigger" id="vocab-cat-filter-btn" type="button" style="margin:.5rem 0"></button>
     <div id="vocab-list"></div>
   </div>
 
@@ -611,6 +607,7 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
   <div class="section-title"><h2>Kur'an</h2></div>
   <div class="card" id="quran-panel"></div>
 </main>
+<button class="fab" id="worship-add-fab" aria-label="Ekle"></button>
 </div>
 <div id="view-finance" style="display:none">
 <main class="page">
@@ -1072,46 +1069,6 @@ function ensureOverlayRoot() {
   });
 }
 
-function showToast(msg) {
-  ensureOverlayRoot();
-  var stack = document.getElementById('toast-stack');
-  var t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = msg;
-  stack.appendChild(t);
-  requestAnimationFrame(function () { t.classList.add('show'); });
-  setTimeout(function () {
-    t.classList.remove('show');
-    setTimeout(function () { t.remove(); }, 220);
-  }, 2200);
-}
-
-function openSheet(opts) {
-  ensureOverlayRoot();
-  var sheet = document.getElementById('dlg-sheet');
-  var body = document.getElementById('dlg-sheet-body');
-  var html = '';
-  if (opts.title) html += '<div class="sheet-head"><h3>' + esc(opts.title) + '</h3><button class="icon-btn" id="dlg-sheet-close" aria-label="Kapat">' + icon('x') + '</button></div>';
-  html += opts.bodyHTML || '';
-  body.innerHTML = html;
-  document.getElementById('dlg-overlay').classList.add('open');
-  sheet.classList.add('open');
-  var closeBtn = document.getElementById('dlg-sheet-close');
-  if (closeBtn) closeBtn.addEventListener('click', closeSheet);
-  if (opts.onOpen) opts.onOpen(body);
-}
-function closeSheet() {
-  var sheet = document.getElementById('dlg-sheet');
-  var overlay = document.getElementById('dlg-overlay');
-  if (sheet) sheet.classList.remove('open');
-  if (overlay) overlay.classList.remove('open');
-}
-
-// Shared helper: turns a plain text <input> into a tap-to-reveal, scrollable, filterable
-// single-select dropdown fed by getOptions(). Used for every long category/tag picker in the
-// app instead of an always-visible chip grid. Selection uses a real click (not pointerdown) so
-// dragging a finger to scroll the list never gets mistaken for picking whatever it started on,
-// and the dropdown closes on a tap outside it rather than on blur (which raced with scrolling).
 function wireCategoryDropdown(inputId, dropdownId, getOptions) {
   var input = document.getElementById(inputId);
   var dd = document.getElementById(dropdownId);
@@ -1170,6 +1127,144 @@ function wireCategoryDropdown(inputId, dropdownId, getOptions) {
   }
   input.addEventListener('focus', open);
   input.addEventListener('input', filter);
+}
+
+function showToast(msg) {
+  ensureOverlayRoot();
+  var stack = document.getElementById('toast-stack');
+  var t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  stack.appendChild(t);
+  requestAnimationFrame(function () { t.classList.add('show'); });
+  setTimeout(function () {
+    t.classList.remove('show');
+    setTimeout(function () { t.remove(); }, 220);
+  }, 2200);
+}
+
+/* wireCategoryDropdown ile aynı görsel .cat-dropdown mekanizması, ama ÇOKLU
+   seçim için: tıklanan satır işaretlenir/işareti kalkar, dropdown kapanmaz;
+   sadece dışarı tıklanınca kapanır. Etiketler gibi virgülle ayrılmış
+   çoklu-değer alanları için kullanılır.
+   getOptions: () => tüm seçenekler, getCurrent: () => o an seçili olanlar
+   (küçük harf duyarsız karşılaştırma), onToggle(v): seçimi ekle/çıkar. */
+function wireTagDropdown(inputId, dropdownId, getOptions, getCurrent, onToggle) {
+  var input = document.getElementById(inputId);
+  var dd = document.getElementById(dropdownId);
+  if (!input || !dd) return;
+  function optionsHTML(filterText) {
+    var current = getCurrent().map(function (s) { return s.toLowerCase(); });
+    var list = getOptions();
+    if (filterText) {
+      var f = filterText.toLocaleLowerCase('tr');
+      list = list.filter(function (c) { return c.toLocaleLowerCase('tr').indexOf(f) !== -1; });
+    }
+    if (!list.length) return '<div class="hint" style="padding:.5rem .6rem">Eşleşen seçenek yok — virgülle yeni yazabilirsin.</div>';
+    return list.map(function (c) {
+      var checked = current.indexOf(c.toLowerCase()) !== -1;
+      return '<button type="button" data-v="' + esc(c) + '" style="display:flex;align-items:center;justify-content:space-between">' +
+        '<span>#' + esc(c) + '</span><span class="muted">' + (checked ? icon('check') : '') + '</span></button>';
+    }).join('');
+  }
+  function positionDropdown() {
+    var rect = input.getBoundingClientRect();
+    var viewportH = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    var margin = 10, preferred = 208, minUsable = 60;
+    var spaceBelow = Math.max(0, viewportH - rect.bottom - margin);
+    var spaceAbove = Math.max(0, rect.top - margin);
+    if (spaceBelow >= spaceAbove) {
+      dd.style.top = 'calc(100% + .3rem)'; dd.style.bottom = 'auto';
+      dd.style.maxHeight = Math.max(minUsable, Math.min(preferred, spaceBelow)) + 'px';
+    } else {
+      dd.style.top = 'auto'; dd.style.bottom = 'calc(100% + .3rem)';
+      dd.style.maxHeight = Math.max(minUsable, Math.min(preferred, spaceAbove)) + 'px';
+    }
+  }
+  function render() {
+    dd.innerHTML = optionsHTML(lastTypedFragment());
+    dd.querySelectorAll('button[data-v]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        onToggle(b.dataset.v);
+        input.value = getCurrent().join(', ');
+        render();
+        input.focus();
+      });
+    });
+    positionDropdown();
+  }
+  function lastTypedFragment() {
+    var parts = input.value.split(',');
+    return parts[parts.length - 1].trim();
+  }
+  function outsideTap(e) { if (e.target !== input && !dd.contains(e.target)) close(); }
+  function onViewportChange() { positionDropdown(); }
+  function open() {
+    render();
+    dd.style.display = 'block';
+    positionDropdown();
+    document.addEventListener('pointerdown', outsideTap, true);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', onViewportChange);
+  }
+  function close() {
+    dd.style.display = 'none';
+    if (window.visualViewport) window.visualViewport.removeEventListener('resize', onViewportChange);
+    document.removeEventListener('pointerdown', outsideTap, true);
+  }
+  input.addEventListener('focus', open);
+  input.addEventListener('input', render);
+}
+
+function openSheet(opts) {
+  ensureOverlayRoot();
+  var sheet = document.getElementById('dlg-sheet');
+  var body = document.getElementById('dlg-sheet-body');
+  var html = '';
+  if (opts.title) html += '<div class="sheet-head"><h3>' + esc(opts.title) + '</h3><button class="icon-btn" id="dlg-sheet-close" aria-label="Kapat">' + icon('x') + '</button></div>';
+  html += opts.bodyHTML || '';
+  body.innerHTML = html;
+  document.getElementById('dlg-overlay').classList.add('open');
+  sheet.classList.add('open');
+  var closeBtn = document.getElementById('dlg-sheet-close');
+  if (closeBtn) closeBtn.addEventListener('click', closeSheet);
+  if (opts.onOpen) opts.onOpen(body);
+}
+function closeSheet() {
+  var sheet = document.getElementById('dlg-sheet');
+  var overlay = document.getElementById('dlg-overlay');
+  if (sheet) sheet.classList.remove('open');
+  if (overlay) overlay.classList.remove('open');
+}
+
+/* Kategori/etiket filtreleri için ortak sheet: "Tümü" + verilen seçenekler,
+   seçim yapılınca sheet kapanır ve onSelect çağrılır. */
+function openCategoryFilterSheet(opts) {
+  var options = opts.options || [];
+  var current = opts.current;
+  var allLabel = opts.allLabel || 'Tümü';
+  var prefix = opts.prefix || '';
+  var html = '<div class="stack">' +
+    '<button class="list-row" data-v="" style="width:100%;text-align:left;background:none;border:none;cursor:pointer">' +
+    '<span class="row-main"><span class="row-title">' + esc(allLabel) + '</span></span>' +
+    (!current ? '<span class="muted">' + icon('check') + '</span>' : '') +
+    '</button>' +
+    options.map(function (o) {
+      var active = current === o;
+      return '<button class="list-row" data-v="' + esc(o) + '" style="width:100%;text-align:left;background:none;border:none;cursor:pointer">' +
+        '<span class="row-main"><span class="row-title">' + prefix + esc(o) + '</span></span>' +
+        (active ? '<span class="muted">' + icon('check') + '</span>' : '') +
+        '</button>';
+    }).join('') + '</div>';
+  openSheet({
+    title: opts.title || 'Kategori seç', bodyHTML: html, onOpen: function (body) {
+      body.querySelectorAll('button[data-v]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          closeSheet();
+          opts.onSelect(b.dataset.v || null);
+        });
+      });
+    }
+  });
 }
 
 function confirmDialog(opts) {
@@ -1622,9 +1717,6 @@ function computeSuggestions() {
   var tips = [];
   var stats = computeTodayStats();
 
-  var overdue = get('tasks', []).filter(function (t) { return t.due && t.due < today && t.status !== 'done'; });
-  if (overdue.length) tips.push({ text: overdue.length + ' gecikmiş görevin var', href: 'gorevler.html', page: 'tasks', icon: 'tasks', weight: 10 });
-
   if (stats.routinesToday.length && stats.doneRoutines < stats.routinesToday.length && new Date().getHours() >= 12) {
     tips.push({ text: (stats.routinesToday.length - stats.doneRoutines) + ' rutin bugün henüz işaretlenmedi', href: 'rutinler.html', page: 'routines', icon: 'routines', weight: 7 });
   }
@@ -1666,7 +1758,7 @@ function renderHero() {
   var stats = computeTodayStats();
   var el = document.getElementById('dash-hero');
   var pctBlock;
-  if (stats.pct === null) {
+  if (stats.pct === null || stats.numer === 0) {
     pctBlock = '';
   } else {
     pctBlock =
@@ -1719,11 +1811,12 @@ function noteMiniRowHTML(n) {
     '<div class="row-main"><div class="row-title">' + (preview || 'Not') + '</div><div class="row-sub">Not</div></div></a>';
 }
 
-function agendaTaskRowHTML(t) {
+function agendaTaskRowHTML(t, showDue) {
+  var sub = showDue && t.due ? '<div class="row-sub" style="color:var(--danger)">' + esc(formatDateTR(t.due, { year: false })) + ' tarihinde bitmesi gerekiyordu</div>' : '';
   return '<div class="list-row" data-task-id="' + t.id + '">' +
     '<button class="checkbox" data-agenda-task-toggle aria-label="Tamamlandı">' + icon('check') + '</button>' +
     '<div class="row-main" data-agenda-task-open>' +
-      '<div class="row-title"><span class="priority-dot priority-' + t.priority + '"></span> ' + esc(t.title) + '</div>' +
+      '<div class="row-title"><span class="priority-dot priority-' + t.priority + '"></span> ' + esc(t.title) + '</div>' + sub +
     '</div></div>';
 }
 
@@ -1745,20 +1838,22 @@ function computeTodayAgenda() {
   var today = todayISO();
   var events = getEvents().filter(function (e) { return occursOn(e, today); })
     .sort(function (a, b) { return (a.time || '24:00').localeCompare(b.time || '24:00'); });
+  var overdue = getTasks().filter(function (t) { return t.due && t.due < today && t.status !== 'done'; })
+    .sort(function (a, b) { return a.due < b.due ? -1 : a.due > b.due ? 1 : 0; });
   var tasks = getTasks().filter(function (t) {
     return t.status !== 'done' && (t.due === today || (t.createdAt || '').slice(0, 10) === today);
   });
   var notes = getNotes().filter(function (n) { return (n.createdAt || '').slice(0, 10) === today; })
     .sort(function (a, b) { return (a.createdAt || '').localeCompare(b.createdAt || ''); });
   var hasRoutinesToday = getRoutines().some(function (r) { return !r.archived && isRoutineDue(r, today); });
-  return { events: events, tasks: tasks, notes: notes, hasRoutinesToday: hasRoutinesToday };
+  return { events: events, overdue: overdue, tasks: tasks, notes: notes, hasRoutinesToday: hasRoutinesToday };
 }
 
 function renderTodayAgenda() {
   var el = document.getElementById('dash-agenda');
   if (!el) return;
   var agenda = computeTodayAgenda();
-  var total = agenda.events.length + agenda.tasks.length + agenda.notes.length;
+  var total = agenda.overdue.length + agenda.events.length + agenda.tasks.length + agenda.notes.length;
   if (!total) {
     el.innerHTML = agenda.hasRoutinesToday
       ? ''
@@ -1766,13 +1861,17 @@ function renderTodayAgenda() {
     return;
   }
   var html = '';
+  if (agenda.overdue.length) {
+    html += '<div class="eyebrow" style="margin-top:.3rem;color:var(--danger)">Gecikmiş</div>' +
+      '<div class="card" style="padding:.2rem .8rem">' + agenda.overdue.map(function (t) { return agendaTaskRowHTML(t, true); }).join('') + '</div>';
+  }
   if (agenda.events.length) {
-    html += '<div class="eyebrow" style="margin-top:.3rem">Etkinlikler</div>' +
+    html += '<div class="eyebrow" style="margin-top:.9rem">Etkinlikler</div>' +
       '<div class="card" style="padding:.2rem .8rem">' + agenda.events.map(eventRowHTML).join('') + '</div>';
   }
   if (agenda.tasks.length) {
     html += '<div class="eyebrow" style="margin-top:.9rem">Görevler</div>' +
-      '<div class="card" style="padding:.2rem .8rem">' + agenda.tasks.map(agendaTaskRowHTML).join('') + '</div>';
+      '<div class="card" style="padding:.2rem .8rem">' + agenda.tasks.map(function (t) { return agendaTaskRowHTML(t, false); }).join('') + '</div>';
   }
   if (agenda.notes.length) {
     html += '<div class="eyebrow" style="margin-top:.9rem">Notlar</div>' +
@@ -1861,9 +1960,9 @@ function initDashboard() {
 
 function startDashboard() {
   renderGreeting();
-  renderHero();
   renderTodayAgenda();
   renderSuggestions();
+  renderHero();
   renderCards();
 }
 
@@ -1984,13 +2083,17 @@ function toggleTaskDone(id) {
 
 function renderTagFilter() {
   var tags = allTaskTags();
-  var el = document.getElementById('task-tag-filter');
-  if (!tags.length) { el.innerHTML = ''; return; }
-  el.innerHTML = '<button data-v="" class="' + (!taskFilter.tag ? 'active' : '') + '">Tüm etiketler</button>' +
-    tags.map(function (tg) { return '<button data-v="' + esc(tg) + '" class="' + (taskFilter.tag === tg ? 'active' : '') + '">#' + esc(tg) + '</button>'; }).join('');
-  el.querySelectorAll('button').forEach(function (b) {
-    b.addEventListener('click', function () { taskFilter.tag = b.dataset.v || null; renderTagFilter(); renderTaskList(); });
-  });
+  var btn = document.getElementById('task-tag-filter-btn');
+  if (!tags.length) { btn.style.display = 'none'; return; }
+  btn.style.display = '';
+  btn.classList.toggle('active', !!taskFilter.tag);
+  btn.innerHTML = (taskFilter.tag ? '#' + esc(taskFilter.tag) : 'Etiket') + icon('chevronR');
+  btn.onclick = function () {
+    openCategoryFilterSheet({
+      title: 'Etiket seç', options: tags, current: taskFilter.tag, allLabel: 'Tüm etiketler', prefix: '#',
+      onSelect: function (v) { taskFilter.tag = v; renderTagFilter(); renderTaskList(); }
+    });
+  };
 }
 
 function openTaskSheet(id) {
@@ -2009,9 +2112,9 @@ function openTaskSheet(id) {
         ['low', 'medium', 'high'].map(function (p) { return '<button data-v="' + p + '" class="' + (draft.priority === p ? 'active' : '') + '">' + priorityLabel(p) + '</button>'; }).join('') +
       '</div></div>' +
       '<div class="field-row"><div class="field"><label>Bitiş tarihi</label><input type="date" id="tf-due" value="' + esc(draft.due || '') + '"></div></div>' +
-      '<div class="field"><label>Etiketler</label>' +
-      '<div class="pill-select" id="tf-tag-pills">' + taskTagOptions().map(function (t) { return '<button type="button" data-v="' + esc(t) + '" class="' + ((draft.tags || []).indexOf(t) !== -1 ? 'active' : '') + '">' + esc(t) + '</button>'; }).join('') + '</div>' +
-      '<input type="text" id="tf-tags" value="' + esc((draft.tags || []).join(', ')) + '" placeholder="Ya da virgülle yeni yaz" style="margin-top:.5rem"></div>' +
+      '<div class="field" style="position:relative"><label>Etiketler</label>' +
+      '<input type="text" id="tf-tags" value="' + esc((draft.tags || []).join(', ')) + '" placeholder="Etiket seç ya da virgülle yeni yaz" autocomplete="off">' +
+      '<div class="cat-dropdown" id="tf-tags-dropdown" style="display:none"></div></div>' +
       '<div class="field"><label>Alt görevler</label><div id="tf-subtasks">' + subtasksHTML() + '</div>' +
         '<button class="link-btn" id="tf-add-sub" style="margin-top:.4rem">' + icon('plus') + ' Alt görev ekle</button></div>' +
       '<div class="stack" style="margin-top:1rem">' +
@@ -2040,20 +2143,13 @@ function openTaskSheet(id) {
       function currentTagList() {
         return document.getElementById('tf-tags').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
       }
-      function syncTagPills() {
-        var current = currentTagList().map(function (s) { return s.toLowerCase(); });
-        body.querySelectorAll('#tf-tag-pills button').forEach(function (b) { b.classList.toggle('active', current.indexOf(b.dataset.v.toLowerCase()) !== -1); });
+      function toggleTag(v) {
+        var tags = currentTagList();
+        var idx = tags.findIndex(function (t) { return t.toLowerCase() === v.toLowerCase(); });
+        if (idx === -1) tags.push(v); else tags.splice(idx, 1);
+        document.getElementById('tf-tags').value = tags.join(', ');
       }
-      body.querySelectorAll('#tf-tag-pills button').forEach(function (b) {
-        b.addEventListener('click', function () {
-          var tags = currentTagList();
-          var idx = tags.findIndex(function (t) { return t.toLowerCase() === b.dataset.v.toLowerCase(); });
-          if (idx === -1) tags.push(b.dataset.v); else tags.splice(idx, 1);
-          document.getElementById('tf-tags').value = tags.join(', ');
-          syncTagPills();
-        });
-      });
-      document.getElementById('tf-tags').addEventListener('input', syncTagPills);
+      wireTagDropdown('tf-tags', 'tf-tags-dropdown', taskTagOptions, currentTagList, toggleTag);
       function wireSubtaskRows() {
         body.querySelectorAll('#tf-subtasks [data-sub-toggle]').forEach(function (btn) {
           btn.addEventListener('click', function () {
@@ -2779,13 +2875,17 @@ function manualGoalEntry(id) {
 
 function renderCategoryFilter() {
   var cats = goalCategories();
-  var el = document.getElementById('goal-cat-filter');
-  if (!cats.length) { el.innerHTML = ''; return; }
-  el.innerHTML = '<button data-v="" class="' + (!goalCategoryFilter ? 'active' : '') + '">Tümü</button>' +
-    cats.map(function (c) { return '<button data-v="' + esc(c) + '" class="' + (goalCategoryFilter === c ? 'active' : '') + '">' + esc(c) + '</button>'; }).join('');
-  el.querySelectorAll('button').forEach(function (b) {
-    b.addEventListener('click', function () { goalCategoryFilter = b.dataset.v || null; renderCategoryFilter(); renderGoalList(); });
-  });
+  var btn = document.getElementById('goal-cat-filter-btn');
+  if (!cats.length) { btn.style.display = 'none'; return; }
+  btn.style.display = '';
+  btn.classList.toggle('active', !!goalCategoryFilter);
+  btn.innerHTML = esc(goalCategoryFilter || 'Kategori') + icon('chevronR');
+  btn.onclick = function () {
+    openCategoryFilterSheet({
+      title: 'Kategori seç', options: cats, current: goalCategoryFilter,
+      onSelect: function (v) { goalCategoryFilter = v; renderCategoryFilter(); renderGoalList(); }
+    });
+  };
 }
 
 function openGoalSheet(id) {
@@ -2954,13 +3054,17 @@ function vocabRowHTML(v) {
 
 function renderVocabFilters() {
   var cats = vocabCategories();
-  var el = document.getElementById('vocab-cat-filter');
-  if (!cats.length) { el.innerHTML = ''; return; }
-  el.innerHTML = '<button data-v="" class="' + (!vocabFilter.category ? 'active' : '') + '">Tümü</button>' +
-    cats.map(function (c) { return '<button data-v="' + esc(c) + '" class="' + (vocabFilter.category === c ? 'active' : '') + '">' + esc(c) + '</button>'; }).join('');
-  el.querySelectorAll('button').forEach(function (b) {
-    b.addEventListener('click', function () { vocabFilter.category = b.dataset.v || null; renderVocabFilters(); renderVocabList(); });
-  });
+  var btn = document.getElementById('vocab-cat-filter-btn');
+  if (!cats.length) { btn.style.display = 'none'; return; }
+  btn.style.display = '';
+  btn.classList.toggle('active', !!vocabFilter.category);
+  btn.innerHTML = esc(vocabFilter.category || 'Kategori') + icon('chevronR');
+  btn.onclick = function () {
+    openCategoryFilterSheet({
+      title: 'Kategori seç', options: cats, current: vocabFilter.category,
+      onSelect: function (v) { vocabFilter.category = v; renderVocabFilters(); renderVocabList(); }
+    });
+  };
 }
 
 function renderVocabList() {
@@ -3332,20 +3436,42 @@ function renderQuran() {
     '<div class="progress"><div style="width:' + hatim.pct + '%"></div></div>' +
     '<div class="card-sub" style="margin-top:.4rem">' + hatim.into + ' / 604 sayfa \u00b7 ' + hatim.pct + '% (' + (hatim.hatimCount + 1) + '. hatim)</div>' +
     '<hr class="divider"><div class="eyebrow">Sayfa geçmişi</div>' + quranHistoryHTML();
-  document.getElementById('quran-add-btn').addEventListener('click', function () {
-    promptDialog({ title: 'Bugün okunan sayfa', type: 'number', placeholder: 'Ör. 4' }).then(function (v) {
-      var n = parseInt(v, 10);
-      if (v !== null && n > 0) addQuranPages(n);
-    });
+  document.getElementById('quran-add-btn').addEventListener('click', promptQuranPages);
+}
+
+function promptQuranPages() {
+  promptDialog({ title: 'Bugün okunan sayfa', type: 'number', placeholder: 'Ör. 4' }).then(function (v) {
+    var n = parseInt(v, 10);
+    if (v !== null && n > 0) addQuranPages(n);
   });
 }
 
 function initWorship() {
   document.getElementById('bulk-kaza-btn').addEventListener('click', openBulkKazaSheet);
+  document.getElementById('worship-add-fab').innerHTML = icon('plus');
+  document.getElementById('worship-add-fab').addEventListener('click', openWorshipAddMenu);
   renderPrayerToday();
   renderPrayerStreak();
   renderKaza();
   renderQuran();
+}
+
+function openWorshipAddMenu() {
+  var html = '<div class="stack">' +
+    '<button class="list-row" id="wm-kaza" style="width:100%;text-align:left;background:none;border:none;cursor:pointer">' +
+    '<span class="icon-btn">' + icon('moon') + '</span>' +
+    '<span class="row-main"><span class="row-title">Kaza ekle</span></span>' +
+    '</button>' +
+    '<button class="list-row" id="wm-quran" style="width:100%;text-align:left;background:none;border:none;cursor:pointer">' +
+    '<span class="icon-btn">' + icon('book') + '</span>' +
+    '<span class="row-main"><span class="row-title">Kur\'an sayfası ekle</span></span>' +
+    '</button></div>';
+  openSheet({
+    title: 'Ne eklemek istersin?', bodyHTML: html, onOpen: function () {
+      document.getElementById('wm-kaza').addEventListener('click', function () { closeSheet(); openBulkKazaSheet(); });
+      document.getElementById('wm-quran').addEventListener('click', function () { closeSheet(); promptQuranPages(); });
+    }
+  });
 }
 
 /* ---- finance.js ---- */
@@ -3364,14 +3490,22 @@ function getRecurring() { return get('recurringFinance', []); }
 function saveRecurring(list) { set('recurringFinance', list); }
 
 var DEFAULT_EXPENSE_CATEGORIES = [
-  'Market', 'Fatura', 'Ulaşım', 'Yemek', 'Sağlık', 'Eğlence', 'Giyim', 'Eğitim', 'Kira', 'Aidat',
-  'Elektrik', 'Su', 'Doğalgaz', 'İnternet', 'Telefon', 'Araba', 'Akaryakıt', 'Araç Bakımı', 'Otopark', 'Sigorta',
-  'Eczane', 'Kişisel Bakım', 'Spor', 'Kitap/Kırtasiye', 'Abonelikler', 'Tatil', 'Hobi', 'Çocuk', 'Evcil Hayvan', 'Kredi',
-  'KrediKartı', 'Vergi', 'Banka Ücretleri', 'Tasarruf', 'Hediye', 'Bağış', 'Ev Eşyası', 'Ev Tadilatı', 'İş Gideri', 'Diğer'
+  'Market', 'Fatura', 'Ulaşım', 'Yemek', 'Sağlık', 'Eğlence', 'Giyim', 'Eğitim', 'Kira', 'Diğer',
+  'Elektrik', 'Su', 'Doğalgaz', 'İnternet', 'Telefon', 'Kira Aidatı', 'Sigorta', 'Kredi Kartı Ödemesi',
+  'Kredi Taksiti', 'Akaryakıt', 'Araç Bakım', 'Toplu Taşıma', 'Taksi', 'Kafe', 'Restoran', 'Sinema/Tiyatro',
+  'Abonelikler', 'Spor Salonu', 'Kozmetik', 'Kuaför/Berber', 'İlaç', 'Doktor/Muayene', 'Diş Sağlığı',
+  'Evcil Hayvan', 'Ev Eşyası', 'Elektronik', 'Kitap/Kırtasiye', 'Kurs/Sertifika', 'Tatil/Seyahat',
+  'Hediye'
 ];
+
 var DEFAULT_INCOME_CATEGORIES = [
-  'Maaş', 'Ek Gelir', 'Serbest Meslek', 'Prim', 'İkramiye', 'Yatırım', 'Faiz Geliri', 'Kira Geliri', 'Temettü', 'Hediye',
-  'İade', 'Nakit İade', 'Burs', 'Nafaka', 'Emekli Maaşı', 'Devlet Desteği', 'Satış Geliri', 'Kripto Kazancı', 'Miras', 'Diğer'
+  'Maaş', 'Ek Gelir', 'Yatırım', 'Hediye', 'İade', 'Diğer',
+  'Prim', 'İkramiye', 'Serbest Çalışma', 'Freelance Proje', 'Kira Geliri', 'Faiz Geliri', 'Temettü',
+  'Hisse Senedi Satışı', 'Kripto Para', 'Fon Getirisi', 'Emeklilik Maaşı', 'Burs', 'Nakit Hediye',
+  'Doğum Günü Hediyesi', 'Satış Geliri', 'İkinci El Satış', 'Nakit İade', 'Vergi İadesi', 'Sigorta Tazminatı',
+  'Kira Depozito İadesi', 'Ortaklık Geliri', 'Danışmanlık Geliri', 'Telif Geliri', 'Reklam Geliri',
+  'Devlet Desteği', 'Nafaka', 'Miras', 'Yarışma/Ödül', 'Kumarbahis Kazancı', 'Nakit Bulundu', 'Borç Tahsilatı',
+  'Kredi Kullanımı', 'Devir Bakiye', 'Diğer Gelir'
 ];
 
 function financeCategoriesForType(type) {
@@ -3381,6 +3515,12 @@ function financeCategoriesForType(type) {
   getFinance().forEach(function (f) { if (f.category && f.type === type) s[f.category] = true; });
   if (type !== 'income') Object.keys(getBudget()).forEach(function (c) { s[c] = true; });
   return Object.keys(s).sort(function (a, b) { return a.localeCompare(b, 'tr'); });
+}
+
+function categoryPillsHTML(type, selected) {
+  return financeCategoriesForType(type).map(function (c) {
+    return '<button type="button" data-v="' + esc(c) + '" class="' + (selected === c ? 'active' : '') + '">' + esc(c) + '</button>';
+  }).join('');
 }
 
 function currentBalance() {
@@ -3397,9 +3537,10 @@ function renderOverview() {
   var bal = currentBalance();
   var mt = monthTotals(todayISO().slice(0, 7));
   document.getElementById('fin-overview').innerHTML =
-    '<div class="card-head mt0"><h3>Güncel bakiye</h3></div>' +
+    '<div class="card-head mt0"><h3>Toplam bakiye</h3></div>' +
     '<div class="card-stat" style="font-size:2rem">' + formatMoney(bal) + '</div>' +
-    '<div style="display:flex;gap:1.1rem;margin-top:.6rem" class="row-sub">' +
+    '<div class="eyebrow" style="margin-top:.7rem">Bu ay</div>' +
+    '<div style="display:flex;gap:1.1rem;margin-top:.3rem" class="row-sub">' +
     '<span style="color:var(--success)">' + icon('arrowUp') + ' ' + formatMoney(mt.income) + '</span>' +
     '<span style="color:var(--danger)">' + icon('arrowDown') + ' ' + formatMoney(mt.expense) + '</span>' +
     '</div>';
@@ -3491,9 +3632,7 @@ function openBudgetSheet() {
       }
       wireDel();
       wireCategoryDropdown('b-new-cat', 'b-cat-dropdown', function () { return cats; });
-      document.getElementById('b-new-cat').addEventListener('change', function () {
-        document.getElementById('b-new-limit').focus();
-      });
+      document.getElementById('b-new-cat').addEventListener('change', function () { document.getElementById('b-new-limit').focus(); });
       document.getElementById('b-add').addEventListener('click', function () {
         var c = document.getElementById('b-new-cat').value.trim();
         var l = parseFloat(document.getElementById('b-new-limit').value);
@@ -3531,97 +3670,70 @@ function parseTRAmount(s) {
 
 var FIN_CATEGORY_KEYWORDS = {
   'Market': ['market', 'migros', 'carrefour', 'a101', 'bim', 'şok'],
-  'Elektrik': ['elektrik'],
-  'Su': ['su idaresi', 'su faturası', 'iski', 'aski'],
-  'Doğalgaz': ['doğalgaz', 'igdaş'],
-  'İnternet': ['internet', 'fiber'],
-  'Telefon': ['telekom', 'gsm', 'turkcell', 'vodafone'],
-  'Fatura': ['fatura'],
-  'Akaryakıt': ['akaryakıt', 'motorin', 'dizel', 'benzin istasyonu', 'petrol ofisi', 'opet', 'shell', 'total', ' bp '],
-  'Ulaşım': ['taksi', 'otobüs', 'metro', 'akbil', 'istanbulkart', 'benzin', 'yakıt', 'otogar', 'tren', 'uçak bileti'],
-  'Otopark': ['otopark', 'park ücreti'],
-  'Araç Bakımı': ['oto tamir', 'lastik', 'yedek parça', 'oto servis'],
+  'Fatura': ['fatura', 'elektrik', 'doğalgaz', 'su idaresi', 'internet', 'telekom'],
+  'Ulaşım': ['taksi', 'otobüs', 'metro', 'akbil', 'istanbulkart', 'benzin', 'yakıt'],
   'Yemek': ['restoran', 'restaurant', 'cafe', 'kahve', 'yemek'],
-  'Sağlık': ['hastane', 'doktor', 'poliklinik', 'muayene'],
-  'Eczane': ['eczane']
+  'Sağlık': ['eczane', 'hastane', 'doktor']
 };
 
-// Strict Turkish money: 1-3 digits, optional .000 groups, then exactly 2 decimal digits.
-// The trailing (?!\d) stops a 3-decimal quantity like "34,740" (liters) from being read as "34,74".
-var FIN_MONEY_RE = /\d{1,3}(?:\.\d{3})*,\d{2}(?!\d)|\d+,\d{2}(?!\d)/g;
-// Strong, unambiguous "this is the amount" signals — checked first, across the whole document.
-var FIN_STRONG_TOTAL_RE = /dönem borcu|genel toplam|ödenecek tutar|ödenen tutar/i;
-// A bare "toplam" is common but ambiguous in multi-section documents (e.g. "Toplam Bankkart Lira"
-// on a card statement isn't a transaction total) — only trusted if no strong signal was found.
-var FIN_WEAK_TOTAL_RE = /\btoplam\b/i;
-// Subtotal/tax lines that come before the real total — never trust these as "the" amount.
-var FIN_SUBTOTAL_LINE_RE = /ara toplam|\bkdv\b|matrah/i;
-// Lines that are about limits, balances, foreign-currency zeros, or ID numbers — always skip these.
-var FIN_EXCLUDE_LINE_RE = /limit|kullanılabilir|müşteri no|kart no|referans|iban|hesap no|tel:|mersis|vergi|vd:|lisans|faiz|\busd\b/i;
+/* Fiş/makbuz OCR metninden en olası "işletme adı / açıklama" satırını seçer.
+   Barkod, referans/sıra/kod numaraları, tarih-saat, vergi dairesi gibi meta
+   satırları eler; çok fazla tek-karakter "kelime" içeren (OCR gürültüsü)
+   satırları da eler; "TİC", "LTD", "ŞTİ", "A.Ş" gibi işletme belirteci olan
+   satırı önceliklendirir. */
+function pickReceiptTitle(lines) {
+  var noiseLinePattern = /^(tarih|saat|fiş no|fis no|ref|sıra no|sira no|kod|kasa|term|işyeri no|isyeri no|vd|vno|bölüm|bolum|onay kodu|müşteri isim|musteri isim|kart hamili|tic\.?\s*sicil|iban)\s*[:.]/i;
+  var businessMarkerPattern = /(tic\.?\s*(ltd|a\.?ş)|ltd\.?\s*şti|a\.ş\.?\b)/i;
+  var barcodeOrNumericPattern = /^[\d\s.,\-*#]+$/; // sadece rakam/boşluk/noktalama
+  var starMarkerPattern = /^\*+.*\*+$/; // "*** TEŞEKKÜRLER ***" gibi süsleme satırları
 
-function extractAmountFromLines(lines) {
-  function bestOnLine(line) {
-    var nums = line.match(FIN_MONEY_RE);
-    if (!nums || !nums.length) return null;
-    var val = parseTRAmount(nums[nums.length - 1]);
-    return (!isNaN(val) && val > 0) ? val : null;
+  function isGarbled(line) {
+    // OCR gürültüsü belirtisi: çok fazla 1-2 harflik "kelime" parçası
+    var words = line.split(/\s+/).filter(Boolean);
+    if (words.length < 3) return false;
+    var shortCount = words.filter(function (w) { return w.replace(/[^a-zA-ZğüşöçıİĞÜŞÖÇ]/g, '').length <= 2; }).length;
+    return shortCount / words.length > 0.5;
   }
-  function scan(matchRe) {
-    for (var i = lines.length - 1; i >= 0; i--) {
-      var line = lines[i];
-      if (FIN_EXCLUDE_LINE_RE.test(line) || FIN_SUBTOTAL_LINE_RE.test(line)) continue;
-      if (matchRe.test(line)) {
-        var val = bestOnLine(line);
-        if (val !== null) return val;
-      }
-    }
-    return null;
-  }
-  var found = scan(FIN_STRONG_TOTAL_RE);
-  if (found !== null) return found;
-  found = scan(FIN_WEAK_TOTAL_RE);
-  if (found !== null) return found;
+
   var candidates = [];
-  lines.forEach(function (line) {
-    if (FIN_EXCLUDE_LINE_RE.test(line)) return;
-    var nums = line.match(FIN_MONEY_RE);
-    if (nums) nums.forEach(function (n) {
-      var val = parseTRAmount(n);
-      if (!isNaN(val)) candidates.push(val);
-    });
-  });
-  return candidates.length ? Math.max.apply(null, candidates) : null;
+  for (var i = 0; i < Math.min(lines.length, 8); i++) { // fişin en üst ~8 satırına bak
+    var line = lines[i];
+    if (line.length <= 2) continue;
+    if (noiseLinePattern.test(line)) continue;
+    if (barcodeOrNumericPattern.test(line)) continue;
+    if (starMarkerPattern.test(line)) continue;
+    if (isGarbled(line)) continue;
+    candidates.push(line);
+  }
+  if (!candidates.length) return '';
+
+  // İşletme belirteci olan bir satır varsa onu tercih et
+  var businessLine = candidates.find(function (l) { return businessMarkerPattern.test(l); });
+  if (businessLine) return businessLine.replace(/\*+/g, '').trim();
+
+  // Yoksa ilk uygun adayı kullan
+  return candidates[0].replace(/\*+/g, '').trim();
 }
 
 function applyExtractedText(text) {
   var lines = text.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
-  var amount = extractAmountFromLines(lines);
-
-  var dateISO = null;
-  var dateCandidates = text.match(/\d{2}[.\/\-]\d{2}[.\/\-]20\d{2}/g) || [];
-  for (var di = 0; di < dateCandidates.length; di++) {
-    var parts = dateCandidates[di].match(/(\d{2})[.\/\-](\d{2})[.\/\-](20\d{2})/);
-    var dd = parseInt(parts[1], 10), mm = parseInt(parts[2], 10);
-    if (dd >= 1 && dd <= 31 && mm >= 1 && mm <= 12) { dateISO = parts[3] + '-' + parts[2] + '-' + parts[1]; break; }
-  }
-  if (!dateISO) {
-    var dm2 = text.match(/(20\d{2})-(\d{2})-(\d{2})/);
-    if (dm2) {
-      var mm2 = parseInt(dm2[2], 10), dd2 = parseInt(dm2[3], 10);
-      if (mm2 >= 1 && mm2 <= 12 && dd2 >= 1 && dd2 <= 31) dateISO = dm2[1] + '-' + dm2[2] + '-' + dm2[3];
+  var amount = null;
+  var m = text.match(/(toplam|tutar|ödenen|genel toplam)[^\d]{0,15}([\d.,]+)/i);
+  if (m) amount = parseTRAmount(m[2]);
+  if (!amount || isNaN(amount)) {
+    var all = text.match(/\d{1,3}(\.\d{3})*,\d{2}|\d+,\d{2}/g);
+    if (all && all.length) {
+      var parsed = all.map(parseTRAmount).filter(function (n) { return !isNaN(n); });
+      if (parsed.length) amount = Math.max.apply(null, parsed);
     }
   }
+  var dateISO = null;
+  var dm = text.match(/(\d{2})[.\/](\d{2})[.\/](\d{4})/);
+  var dm2 = !dm && text.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (dm) dateISO = dm[3] + '-' + dm[2] + '-' + dm[1];
+  else if (dm2) dateISO = dm2[1] + '-' + dm2[2] + '-' + dm2[3];
 
-  // Skip generic thank-you/greeting banner lines (receipts almost always open with one) so the
-  // actual business name — usually the very next line — gets picked instead.
-  var GENERIC_TITLE_LINE_RE = /teşekkür|hoşgeldin|hoş geldin|iyi günler|güle güle|welcome|thank you/i;
-  var title = '';
-  for (var i = 0; i < lines.length; i++) {
-    if (lines[i].length <= 2) continue;
-    if (/^\d+([.,]\d+)?$/.test(lines[i])) continue;
-    if (GENERIC_TITLE_LINE_RE.test(lines[i])) continue;
-    title = lines[i]; break;
-  }
+  var title = pickReceiptTitle(lines);
   var lowerText = text.toLowerCase();
   var category = '';
   Object.keys(FIN_CATEGORY_KEYWORDS).some(function (cat) {
@@ -3630,88 +3742,22 @@ function applyExtractedText(text) {
   });
   var isIncome = /maaş|iade|gelir/i.test(text);
 
-  if (amount !== null && !isNaN(amount)) document.getElementById('txf-amount').value = amount;
+  if (amount && !isNaN(amount)) document.getElementById('txf-amount').value = amount;
   if (dateISO) document.getElementById('txf-date').value = dateISO;
   if (title) document.getElementById('txf-title').value = title.slice(0, 80);
   if (category) {
     var catInput = document.getElementById('txf-category');
     catInput.value = category;
-    catInput.dispatchEvent(new Event('input', { bubbles: true }));
+    catInput.dispatchEvent(new Event('input')); // tetikleyici çip metnini de güncelle
   }
-  if (isIncome) {
-    var incomeBtn = document.querySelector('#txf-type button[data-v="income"]');
-    if (incomeBtn) incomeBtn.click();
-  }
-}
-
-function pdfTextContentToLines(tc) {
-  var rows = [];
-  tc.items.forEach(function (it) {
-    var y = it.transform[5];
-    var row = rows.filter(function (r) { return Math.abs(r.y - y) <= 2; })[0];
-    if (!row) { row = { y: y, parts: [] }; rows.push(row); }
-    row.parts.push({ x: it.transform[4], s: it.str });
-  });
-  rows.sort(function (a, b) { return b.y - a.y; });
-  return rows.map(function (r) {
-    return r.parts.sort(function (a, b) { return a.x - b.x; }).map(function (p) { return p.s; }).join(' ');
-  }).join('\n');
-}
-
-// Pure pixel transform, kept separate from the canvas/Image plumbing below so it's easy to test:
-// grayscale + a moderate contrast boost, which measurably helps Tesseract on faint thermal-paper
-// receipts or photos with a busy/patterned background showing through.
-function applyGrayscaleContrast(imageData, contrast) {
-  var d = imageData.data;
-  for (var i = 0; i < d.length; i += 4) {
-    var gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-    gray = (gray - 128) * contrast + 128;
-    gray = gray < 0 ? 0 : gray > 255 ? 255 : gray;
-    d[i] = d[i + 1] = d[i + 2] = gray;
-  }
-  return imageData;
-}
-
-// Downscales (for performance) and grayscale+contrast-boosts a photo before OCR. Falls back to
-// the original file untouched if anything in the pipeline fails, so a scan never breaks outright.
-function preprocessImageForOCR(file) {
-  return new Promise(function (resolve) {
-    if (typeof Image === 'undefined' || typeof document.createElement('canvas').getContext !== 'function' || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') { resolve(file); return; }
-    var url = URL.createObjectURL(file);
-    var img = new Image();
-    img.onload = function () {
-      URL.revokeObjectURL(url);
-      var maxDim = 1900;
-      var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-      var w = Math.max(1, Math.round(img.width * scale));
-      var h = Math.max(1, Math.round(img.height * scale));
-      var canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      var ctx = canvas.getContext('2d');
-      if (!ctx) { resolve(file); return; }
-      ctx.drawImage(img, 0, 0, w, h);
-      try {
-        var imageData = ctx.getImageData(0, 0, w, h);
-        applyGrayscaleContrast(imageData, 1.35);
-        ctx.putImageData(imageData, 0, 0);
-      } catch (e) {
-        // getImageData can fail in rare cases (e.g. a tainted canvas) — keep the plain resized draw.
-      }
-      if (canvas.toBlob) canvas.toBlob(function (blob) { resolve(blob || file); }, 'image/jpeg', 0.92);
-      else resolve(file);
-    };
-    img.onerror = function () { URL.revokeObjectURL(url); resolve(file); };
-    img.src = url;
-  });
+  if (isIncome) document.querySelectorAll('#txf-type button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === 'income'); });
 }
 
 function scanReceiptImage(file) {
   var status = document.getElementById('txf-scan-status');
   status.textContent = 'Görsel okunuyor…';
   if (typeof Tesseract === 'undefined') { status.textContent = 'OCR kütüphanesi yüklenemedi — internet bağlantısını kontrol et.'; return; }
-  preprocessImageForOCR(file).then(function (processedFile) {
-    return Tesseract.recognize(processedFile, 'tur+eng');
-  }).then(function (result) {
+  Tesseract.recognize(file, 'tur+eng').then(function (result) {
     applyExtractedText(result.data.text || '');
     status.textContent = 'Tahmini bilgiler dolduruldu — kontrol et.';
   }).catch(function (err) {
@@ -3732,7 +3778,7 @@ function scanPdfStatement(file) {
         var pagePromises = [];
         for (var i = 1; i <= Math.min(pdf.numPages, 5); i++) {
           pagePromises.push(pdf.getPage(i).then(function (page) {
-            return page.getTextContent().then(function (tc) { return pdfTextContentToLines(tc); });
+            return page.getTextContent().then(function (tc) { return tc.items.map(function (it) { return it.str; }).join(' '); });
           }));
         }
         return Promise.all(pagePromises).then(function (pages) {
@@ -3783,10 +3829,12 @@ function openTransactionSheet(id) {
 
   openSheet({
     title: isNew ? 'Yeni işlem' : 'İşlemi düzenle', bodyHTML: bodyHTML(), onOpen: function (body) {
+      var refreshCatTrigger = function () {};
       body.querySelectorAll('#txf-type button').forEach(function (b) {
         b.addEventListener('click', function () {
           draft.type = b.dataset.v;
           body.querySelectorAll('#txf-type button').forEach(function (x) { x.classList.toggle('active', x === b); });
+          refreshCatTrigger();
         });
       });
       wireCategoryDropdown('txf-category', 'txf-cat-dropdown', function () { return financeCategoriesForType(draft.type); });
@@ -3859,10 +3907,12 @@ function openRecurringSheet(id) {
   }
   openSheet({
     title: isNew ? 'Yeni sabit işlem' : 'Sabit işlemi düzenle', bodyHTML: bodyHTML(), onOpen: function (body) {
+      var refreshCatTrigger = function () {};
       body.querySelectorAll('#rcf-type button').forEach(function (b) {
         b.addEventListener('click', function () {
           draft.type = b.dataset.v;
           body.querySelectorAll('#rcf-type button').forEach(function (x) { x.classList.toggle('active', x === b); });
+          refreshCatTrigger();
         });
       });
       wireCategoryDropdown('rcf-category', 'rcf-cat-dropdown', function () { return financeCategoriesForType(draft.type); });
