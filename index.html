@@ -326,6 +326,9 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .pill-select { display: flex; flex-wrap: wrap; gap: .45rem; }
 .pill-select button { border: 1px solid var(--rule-strong); background: var(--paper-raised); border-radius: 999px; padding: .38rem .78rem; font-size: .82rem; font-weight: 500; cursor: pointer; }
 .pill-select button.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.cat-dropdown { position: absolute; left: 0; right: 0; top: calc(100% + .3rem); background: var(--paper-raised); border: 1px solid var(--rule-strong); border-radius: var(--radius-m); box-shadow: var(--shadow); max-height: 13rem; overflow-y: auto; -webkit-overflow-scrolling: touch; z-index: 5; padding: .35rem; }
+.cat-dropdown button { display: block; width: 100%; text-align: left; border: none; background: none; font: inherit; color: var(--ink); padding: .55rem .6rem; border-radius: var(--radius-s); cursor: pointer; }
+.cat-dropdown button:active { background: var(--accent-soft); }
 
 .priority-dot { width: .5rem; height: .5rem; border-radius: 50%; flex: none; }
 .priority-low { background: var(--success); }
@@ -463,9 +466,9 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 <main class="page" id="page-root">
   <div id="dash-content">
     <section id="dash-greeting"></section>
+    <section id="dash-hero"></section>
     <section id="dash-agenda"></section>
     <div id="dash-suggestions"></div>
-    <section id="dash-hero"></section>
     <div id="dash-cards"></div>
   </div>
 </main>
@@ -1102,6 +1105,71 @@ function closeSheet() {
   var overlay = document.getElementById('dlg-overlay');
   if (sheet) sheet.classList.remove('open');
   if (overlay) overlay.classList.remove('open');
+}
+
+// Shared helper: turns a plain text <input> into a tap-to-reveal, scrollable, filterable
+// single-select dropdown fed by getOptions(). Used for every long category/tag picker in the
+// app instead of an always-visible chip grid. Selection uses a real click (not pointerdown) so
+// dragging a finger to scroll the list never gets mistaken for picking whatever it started on,
+// and the dropdown closes on a tap outside it rather than on blur (which raced with scrolling).
+function wireCategoryDropdown(inputId, dropdownId, getOptions) {
+  var input = document.getElementById(inputId);
+  var dd = document.getElementById(dropdownId);
+  if (!input || !dd) return;
+  function optionsHTML(filterText) {
+    var list = getOptions();
+    if (filterText) {
+      var f = filterText.toLocaleLowerCase('tr');
+      list = list.filter(function (c) { return c.toLocaleLowerCase('tr').indexOf(f) !== -1; });
+    }
+    if (!list.length) return '<div class="hint" style="padding:.5rem .6rem">Eşleşen seçenek yok — yazdığın yeni değer olarak kaydedilir.</div>';
+    return list.map(function (c) { return '<button type="button" data-v="' + esc(c) + '">' + esc(c) + '</button>'; }).join('');
+  }
+  // Measures real remaining room above/below the input — using visualViewport so an open
+  // on-screen keyboard counts as "gone" space, not just window.innerHeight — and flips the
+  // dropdown to whichever side actually has room, sizing it to fit instead of getting clipped.
+  function positionDropdown() {
+    var rect = input.getBoundingClientRect();
+    var viewportH = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    var margin = 10, preferred = 208, minUsable = 60;
+    var spaceBelow = Math.max(0, viewportH - rect.bottom - margin);
+    var spaceAbove = Math.max(0, rect.top - margin);
+    if (spaceBelow >= spaceAbove) {
+      dd.style.top = 'calc(100% + .3rem)'; dd.style.bottom = 'auto';
+      dd.style.maxHeight = Math.max(minUsable, Math.min(preferred, spaceBelow)) + 'px';
+    } else {
+      dd.style.top = 'auto'; dd.style.bottom = 'calc(100% + .3rem)';
+      dd.style.maxHeight = Math.max(minUsable, Math.min(preferred, spaceAbove)) + 'px';
+    }
+  }
+  function render(html) {
+    dd.innerHTML = html;
+    dd.querySelectorAll('button[data-v]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        input.value = b.dataset.v;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        close();
+      });
+    });
+    positionDropdown();
+  }
+  function outsideTap(e) { if (e.target !== input && !dd.contains(e.target)) close(); }
+  function onViewportChange() { positionDropdown(); }
+  function open() {
+    render(optionsHTML(''));
+    dd.style.display = 'block';
+    positionDropdown();
+    document.addEventListener('pointerdown', outsideTap, true);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', onViewportChange);
+  }
+  function filter() { render(optionsHTML(input.value)); }
+  function close() {
+    dd.style.display = 'none';
+    if (window.visualViewport) window.visualViewport.removeEventListener('resize', onViewportChange);
+    document.removeEventListener('pointerdown', outsideTap, true);
+  }
+  input.addEventListener('focus', open);
+  input.addEventListener('input', filter);
 }
 
 function confirmDialog(opts) {
@@ -1793,9 +1861,9 @@ function initDashboard() {
 
 function startDashboard() {
   renderGreeting();
+  renderHero();
   renderTodayAgenda();
   renderSuggestions();
-  renderHero();
   renderCards();
 }
 
@@ -2233,9 +2301,9 @@ function openRoutineSheet(id) {
       '<div class="field" id="rf-days-field" style="' + (draft.frequency === 'weekly' ? '' : 'display:none') + '"><label>Günler</label><div class="pill-select" id="rf-days">' +
         DAY_CODES.map(function (c) { return '<button data-v="' + c + '" class="' + (draft.days.indexOf(c) !== -1 ? 'active' : '') + '">' + DAY_LABELS[c] + '</button>'; }).join('') +
       '</div></div>' +
-      '<div class="field"><label>Kategori</label>' +
-        '<div class="pill-select" id="rf-cat-pills">' + routineCategories().map(function (c) { return '<button type="button" data-v="' + esc(c) + '" class="' + (draft.category === c ? 'active' : '') + '">' + esc(c) + '</button>'; }).join('') + '</div>' +
-        '<input type="text" id="rf-category" value="' + esc(draft.category) + '" placeholder="Ya da yeni kategori yaz" style="margin-top:.5rem"></div>' +
+      '<div class="field" style="position:relative"><label>Kategori</label>' +
+        '<input type="text" id="rf-category" value="' + esc(draft.category) + '" placeholder="Kategori seç ya da yeni yaz" autocomplete="off">' +
+        '<div class="cat-dropdown" id="rf-cat-dropdown" style="display:none"></div></div>' +
       '<div class="field"><label>Hatırlatma saati (opsiyonel)</label><input type="time" id="rf-reminder" value="' + esc(draft.reminderTime || '') + '"></div>' +
       '<div class="field"><label>Not (opsiyonel)</label><textarea id="rf-note">' + esc(draft.note || '') + '</textarea></div>' +
       '<div class="stack">' +
@@ -2261,16 +2329,7 @@ function openRoutineSheet(id) {
           b.classList.toggle('active');
         });
       });
-      body.querySelectorAll('#rf-cat-pills button').forEach(function (b) {
-        b.addEventListener('click', function () {
-          document.getElementById('rf-category').value = b.dataset.v;
-          body.querySelectorAll('#rf-cat-pills button').forEach(function (x) { x.classList.toggle('active', x === b); });
-        });
-      });
-      document.getElementById('rf-category').addEventListener('input', function (e) {
-        var v = e.target.value;
-        body.querySelectorAll('#rf-cat-pills button').forEach(function (x) { x.classList.toggle('active', x.dataset.v === v); });
-      });
+      wireCategoryDropdown('rf-category', 'rf-cat-dropdown', routineCategories);
       document.getElementById('rf-save').addEventListener('click', function () {
         var title = document.getElementById('rf-title').value.trim();
         if (!title) { showToast('Başlık gerekli'); return; }
@@ -2743,9 +2802,9 @@ function openGoalSheet(id) {
       '</div></div>' +
       '<div class="field-row"><div class="field"><label>Hedef miktar</label><input type="number" id="gf-target" value="' + draft.target + '"></div>' +
       '<div class="field"><label>Birim</label><input type="text" id="gf-unit" value="' + esc(draft.unit) + '" placeholder="sayfa, km…"></div></div>' +
-      '<div class="field"><label>Kategori</label>' +
-      '<div class="pill-select" id="gf-cat-pills">' + goalCategoryOptions().map(function (c) { return '<button type="button" data-v="' + esc(c) + '" class="' + (draft.category === c ? 'active' : '') + '">' + esc(c) + '</button>'; }).join('') + '</div>' +
-      '<input type="text" id="gf-category" value="' + esc(draft.category) + '" placeholder="Ya da yeni kategori yaz" style="margin-top:.5rem"></div>' +
+      '<div class="field" style="position:relative"><label>Kategori</label>' +
+      '<input type="text" id="gf-category" value="' + esc(draft.category) + '" placeholder="Kategori seç ya da yeni yaz" autocomplete="off">' +
+      '<div class="cat-dropdown" id="gf-cat-dropdown" style="display:none"></div></div>' +
       '<div class="field"><label>Not</label><textarea id="gf-note">' + esc(draft.note || '') + '</textarea></div>' +
       (isNew ? '' : '<div class="field"><label>Dönem geçmişi</label>' + historyHTML(draft) + '</div>') +
       '<div class="stack">' +
@@ -2759,16 +2818,7 @@ function openGoalSheet(id) {
       body.querySelectorAll('#gf-period button').forEach(function (b) {
         b.addEventListener('click', function () { draft.period = b.dataset.v; body.querySelectorAll('#gf-period button').forEach(function (x) { x.classList.toggle('active', x === b); }); });
       });
-      body.querySelectorAll('#gf-cat-pills button').forEach(function (b) {
-        b.addEventListener('click', function () {
-          document.getElementById('gf-category').value = b.dataset.v;
-          body.querySelectorAll('#gf-cat-pills button').forEach(function (x) { x.classList.toggle('active', x === b); });
-        });
-      });
-      document.getElementById('gf-category').addEventListener('input', function (e) {
-        var v = e.target.value;
-        body.querySelectorAll('#gf-cat-pills button').forEach(function (x) { x.classList.toggle('active', x.dataset.v === v); });
-      });
+      wireCategoryDropdown('gf-category', 'gf-cat-dropdown', goalCategoryOptions);
       document.getElementById('gf-save').addEventListener('click', function () {
         var title = document.getElementById('gf-title').value.trim();
         if (!title) { showToast('Başlık gerekli'); return; }
@@ -2939,9 +2989,9 @@ function openVocabSheet(id) {
     return '' +
       '<div class="field"><label>Kelime</label><input type="text" id="vf-word" value="' + esc(draft.word) + '"></div>' +
       '<div class="field"><label>Anlamı</label><input type="text" id="vf-meaning" value="' + esc(draft.meaning) + '"></div>' +
-      '<div class="field"><label>Kategori</label>' +
-      '<div class="pill-select" id="vf-cat-pills">' + vocabCategoryOptions().map(function (c) { return '<button type="button" data-v="' + esc(c) + '" class="' + (draft.category === c ? 'active' : '') + '">' + esc(c) + '</button>'; }).join('') + '</div>' +
-      '<input type="text" id="vf-category" value="' + esc(draft.category) + '" placeholder="Ya da yeni kategori yaz" style="margin-top:.5rem"></div>' +
+      '<div class="field" style="position:relative"><label>Kategori</label>' +
+      '<input type="text" id="vf-category" value="' + esc(draft.category) + '" placeholder="Kategori seç ya da yeni yaz" autocomplete="off">' +
+      '<div class="cat-dropdown" id="vf-cat-dropdown" style="display:none"></div></div>' +
       '<div class="stack">' +
       '<button class="btn btn-primary btn-block" id="vf-save">Kaydet</button>' +
       (isNew ? '' : '<button class="btn btn-danger btn-block" id="vf-delete">Kelimeyi sil</button>') +
@@ -2949,16 +2999,7 @@ function openVocabSheet(id) {
   }
   openSheet({
     title: isNew ? 'Yeni kelime' : 'Kelimeyi düzenle', bodyHTML: bodyHTML(), onOpen: function (body) {
-      body.querySelectorAll('#vf-cat-pills button').forEach(function (b) {
-        b.addEventListener('click', function () {
-          document.getElementById('vf-category').value = b.dataset.v;
-          body.querySelectorAll('#vf-cat-pills button').forEach(function (x) { x.classList.toggle('active', x === b); });
-        });
-      });
-      document.getElementById('vf-category').addEventListener('input', function (e) {
-        var v2 = e.target.value;
-        body.querySelectorAll('#vf-cat-pills button').forEach(function (x) { x.classList.toggle('active', x.dataset.v === v2); });
-      });
+      wireCategoryDropdown('vf-category', 'vf-cat-dropdown', vocabCategoryOptions);
       document.getElementById('vf-save').addEventListener('click', function () {
         var word = document.getElementById('vf-word').value.trim();
         var meaning = document.getElementById('vf-meaning').value.trim();
@@ -3322,8 +3363,16 @@ function saveBudget(b) { set('budget', b); }
 function getRecurring() { return get('recurringFinance', []); }
 function saveRecurring(list) { set('recurringFinance', list); }
 
-var DEFAULT_EXPENSE_CATEGORIES = ['Market', 'Fatura', 'Ulaşım', 'Yemek', 'Sağlık', 'Eğlence', 'Giyim', 'Eğitim', 'Kira', 'Diğer'];
-var DEFAULT_INCOME_CATEGORIES = ['Maaş', 'Ek Gelir', 'Yatırım', 'Hediye', 'İade', 'Diğer'];
+var DEFAULT_EXPENSE_CATEGORIES = [
+  'Market', 'Fatura', 'Ulaşım', 'Yemek', 'Sağlık', 'Eğlence', 'Giyim', 'Eğitim', 'Kira', 'Aidat',
+  'Elektrik', 'Su', 'Doğalgaz', 'İnternet', 'Telefon', 'Araba', 'Akaryakıt', 'Araç Bakımı', 'Otopark', 'Sigorta',
+  'Eczane', 'Kişisel Bakım', 'Spor', 'Kitap/Kırtasiye', 'Abonelikler', 'Tatil', 'Hobi', 'Çocuk', 'Evcil Hayvan', 'Kredi',
+  'KrediKartı', 'Vergi', 'Banka Ücretleri', 'Tasarruf', 'Hediye', 'Bağış', 'Ev Eşyası', 'Ev Tadilatı', 'İş Gideri', 'Diğer'
+];
+var DEFAULT_INCOME_CATEGORIES = [
+  'Maaş', 'Ek Gelir', 'Serbest Meslek', 'Prim', 'İkramiye', 'Yatırım', 'Faiz Geliri', 'Kira Geliri', 'Temettü', 'Hediye',
+  'İade', 'Nakit İade', 'Burs', 'Nafaka', 'Emekli Maaşı', 'Devlet Desteği', 'Satış Geliri', 'Kripto Kazancı', 'Miras', 'Diğer'
+];
 
 function financeCategoriesForType(type) {
   var defaults = type === 'income' ? DEFAULT_INCOME_CATEGORIES : DEFAULT_EXPENSE_CATEGORIES;
@@ -3332,12 +3381,6 @@ function financeCategoriesForType(type) {
   getFinance().forEach(function (f) { if (f.category && f.type === type) s[f.category] = true; });
   if (type !== 'income') Object.keys(getBudget()).forEach(function (c) { s[c] = true; });
   return Object.keys(s).sort(function (a, b) { return a.localeCompare(b, 'tr'); });
-}
-
-function categoryPillsHTML(type, selected) {
-  return financeCategoriesForType(type).map(function (c) {
-    return '<button type="button" data-v="' + esc(c) + '" class="' + (selected === c ? 'active' : '') + '">' + esc(c) + '</button>';
-  }).join('');
 }
 
 function currentBalance() {
@@ -3434,8 +3477,7 @@ function openBudgetSheet() {
         '<button class="icon-btn b-del" style="align-self:flex-end;margin-bottom:.9rem">' + icon('trash') + '</button></div>';
     }).join('') + '</div>' +
       '<div class="eyebrow" style="margin-top:.3rem">Yeni kategori</div>' +
-      '<div class="pill-select" id="b-cat-pills">' + cats.map(function (c) { return '<button type="button" data-v="' + esc(c) + '">' + esc(c) + '</button>'; }).join('') + '</div>' +
-      '<div class="field-row" style="margin-top:.5rem"><div class="field" style="flex:2"><label>Kategori</label><input type="text" id="b-new-cat" placeholder="Ya da yeni yaz"></div>' +
+      '<div class="field-row" style="margin-top:.5rem"><div class="field" style="flex:2;position:relative"><label>Kategori</label><input type="text" id="b-new-cat" placeholder="Kategori seç ya da yeni yaz" autocomplete="off"><div class="cat-dropdown" id="b-cat-dropdown" style="display:none"></div></div>' +
       '<div class="field" style="flex:1"><label>Limit</label><input type="number" id="b-new-limit"></div></div>' +
       '<button class="btn btn-secondary btn-block" id="b-add">' + icon('plus') + ' Kategori ekle</button>' +
       '<button class="btn btn-primary btn-block" id="b-save" style="margin-top:.6rem">Kaydet</button>';
@@ -3448,12 +3490,9 @@ function openBudgetSheet() {
         });
       }
       wireDel();
-      body.querySelectorAll('#b-cat-pills button').forEach(function (b) {
-        b.addEventListener('click', function () {
-          document.getElementById('b-new-cat').value = b.dataset.v;
-          body.querySelectorAll('#b-cat-pills button').forEach(function (x) { x.classList.toggle('active', x === b); });
-          document.getElementById('b-new-limit').focus();
-        });
+      wireCategoryDropdown('b-new-cat', 'b-cat-dropdown', function () { return cats; });
+      document.getElementById('b-new-cat').addEventListener('change', function () {
+        document.getElementById('b-new-limit').focus();
       });
       document.getElementById('b-add').addEventListener('click', function () {
         var c = document.getElementById('b-new-cat').value.trim();
@@ -3492,29 +3531,86 @@ function parseTRAmount(s) {
 
 var FIN_CATEGORY_KEYWORDS = {
   'Market': ['market', 'migros', 'carrefour', 'a101', 'bim', 'şok'],
-  'Fatura': ['fatura', 'elektrik', 'doğalgaz', 'su idaresi', 'internet', 'telekom'],
-  'Ulaşım': ['taksi', 'otobüs', 'metro', 'akbil', 'istanbulkart', 'benzin', 'yakıt'],
+  'Elektrik': ['elektrik'],
+  'Su': ['su idaresi', 'su faturası', 'iski', 'aski'],
+  'Doğalgaz': ['doğalgaz', 'igdaş'],
+  'İnternet': ['internet', 'fiber'],
+  'Telefon': ['telekom', 'gsm', 'turkcell', 'vodafone'],
+  'Fatura': ['fatura'],
+  'Akaryakıt': ['akaryakıt', 'motorin', 'dizel', 'benzin istasyonu', 'petrol ofisi', 'opet', 'shell', 'total', ' bp '],
+  'Ulaşım': ['taksi', 'otobüs', 'metro', 'akbil', 'istanbulkart', 'benzin', 'yakıt', 'otogar', 'tren', 'uçak bileti'],
+  'Otopark': ['otopark', 'park ücreti'],
+  'Araç Bakımı': ['oto tamir', 'lastik', 'yedek parça', 'oto servis'],
   'Yemek': ['restoran', 'restaurant', 'cafe', 'kahve', 'yemek'],
-  'Sağlık': ['eczane', 'hastane', 'doktor']
+  'Sağlık': ['hastane', 'doktor', 'poliklinik', 'muayene'],
+  'Eczane': ['eczane']
 };
+
+// Strict Turkish money: 1-3 digits, optional .000 groups, then exactly 2 decimal digits.
+// The trailing (?!\d) stops a 3-decimal quantity like "34,740" (liters) from being read as "34,74".
+var FIN_MONEY_RE = /\d{1,3}(?:\.\d{3})*,\d{2}(?!\d)|\d+,\d{2}(?!\d)/g;
+// Strong, unambiguous "this is the amount" signals — checked first, across the whole document.
+var FIN_STRONG_TOTAL_RE = /dönem borcu|genel toplam|ödenecek tutar|ödenen tutar/i;
+// A bare "toplam" is common but ambiguous in multi-section documents (e.g. "Toplam Bankkart Lira"
+// on a card statement isn't a transaction total) — only trusted if no strong signal was found.
+var FIN_WEAK_TOTAL_RE = /\btoplam\b/i;
+// Subtotal/tax lines that come before the real total — never trust these as "the" amount.
+var FIN_SUBTOTAL_LINE_RE = /ara toplam|\bkdv\b|matrah/i;
+// Lines that are about limits, balances, foreign-currency zeros, or ID numbers — always skip these.
+var FIN_EXCLUDE_LINE_RE = /limit|kullanılabilir|müşteri no|kart no|referans|iban|hesap no|tel:|mersis|vergi|vd:|lisans|faiz|\busd\b/i;
+
+function extractAmountFromLines(lines) {
+  function bestOnLine(line) {
+    var nums = line.match(FIN_MONEY_RE);
+    if (!nums || !nums.length) return null;
+    var val = parseTRAmount(nums[nums.length - 1]);
+    return (!isNaN(val) && val > 0) ? val : null;
+  }
+  function scan(matchRe) {
+    for (var i = lines.length - 1; i >= 0; i--) {
+      var line = lines[i];
+      if (FIN_EXCLUDE_LINE_RE.test(line) || FIN_SUBTOTAL_LINE_RE.test(line)) continue;
+      if (matchRe.test(line)) {
+        var val = bestOnLine(line);
+        if (val !== null) return val;
+      }
+    }
+    return null;
+  }
+  var found = scan(FIN_STRONG_TOTAL_RE);
+  if (found !== null) return found;
+  found = scan(FIN_WEAK_TOTAL_RE);
+  if (found !== null) return found;
+  var candidates = [];
+  lines.forEach(function (line) {
+    if (FIN_EXCLUDE_LINE_RE.test(line)) return;
+    var nums = line.match(FIN_MONEY_RE);
+    if (nums) nums.forEach(function (n) {
+      var val = parseTRAmount(n);
+      if (!isNaN(val)) candidates.push(val);
+    });
+  });
+  return candidates.length ? Math.max.apply(null, candidates) : null;
+}
 
 function applyExtractedText(text) {
   var lines = text.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
-  var amount = null;
-  var m = text.match(/(toplam|tutar|ödenen|genel toplam)[^\d]{0,15}([\d.,]+)/i);
-  if (m) amount = parseTRAmount(m[2]);
-  if (!amount || isNaN(amount)) {
-    var all = text.match(/\d{1,3}(\.\d{3})*,\d{2}|\d+,\d{2}/g);
-    if (all && all.length) {
-      var parsed = all.map(parseTRAmount).filter(function (n) { return !isNaN(n); });
-      if (parsed.length) amount = Math.max.apply(null, parsed);
+  var amount = extractAmountFromLines(lines);
+
+  var dateISO = null;
+  var dateCandidates = text.match(/\d{2}[.\/\-]\d{2}[.\/\-]20\d{2}/g) || [];
+  for (var di = 0; di < dateCandidates.length; di++) {
+    var parts = dateCandidates[di].match(/(\d{2})[.\/\-](\d{2})[.\/\-](20\d{2})/);
+    var dd = parseInt(parts[1], 10), mm = parseInt(parts[2], 10);
+    if (dd >= 1 && dd <= 31 && mm >= 1 && mm <= 12) { dateISO = parts[3] + '-' + parts[2] + '-' + parts[1]; break; }
+  }
+  if (!dateISO) {
+    var dm2 = text.match(/(20\d{2})-(\d{2})-(\d{2})/);
+    if (dm2) {
+      var mm2 = parseInt(dm2[2], 10), dd2 = parseInt(dm2[3], 10);
+      if (mm2 >= 1 && mm2 <= 12 && dd2 >= 1 && dd2 <= 31) dateISO = dm2[1] + '-' + dm2[2] + '-' + dm2[3];
     }
   }
-  var dateISO = null;
-  var dm = text.match(/(\d{2})[.\/](\d{2})[.\/](\d{4})/);
-  var dm2 = !dm && text.match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (dm) dateISO = dm[3] + '-' + dm[2] + '-' + dm[1];
-  else if (dm2) dateISO = dm2[1] + '-' + dm2[2] + '-' + dm2[3];
 
   var title = '';
   for (var i = 0; i < lines.length; i++) {
@@ -3528,11 +3624,32 @@ function applyExtractedText(text) {
   });
   var isIncome = /maaş|iade|gelir/i.test(text);
 
-  if (amount && !isNaN(amount)) document.getElementById('txf-amount').value = amount;
+  if (amount !== null && !isNaN(amount)) document.getElementById('txf-amount').value = amount;
   if (dateISO) document.getElementById('txf-date').value = dateISO;
   if (title) document.getElementById('txf-title').value = title.slice(0, 80);
-  if (category) document.getElementById('txf-category').value = category;
-  if (isIncome) document.querySelectorAll('#txf-type button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === 'income'); });
+  if (category) {
+    var catInput = document.getElementById('txf-category');
+    catInput.value = category;
+    catInput.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  if (isIncome) {
+    var incomeBtn = document.querySelector('#txf-type button[data-v="income"]');
+    if (incomeBtn) incomeBtn.click();
+  }
+}
+
+function pdfTextContentToLines(tc) {
+  var rows = [];
+  tc.items.forEach(function (it) {
+    var y = it.transform[5];
+    var row = rows.filter(function (r) { return Math.abs(r.y - y) <= 2; })[0];
+    if (!row) { row = { y: y, parts: [] }; rows.push(row); }
+    row.parts.push({ x: it.transform[4], s: it.str });
+  });
+  rows.sort(function (a, b) { return b.y - a.y; });
+  return rows.map(function (r) {
+    return r.parts.sort(function (a, b) { return a.x - b.x; }).map(function (p) { return p.s; }).join(' ');
+  }).join('\n');
 }
 
 function scanReceiptImage(file) {
@@ -3560,7 +3677,7 @@ function scanPdfStatement(file) {
         var pagePromises = [];
         for (var i = 1; i <= Math.min(pdf.numPages, 5); i++) {
           pagePromises.push(pdf.getPage(i).then(function (page) {
-            return page.getTextContent().then(function (tc) { return tc.items.map(function (it) { return it.str; }).join(' '); });
+            return page.getTextContent().then(function (tc) { return pdfTextContentToLines(tc); });
           }));
         }
         return Promise.all(pagePromises).then(function (pages) {
@@ -3600,9 +3717,9 @@ function openTransactionSheet(id) {
       '<div class="field" style="margin-top:.8rem"><label>Açıklama</label><input type="text" id="txf-title" value="' + esc(draft.title) + '"></div>' +
       '<div class="field-row"><div class="field"><label>Tutar</label><input type="number" step="0.01" id="txf-amount" value="' + esc(draft.amount) + '"></div>' +
       '<div class="field"><label>Tarih</label><input type="date" id="txf-date" value="' + esc(draft.date) + '"></div></div>' +
-      '<div class="field"><label>Kategori</label>' +
-      '<div class="pill-select" id="txf-cat-pills">' + categoryPillsHTML(draft.type, draft.category) + '</div>' +
-      '<input type="text" id="txf-category" value="' + esc(draft.category) + '" placeholder="Ya da yeni kategori yaz" style="margin-top:.5rem"></div>' +
+      '<div class="field" style="position:relative"><label>Kategori</label>' +
+      '<input type="text" id="txf-category" value="' + esc(draft.category) + '" placeholder="Kategori seç ya da yeni yaz" autocomplete="off">' +
+      '<div class="cat-dropdown" id="txf-cat-dropdown" style="display:none"></div></div>' +
       '<div class="stack">' +
       '<button class="btn btn-primary btn-block" id="txf-save">Kaydet</button>' +
       (isNew ? '' : '<button class="btn btn-danger btn-block" id="txf-delete">İşlemi sil</button>') +
@@ -3611,27 +3728,13 @@ function openTransactionSheet(id) {
 
   openSheet({
     title: isNew ? 'Yeni işlem' : 'İşlemi düzenle', bodyHTML: bodyHTML(), onOpen: function (body) {
-      function wireCatPills() {
-        body.querySelectorAll('#txf-cat-pills button').forEach(function (b) {
-          b.addEventListener('click', function () {
-            document.getElementById('txf-category').value = b.dataset.v;
-            body.querySelectorAll('#txf-cat-pills button').forEach(function (x) { x.classList.toggle('active', x === b); });
-          });
-        });
-      }
       body.querySelectorAll('#txf-type button').forEach(function (b) {
         b.addEventListener('click', function () {
           draft.type = b.dataset.v;
           body.querySelectorAll('#txf-type button').forEach(function (x) { x.classList.toggle('active', x === b); });
-          document.getElementById('txf-cat-pills').innerHTML = categoryPillsHTML(draft.type, document.getElementById('txf-category').value);
-          wireCatPills();
         });
       });
-      wireCatPills();
-      document.getElementById('txf-category').addEventListener('input', function (e) {
-        var v = e.target.value;
-        body.querySelectorAll('#txf-cat-pills button').forEach(function (x) { x.classList.toggle('active', x.dataset.v === v); });
-      });
+      wireCategoryDropdown('txf-category', 'txf-cat-dropdown', function () { return financeCategoriesForType(draft.type); });
       if (isNew) {
         document.getElementById('txf-scan-photo').addEventListener('click', function () { document.getElementById('txf-file-photo').click(); });
         document.getElementById('txf-scan-pdf').addEventListener('click', function () { document.getElementById('txf-file-pdf').click(); });
@@ -3693,35 +3796,21 @@ function openRecurringSheet(id) {
       '<div class="field" style="margin-top:.8rem"><label>Açıklama</label><input type="text" id="rcf-title" value="' + esc(draft.title) + '"></div>' +
       '<div class="field-row"><div class="field"><label>Tutar</label><input type="number" step="0.01" id="rcf-amount" value="' + esc(draft.amount) + '"></div>' +
       '<div class="field"><label>Ayın günü</label><select id="rcf-day" style="width:100%;background:var(--paper);border:1px solid var(--rule-strong);border-radius:8px;padding:.68rem .75rem">' + dayOptionsHTML() + '</select></div></div>' +
-      '<div class="field"><label>Kategori</label>' +
-      '<div class="pill-select" id="rcf-cat-pills">' + categoryPillsHTML(draft.type, draft.category) + '</div>' +
-      '<input type="text" id="rcf-category" value="' + esc(draft.category) + '" placeholder="Ya da yeni kategori yaz" style="margin-top:.5rem"></div>' +
+      '<div class="field" style="position:relative"><label>Kategori</label>' +
+      '<input type="text" id="rcf-category" value="' + esc(draft.category) + '" placeholder="Kategori seç ya da yeni yaz" autocomplete="off">' +
+      '<div class="cat-dropdown" id="rcf-cat-dropdown" style="display:none"></div></div>' +
       '<div class="stack"><button class="btn btn-primary btn-block" id="rcf-save">Kaydet</button>' +
       (isNew ? '' : '<button class="btn btn-danger btn-block" id="rcf-delete">Sil</button>') + '</div>';
   }
   openSheet({
     title: isNew ? 'Yeni sabit işlem' : 'Sabit işlemi düzenle', bodyHTML: bodyHTML(), onOpen: function (body) {
-      function wireCatPills() {
-        body.querySelectorAll('#rcf-cat-pills button').forEach(function (b) {
-          b.addEventListener('click', function () {
-            document.getElementById('rcf-category').value = b.dataset.v;
-            body.querySelectorAll('#rcf-cat-pills button').forEach(function (x) { x.classList.toggle('active', x === b); });
-          });
-        });
-      }
       body.querySelectorAll('#rcf-type button').forEach(function (b) {
         b.addEventListener('click', function () {
           draft.type = b.dataset.v;
           body.querySelectorAll('#rcf-type button').forEach(function (x) { x.classList.toggle('active', x === b); });
-          document.getElementById('rcf-cat-pills').innerHTML = categoryPillsHTML(draft.type, document.getElementById('rcf-category').value);
-          wireCatPills();
         });
       });
-      wireCatPills();
-      document.getElementById('rcf-category').addEventListener('input', function (e) {
-        var v = e.target.value;
-        body.querySelectorAll('#rcf-cat-pills button').forEach(function (x) { x.classList.toggle('active', x.dataset.v === v); });
-      });
+      wireCategoryDropdown('rcf-category', 'rcf-cat-dropdown', function () { return financeCategoriesForType(draft.type); });
       document.getElementById('rcf-save').addEventListener('click', function () {
         var title = document.getElementById('rcf-title').value.trim();
         var amount = parseFloat(document.getElementById('rcf-amount').value);
