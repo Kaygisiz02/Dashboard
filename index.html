@@ -3612,9 +3612,15 @@ function applyExtractedText(text) {
     }
   }
 
+  // Skip generic thank-you/greeting banner lines (receipts almost always open with one) so the
+  // actual business name — usually the very next line — gets picked instead.
+  var GENERIC_TITLE_LINE_RE = /teşekkür|hoşgeldin|hoş geldin|iyi günler|güle güle|welcome|thank you/i;
   var title = '';
   for (var i = 0; i < lines.length; i++) {
-    if (lines[i].length > 2 && !/^\d+([.,]\d+)?$/.test(lines[i])) { title = lines[i]; break; }
+    if (lines[i].length <= 2) continue;
+    if (/^\d+([.,]\d+)?$/.test(lines[i])) continue;
+    if (GENERIC_TITLE_LINE_RE.test(lines[i])) continue;
+    title = lines[i]; break;
   }
   var lowerText = text.toLowerCase();
   var category = '';
@@ -3652,11 +3658,60 @@ function pdfTextContentToLines(tc) {
   }).join('\n');
 }
 
+// Pure pixel transform, kept separate from the canvas/Image plumbing below so it's easy to test:
+// grayscale + a moderate contrast boost, which measurably helps Tesseract on faint thermal-paper
+// receipts or photos with a busy/patterned background showing through.
+function applyGrayscaleContrast(imageData, contrast) {
+  var d = imageData.data;
+  for (var i = 0; i < d.length; i += 4) {
+    var gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    gray = (gray - 128) * contrast + 128;
+    gray = gray < 0 ? 0 : gray > 255 ? 255 : gray;
+    d[i] = d[i + 1] = d[i + 2] = gray;
+  }
+  return imageData;
+}
+
+// Downscales (for performance) and grayscale+contrast-boosts a photo before OCR. Falls back to
+// the original file untouched if anything in the pipeline fails, so a scan never breaks outright.
+function preprocessImageForOCR(file) {
+  return new Promise(function (resolve) {
+    if (typeof Image === 'undefined' || typeof document.createElement('canvas').getContext !== 'function' || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') { resolve(file); return; }
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      URL.revokeObjectURL(url);
+      var maxDim = 1900;
+      var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      var w = Math.max(1, Math.round(img.width * scale));
+      var h = Math.max(1, Math.round(img.height * scale));
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      var ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(file); return; }
+      ctx.drawImage(img, 0, 0, w, h);
+      try {
+        var imageData = ctx.getImageData(0, 0, w, h);
+        applyGrayscaleContrast(imageData, 1.35);
+        ctx.putImageData(imageData, 0, 0);
+      } catch (e) {
+        // getImageData can fail in rare cases (e.g. a tainted canvas) — keep the plain resized draw.
+      }
+      if (canvas.toBlob) canvas.toBlob(function (blob) { resolve(blob || file); }, 'image/jpeg', 0.92);
+      else resolve(file);
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 function scanReceiptImage(file) {
   var status = document.getElementById('txf-scan-status');
   status.textContent = 'Görsel okunuyor…';
   if (typeof Tesseract === 'undefined') { status.textContent = 'OCR kütüphanesi yüklenemedi — internet bağlantısını kontrol et.'; return; }
-  Tesseract.recognize(file, 'tur+eng').then(function (result) {
+  preprocessImageForOCR(file).then(function (processedFile) {
+    return Tesseract.recognize(processedFile, 'tur+eng');
+  }).then(function (result) {
     applyExtractedText(result.data.text || '');
     status.textContent = 'Tahmini bilgiler dolduruldu — kontrol et.';
   }).catch(function (err) {
