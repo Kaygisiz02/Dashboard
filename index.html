@@ -1749,31 +1749,28 @@ function renderGreeting() {
   var user = get('user', {});
   var el = document.getElementById('dash-greeting');
   el.innerHTML =
-    '<div class="eyebrow">' + esc(formatDateTR(todayISO(), { weekday: true })) + '</div>' +
+    '<div class="eyebrow" style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">' +
+      '<span>' + esc(formatDateTR(todayISO(), { weekday: true })) + '</span>' +
+      '<span id="dash-weather" style="text-transform:none;letter-spacing:normal;font-weight:500"></span>' +
+    '</div>' +
     '<h1>' + esc(greetingWord()) + (user.name ? ', ' + esc(user.name) : '') + '</h1>' +
     (user.goal ? '<p class="muted">Hedefin: ' + esc(user.goal) + '</p>' : '');
+  fetchWeather();
 }
 
 function renderHero() {
   var stats = computeTodayStats();
   var el = document.getElementById('dash-hero');
-  var pctBlock;
   if (stats.pct === null || stats.numer === 0) {
-    pctBlock = '';
-  } else {
-    pctBlock =
-      '<div class="card">' +
-        '<div class="card-head"><h3>Bugünkü başarı</h3><span class="card-stat">%' + stats.pct + '</span></div>' +
-        '<div class="progress"><div style="width:' + stats.pct + '%"></div></div>' +
-        '<div class="card-sub" style="margin-top:.5rem">' + stats.numer + ' / ' + stats.denom + ' tamamlandı</div>' +
-      '</div>';
+    el.innerHTML = '';
+    return;
   }
   el.innerHTML =
-    pctBlock +
     '<div class="card">' +
-      '<div id="dash-weather"></div>' +
+      '<div class="card-head"><h3>Bugünkü başarı</h3><span class="card-stat">%' + stats.pct + '</span></div>' +
+      '<div class="progress"><div style="width:' + stats.pct + '%"></div></div>' +
+      '<div class="card-sub" style="margin-top:.5rem">' + stats.numer + ' / ' + stats.denom + ' tamamlandı</div>' +
     '</div>';
-  fetchWeather();
 }
 
 function fetchWeather() {
