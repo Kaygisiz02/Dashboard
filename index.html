@@ -811,6 +811,17 @@ function formatDateTR(iso, opts) {
   if (opts.weekday) s += ', ' + WEEKDAYS_TR[d.getDay()];
   return s;
 }
+/* ISO datetime/tarih -> "Bugün" / "Dün" / "3 gün önce" gibi kısa göreli etiket. */
+function relativeDayLabel(isoDateTime) {
+  if (!isoDateTime) return '—';
+  var d = String(isoDateTime).slice(0, 10);
+  var today = todayISO();
+  if (d === today) return 'Bugün';
+  if (d === addDays(today, -1)) return 'Dün';
+  var diff = Math.round((parseISO(today) - parseISO(d)) / 86400000);
+  if (diff > 1 && diff < 7) return diff + ' gün önce';
+  return formatDateTR(d, { year: false });
+}
 function isoWeekdayMon0(iso) { // Pazartesi=0 ... Pazar=6
   var d = parseISO(iso).getDay();
   return d === 0 ? 6 : d - 1;
@@ -1450,6 +1461,9 @@ function openSettingsSheet() {
       return '<button data-v="' + a.id + '" class="' + (accent === a.id ? 'active' : '') + '">' + esc(a.label) + '</button>';
     }).join('') + '</div>';
 
+  html += '<div class="eyebrow" style="margin-top:1.2rem">Ana sayfa kartları</div>';
+  html += '<div class="card mt0" id="dash-card-config-list" style="padding:.2rem .8rem"></div>';
+
   html += '<div class="eyebrow" style="margin-top:1.2rem">Seviye</div>';
   var p = xpProgress(get('xp', 0));
   html += '<div class="card mt0" style="margin-top:.4rem"><div class="card-head"><h3>Seviye ' + p.level + '</h3><span class="mono muted">' + p.into + '/' + p.span + ' XP</span></div><div class="progress"><div style="width:' + p.pct + '%"></div></div></div>';
@@ -1476,6 +1490,7 @@ function openSettingsSheet() {
           body.querySelectorAll('#accent-pills button').forEach(function (b) { b.classList.toggle('active', b === btn); });
         });
       });
+      renderDashCardConfigList(body);
       var nameEl = document.getElementById('set-name'), goalEl = document.getElementById('set-goal');
       function saveProfile() { set('user', { name: nameEl.value.trim(), goal: goalEl.value.trim(), createdAt: user.createdAt || todayISO() }); }
       nameEl.addEventListener('change', saveProfile);
@@ -1490,6 +1505,46 @@ function openSettingsSheet() {
           .then(function (ok) { if (ok) resetAllData(); });
       });
     }
+  });
+}
+
+function renderDashCardConfigList(sheetBody) {
+  var list = document.getElementById('dash-card-config-list');
+  if (!list) return;
+  var cfg = getDashCardConfig();
+  list.innerHTML = cfg.map(function (c, i) {
+    var meta = CARD_META[c.key];
+    return '<div class="list-row" data-key="' + c.key + '">' +
+      '<span class="icon-btn" style="pointer-events:none">' + icon(meta.ic) + '</span>' +
+      '<span class="row-main"><span class="row-title">' + esc(meta.title) + '</span></span>' +
+      '<button class="icon-btn" data-move-up ' + (i === 0 ? 'disabled' : '') + ' aria-label="Yukarı taşı">' + icon('arrowUp') + '</button>' +
+      '<button class="icon-btn" data-move-down ' + (i === cfg.length - 1 ? 'disabled' : '') + ' aria-label="Aşağı taşı">' + icon('arrowDown') + '</button>' +
+      '<button class="checkbox' + (c.visible ? ' checked' : '') + '" data-toggle-visible aria-label="Göster/gizle">' + (c.visible ? icon('check') : '') + '</button>' +
+      '</div>';
+  }).join('');
+  list.querySelectorAll('[data-move-up]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var key = btn.closest('[data-key]').dataset.key;
+      var idx = cfg.findIndex(function (c) { return c.key === key; });
+      if (idx > 0) { var tmp = cfg[idx - 1]; cfg[idx - 1] = cfg[idx]; cfg[idx] = tmp; setDashCardConfig(cfg); renderDashCardConfigList(sheetBody); renderCards(); }
+    });
+  });
+  list.querySelectorAll('[data-move-down]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var key = btn.closest('[data-key]').dataset.key;
+      var idx = cfg.findIndex(function (c) { return c.key === key; });
+      if (idx < cfg.length - 1) { var tmp = cfg[idx + 1]; cfg[idx + 1] = cfg[idx]; cfg[idx] = tmp; setDashCardConfig(cfg); renderDashCardConfigList(sheetBody); renderCards(); }
+    });
+  });
+  list.querySelectorAll('[data-toggle-visible]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var key = btn.closest('[data-key]').dataset.key;
+      var item = cfg.find(function (c) { return c.key === key; });
+      item.visible = !item.visible;
+      setDashCardConfig(cfg);
+      renderDashCardConfigList(sheetBody);
+      renderCards();
+    });
   });
 }
 
@@ -1967,14 +2022,28 @@ var CARD_META = {
 function categoryRowHTML(key) {
   var today = todayISO();
   var meta = CARD_META[key];
-  var stat = '—', sub = '';
+  var stat = '—', sub = '', statColor = '';
   if (key === 'tasks') {
-    var open = get('tasks', []).filter(function (t) { return t.status !== 'done'; });
-    stat = open.length; sub = 'açık görev';
+    var allTasks = get('tasks', []);
+    var overdueTasks = allTasks.filter(function (t) { return t.status !== 'done' && t.due && t.due < today; });
+    var dueTodayTasks = allTasks.filter(function (t) { return t.status !== 'done' && t.due === today; });
+    var openTasks = allTasks.filter(function (t) { return t.status !== 'done'; });
+    if (overdueTasks.length) { stat = overdueTasks.length; sub = overdueTasks.length === 1 ? 'gecikmiş görev' : 'gecikmiş görev'; statColor = 'var(--danger)'; }
+    else if (dueTodayTasks.length) { stat = dueTodayTasks.length; sub = 'görev bugün bitiyor'; }
+    else if (openTasks.length) { stat = openTasks.length; sub = 'açık görev'; }
+    else { stat = 0; sub = 'açık görev yok'; }
   } else if (key === 'routines') {
-    var activeRoutines = getRoutines().filter(function (r) { return !r.archived; });
-    var bestStreak = activeRoutines.reduce(function (m, r) { return Math.max(m, computeRoutineStats(r).current); }, 0);
-    stat = bestStreak; sub = bestStreak > 0 ? 'en uzun aktif seri' : 'aktif seri yok';
+    var todayRoutines = getRoutines().filter(function (r) { return !r.archived && isRoutineDue(r, today); });
+    if (todayRoutines.length) {
+      var doneCount = todayRoutines.filter(function (r) { return r.log && r.log[today]; }).length;
+      stat = doneCount + '/' + todayRoutines.length; sub = 'bugün tamamlandı';
+      if (doneCount === todayRoutines.length) statColor = 'var(--success)';
+    } else {
+      var activeRoutines = getRoutines().filter(function (r) { return !r.archived; });
+      var bestStreak = activeRoutines.reduce(function (m, r) { return Math.max(m, computeRoutineStats(r).current); }, 0);
+      if (bestStreak > 0) { stat = bestStreak; sub = 'en uzun aktif seri'; }
+      else { stat = 0; sub = 'bugün rutin yok'; }
+    }
   } else if (key === 'calendar') {
     var events = get('events', []);
     var upcoming = events.map(function (e) { return { e: e, next: nextOccurrence(e, today) }; })
@@ -1984,12 +2053,31 @@ function categoryRowHTML(key) {
   } else if (key === 'finance') {
     var fin = get('finance', []);
     var monthPrefix = today.slice(0, 7);
-    var net = fin.filter(function (f) { return f.date && f.date.slice(0, 7) === monthPrefix; })
-      .reduce(function (s, f) { return s + (f.type === 'income' ? 1 : -1) * (Number(f.amount) || 0); }, 0);
-    stat = formatMoney(net); sub = 'bu ay net';
+    var budget = getBudget();
+    var monthExpenseByCat = {};
+    fin.forEach(function (f) {
+      if (f.type === 'expense' && f.date && f.date.slice(0, 7) === monthPrefix) {
+        monthExpenseByCat[f.category] = (monthExpenseByCat[f.category] || 0) + Number(f.amount || 0);
+      }
+    });
+    var overBudgetCats = Object.keys(budget).filter(function (c) { return (monthExpenseByCat[c] || 0) > budget[c]; });
+    if (overBudgetCats.length) {
+      stat = overBudgetCats.length; sub = overBudgetCats.length === 1 ? 'kategori bütçeyi aştı' : 'kategori bütçeyi aştı'; statColor = 'var(--danger)';
+    } else {
+      var net = fin.filter(function (f) { return f.date && f.date.slice(0, 7) === monthPrefix; })
+        .reduce(function (s, f) { return s + (f.type === 'income' ? 1 : -1) * (Number(f.amount) || 0); }, 0);
+      stat = (net >= 0 ? '+' : '') + formatMoneyCompact(net); sub = 'bu ay net';
+      statColor = net > 0 ? 'var(--success)' : net < 0 ? 'var(--danger)' : '';
+    }
   } else if (key === 'notes') {
-    var notes = get('notes', []);
-    stat = notes.length; sub = 'not';
+    var notes = get('notes', []).slice().sort(function (a, b) { return (b.createdAt || '').localeCompare(a.createdAt || ''); });
+    if (notes.length) {
+      var last = notes[0];
+      var preview = (last.text || '').trim().slice(0, 40);
+      stat = relativeDayLabel(last.createdAt); sub = preview || 'not';
+    } else {
+      stat = 0; sub = 'not yok';
+    }
   }
   return '<a href="javascript:void(0)" data-nav="' + key + '" class="card clickable" style="display:flex;align-items:center;gap:.8rem;text-decoration:none;color:inherit">' +
     '<div class="tile-icon" style="margin-bottom:0;flex:none">' + icon(meta.ic) + '</div>' +
@@ -1997,14 +2085,31 @@ function categoryRowHTML(key) {
       '<div style="font-weight:600;font-size:.95rem">' + esc(meta.title) + '</div>' +
       '<div class="card-sub" style="margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(sub) + '</div>' +
     '</div>' +
-    '<div class="card-stat" style="font-size:1rem;flex:none;text-align:right">' + esc(String(stat)) + '</div>' +
+    '<div class="card-stat" style="font-size:1rem;flex:none;text-align:right' + (statColor ? ';color:' + statColor : '') + '">' + esc(String(stat)) + '</div>' +
     '<span class="muted" style="flex:none">' + icon('chevronR') + '</span>' +
   '</a>';
 }
 
+function getDashCardConfig() {
+  var saved = get('dashCards', null);
+  if (!saved || !Array.isArray(saved)) {
+    return DEFAULT_CARD_ORDER.map(function (k) { return { key: k, visible: true }; });
+  }
+  // Geriye dönük uyumluluk: kayıtlı listede olmayan (ör. sonradan eklenen) bir
+  // kart varsa, listenin sonuna görünür olarak ekle; artık var olmayan
+  // (CARD_META'da tanımsız) kartları at.
+  var known = saved.filter(function (c) { return CARD_META[c.key]; });
+  var missing = DEFAULT_CARD_ORDER.filter(function (k) { return !known.some(function (c) { return c.key === k; }); });
+  missing.forEach(function (k) { known.push({ key: k, visible: true }); });
+  return known;
+}
+function setDashCardConfig(cfg) { set('dashCards', cfg); }
+
 function renderCards() {
   var el = document.getElementById('dash-cards');
-  el.innerHTML = DEFAULT_CARD_ORDER.map(categoryRowHTML).join('');
+  var cfg = getDashCardConfig().filter(function (c) { return c.visible; });
+  if (!cfg.length) { el.innerHTML = '<div class="card"><div class="card-sub">Ayarlar\'dan en az bir kart açman gerekiyor.</div></div>'; return; }
+  el.innerHTML = cfg.map(function (c) { return categoryRowHTML(c.key); }).join('');
 }
 
 function initDashboard() {
