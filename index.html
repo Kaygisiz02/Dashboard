@@ -620,8 +620,13 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
   <div class="section-title"><h2>Kaza</h2><button class="link-btn" id="bulk-kaza-btn">Toplu ekle</button></div>
   <div class="card" style="padding:.2rem .8rem" id="kaza-list"></div>
   <div class="card">
-    <div class="card-head mt0"><h3>Kaza eğilimi</h3><span class="card-sub">son 14 gün</span></div>
-    <div id="kaza-chart"></div>
+    <div class="card-head mt0"><h3>Kaza eğilimi</h3></div>
+    <div class="segmented" id="kaza-chart-period">
+      <button data-v="14d" class="active">14 Gün</button>
+      <button data-v="month">Aylık</button>
+      <button data-v="year">Yıllık</button>
+    </div>
+    <div id="kaza-chart" style="margin-top:.6rem"></div>
   </div>
 
   <div class="section-title"><h2>Kur'an</h2></div>
@@ -1603,26 +1608,52 @@ function cssVar(name) { return getComputedStyle(document.documentElement).getPro
 
 function renderLineChart(el, values, labels, opts) {
   opts = opts || {};
-  var w = 320, h = opts.height || 120, pad = 8;
   if (!values.length) { el.innerHTML = '<div class="empty"><p>Henüz veri yok</p></div>'; return; }
-  var max = Math.max.apply(null, values.concat([opts.min0 === false ? Math.min.apply(null, values) : 0]));
-  max = max === 0 ? 1 : max;
-  var stepX = (w - pad * 2) / Math.max(1, values.length - 1);
+  var w = 320, h = opts.height || 120;
+  var padL = 28, padR = 8, padTop = 18, padBottom = labels ? 22 : 8;
+  var plotW = w - padL - padR;
+  var plotH = h - padTop - padBottom;
+  var minV = opts.min0 === false ? Math.min.apply(null, values) : 0;
+  var maxV = Math.max.apply(null, values.concat([minV]));
+  var range = maxV - minV || 1;
+  var stepX = plotW / Math.max(1, values.length - 1);
   var pts = values.map(function (v, i) {
-    var x = pad + i * stepX;
-    var y = h - pad - (v / max) * (h - pad * 2);
+    var x = padL + i * stepX;
+    var y = padTop + plotH - ((v - minV) / range) * plotH;
     return [x, y];
   });
   var path = pts.map(function (p, i) { return (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
-  var area = path + ' L' + pts[pts.length - 1][0].toFixed(1) + ' ' + (h - pad) + ' L' + pts[0][0].toFixed(1) + ' ' + (h - pad) + ' Z';
+  var area = path + ' L' + pts[pts.length - 1][0].toFixed(1) + ' ' + (padTop + plotH) + ' L' + pts[0][0].toFixed(1) + ' ' + (padTop + plotH) + ' Z';
   var accent = opts.color || cssVar('--accent') || '#3B5A73';
-  var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
+  var ruleColor = cssVar('--rule') || '#e5e5e5';
+  var softInk = cssVar('--ink-soft') || '#8a8a8e';
+  var valueFmt = opts.formatValue || function (v) { return String(Math.round(v)); };
+
+  // Y ekseni: üst (max) ve alt (min) referans çizgisi + değer etiketi.
+  var gridLines = [{ y: padTop, val: maxV }, { y: padTop + plotH, val: minV }].map(function (g) {
+    return '<line x1="' + padL + '" y1="' + g.y.toFixed(1) + '" x2="' + (w - padR) + '" y2="' + g.y.toFixed(1) + '" stroke="' + ruleColor + '" stroke-width="1"></line>' +
+      '<text x="' + (padL - 5) + '" y="' + (g.y + 3).toFixed(1) + '" font-size="9.5" text-anchor="end" fill="' + softInk + '">' + esc(valueFmt(g.val)) + '</text>';
+  }).join('');
+
+  // İlk ve son noktanın gerçek değerini göster (eğilimi somutlaştırır).
+  var firstVal = values[0], lastVal = values[values.length - 1];
+  var endLabels =
+    '<text x="' + pts[0][0].toFixed(1) + '" y="' + (pts[0][1] - 7).toFixed(1) + '" font-size="10" font-weight="600" text-anchor="start" fill="' + accent + '">' + esc(valueFmt(firstVal)) + '</text>' +
+    '<text x="' + pts[pts.length - 1][0].toFixed(1) + '" y="' + (pts[pts.length - 1][1] - 7).toFixed(1) + '" font-size="10" font-weight="600" text-anchor="end" fill="' + accent + '">' + esc(valueFmt(lastVal)) + '</text>';
+
+  var labelsSvg = labels ? values.map(function (v, i) {
+    if (!labels[i]) return '';
+    return '<text x="' + pts[i][0].toFixed(1) + '" y="' + (h - 6) + '" font-size="9.5" text-anchor="middle" fill="' + softInk + '">' + esc(labels[i]) + '</text>';
+  }).join('') : '';
+
+  var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '">' +
+    gridLines +
     '<path d="' + area + '" fill="' + accent + '" opacity=".12"></path>' +
     '<path d="' + path + '" fill="none" stroke="' + accent + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>' +
-    pts.map(function (p) { return '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="2.4" fill="' + accent + '"></circle>'; }).join('') +
+    pts.map(function (p) { return '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="2.6" fill="' + accent + '"></circle>'; }).join('') +
+    endLabels + labelsSvg +
     '</svg>';
-  el.innerHTML = '<div class="chart-wrap">' + svg + '</div>' +
-    (labels ? '<div class="legend">' + labels.map(function (l) { return '<span>' + esc(l) + '</span>'; }).join('') + '</div>' : '');
+  el.innerHTML = '<div class="chart-wrap">' + svg + '</div>';
 }
 
 function renderBarChart(el, values, labels, opts) {
@@ -3596,52 +3627,101 @@ function openBulkKazaSheet() {
   var html =
     '<div class="field-row"><div class="field"><label>Başlangıç</label><input type="date" id="bk-start"></div>' +
     '<div class="field"><label>Bitiş</label><input type="date" id="bk-end"></div></div>' +
-    '<p class="hint">Seçilen aralıktaki her gün için 5 vakit kazaya eklenir.</p>' +
+    '<div class="field"><label>Vakit</label>' +
+    '<div class="pill-select" id="bk-prayer-pills">' +
+    '<button type="button" data-v="all" class="active">Hepsi (5 vakit)</button>' +
+    PRAYER_KEYS.map(function (k) { return '<button type="button" data-v="' + k + '">' + PRAYER_LABELS[k] + '</button>'; }).join('') +
+    '</div></div>' +
+    '<p class="hint" id="bk-hint">Seçilen aralıktaki her gün için 5 vakit kazaya eklenir.</p>' +
     '<button class="btn btn-primary btn-block" id="bk-add">Ekle</button>';
   openSheet({
-    title: 'Toplu kaza ekle', bodyHTML: html, onOpen: function () {
+    title: 'Toplu kaza ekle', bodyHTML: html, onOpen: function (body) {
+      var selectedPrayer = 'all';
+      function updateHint() {
+        var hint = document.getElementById('bk-hint');
+        hint.textContent = selectedPrayer === 'all'
+          ? 'Seçilen aralıktaki her gün için 5 vakit kazaya eklenir.'
+          : 'Seçilen aralıktaki her gün için sadece ' + PRAYER_LABELS[selectedPrayer] + ' kazaya eklenir.';
+      }
+      body.querySelectorAll('#bk-prayer-pills button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          selectedPrayer = b.dataset.v;
+          body.querySelectorAll('#bk-prayer-pills button').forEach(function (x) { x.classList.toggle('active', x === b); });
+          updateHint();
+        });
+      });
       document.getElementById('bk-add').addEventListener('click', function () {
         var s = document.getElementById('bk-start').value, e = document.getElementById('bk-end').value;
         if (!s || !e || s > e) { showToast('Geçerli bir tarih aralığı seç'); return; }
         var days = daysBetween(s, e) + 1;
         if (days <= 0 || days > 36525) { showToast('Aralık çok geniş — tarihleri kontrol et'); return; }
         var p = getPrayers();
-        PRAYER_KEYS.forEach(function (k) { p.kazaCounts[k] = (p.kazaCounts[k] || 0) + days; });
-        pushKazaLog(p, 'toplu', days * 5, s + ' \u2013 ' + e);
+        var keysToAdd = selectedPrayer === 'all' ? PRAYER_KEYS : [selectedPrayer];
+        keysToAdd.forEach(function (k) { p.kazaCounts[k] = (p.kazaCounts[k] || 0) + days; });
+        var totalAdded = days * keysToAdd.length;
+        var logNote = selectedPrayer === 'all' ? (s + ' \u2013 ' + e) : (PRAYER_LABELS[selectedPrayer] + ': ' + s + ' \u2013 ' + e);
+        pushKazaLog(p, selectedPrayer === 'all' ? 'toplu' : selectedPrayer, totalAdded, logNote);
         savePrayers(p);
         closeSheet();
         renderKaza();
-        showToast(days + ' gün \u00d7 5 vakit eklendi');
+        showToast(selectedPrayer === 'all' ? (days + ' gün \u00d7 5 vakit eklendi') : (days + ' ' + PRAYER_LABELS[selectedPrayer] + ' eklendi'));
       });
     }
   });
 }
 
+var kazaChartPeriod = '14d';
+
+/* Belirli bir referans tarihte (dahil) toplam bekleyen kaza sayısını hesaplar:
+   şu anki toplamdan, o tarihten SONRA yapılan tüm değişiklikleri geri çıkararak. */
+function kazaTotalAsOf(p, isoDate) {
+  var totalNow = PRAYER_KEYS.reduce(function (s, k) { return s + (p.kazaCounts[k] || 0); }, 0);
+  var log = p.kazaLog || [];
+  var sumAfter = log.filter(function (l) { return l.date > isoDate; }).reduce(function (s, l) { return s + l.delta; }, 0);
+  return Math.max(0, totalNow - sumAfter);
+}
+
 function renderKazaChart() {
   var p = getPrayers();
   var today = todayISO();
-  var startDay = addDays(today, -13);
-  var totalNow = PRAYER_KEYS.reduce(function (s, k) { return s + (p.kazaCounts[k] || 0); }, 0);
-  var log = p.kazaLog || [];
-  var sumInWindow = log.filter(function (l) { return l.date >= startDay; }).reduce(function (s, l) { return s + l.delta; }, 0);
-  var running = totalNow - sumInWindow;
-  var values = [], d = startDay;
-  for (var i = 0; i < 14; i++) {
-    var dayDelta = log.filter(function (l) { return l.date === d; }).reduce(function (s, l) { return s + l.delta; }, 0);
-    running += dayDelta;
-    values.push(Math.max(0, running));
-    d = addDays(d, 1);
+  var values = [], labels = [];
+
+  if (kazaChartPeriod === '14d') {
+    var startDay = addDays(today, -13);
+    for (var i = 0; i < 14; i++) {
+      var d = addDays(startDay, i);
+      values.push(kazaTotalAsOf(p, d));
+      labels.push(i === 0 || i === 13 ? formatDateTR(d, { year: false }) : '');
+    }
+  } else if (kazaChartPeriod === 'month') {
+    // Son 12 ayın HER AYININ SON GÜNÜNDEKİ toplam bekleyen kaza sayısı.
+    var todayDate = parseISO(today);
+    for (var m = 11; m >= 0; m--) {
+      var ref = new Date(); ref.setDate(1); ref.setMonth(ref.getMonth() - m + 1); ref.setDate(0); // o ayın son günü
+      var refISO = ref > todayDate ? today : toISO(ref);
+      values.push(kazaTotalAsOf(p, refISO));
+      labels.push((m === 11 || m === 0) ? MONTHS_TR[ref.getMonth()].slice(0, 3) : '');
+    }
+  } else { // 'year'
+    // Son 5 yılın HER YILININ SON GÜNÜNDEKİ toplam bekleyen kaza sayısı.
+    var thisYear = new Date(today).getFullYear();
+    for (var y = 4; y >= 0; y--) {
+      var year = thisYear - y;
+      var refDate = year === thisYear ? today : (year + '-12-31');
+      values.push(kazaTotalAsOf(p, refDate));
+      labels.push(String(year));
+    }
   }
-  renderLineChart(document.getElementById('kaza-chart'), values, null, { height: 90, color: 'var(--danger)' });
+  renderLineChart(document.getElementById('kaza-chart'), values, labels, { height: 110, color: 'var(--danger)' });
 }
 
 /* ---- Kur'an ------------------------------------------------------------ */
-function addQuranPages(pages) {
+function addQuranPages(pages, dateISO) {
   var p = getPrayers();
-  var today = todayISO();
-  p.quranLog[today] = (p.quranLog[today] || 0) + pages;
+  var d = dateISO || todayISO();
+  p.quranLog[d] = (p.quranLog[d] || 0) + pages;
   savePrayers(p);
-  addXP(Math.min(pages, 10), { silent: true });
+  if (d === todayISO()) addXP(Math.min(pages, 10), { silent: true });
   renderQuran();
 }
 
@@ -3680,9 +3760,23 @@ function renderQuran() {
 }
 
 function promptQuranPages() {
-  promptDialog({ title: 'Bugün okunan sayfa', type: 'number', placeholder: 'Ör. 4' }).then(function (v) {
-    var n = parseInt(v, 10);
-    if (v !== null && n > 0) addQuranPages(n);
+  var html =
+    '<div class="field"><label>Okunan sayfa</label><input type="number" id="qp-pages" placeholder="Ör. 4" min="1"></div>' +
+    '<div class="field"><label>Tarih</label><input type="date" id="qp-date" value="' + todayISO() + '" max="' + todayISO() + '"></div>' +
+    '<button class="btn btn-primary btn-block" id="qp-add">Ekle</button>';
+  openSheet({
+    title: 'Kur\'an sayfası ekle', bodyHTML: html, onOpen: function () {
+      setTimeout(function () { document.getElementById('qp-pages').focus(); }, 50);
+      document.getElementById('qp-add').addEventListener('click', function () {
+        var n = parseInt(document.getElementById('qp-pages').value, 10);
+        var d = document.getElementById('qp-date').value;
+        if (isNaN(n) || n <= 0) { showToast('Geçerli bir sayfa sayısı gir'); return; }
+        if (!d || d > todayISO()) { showToast('Geçerli bir tarih seç'); return; }
+        closeSheet();
+        addQuranPages(n, d);
+        showToast(n + ' sayfa eklendi');
+      });
+    }
   });
 }
 
@@ -3690,6 +3784,14 @@ function initWorship() {
   document.getElementById('bulk-kaza-btn').addEventListener('click', openBulkKazaSheet);
   document.getElementById('worship-add-fab').innerHTML = icon('plus');
   document.getElementById('worship-add-fab').addEventListener('click', openWorshipAddMenu);
+  kazaChartPeriod = '14d';
+  document.querySelectorAll('#kaza-chart-period button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      kazaChartPeriod = b.dataset.v;
+      document.querySelectorAll('#kaza-chart-period button').forEach(function (x) { x.classList.toggle('active', x === b); });
+      renderKazaChart();
+    });
+  });
   renderPrayerToday();
   renderPrayerStreak();
   renderKaza();
