@@ -1789,17 +1789,13 @@ function renderBarSeriesChart(el, values, labels, opts) {
     '<text x="' + (padL - 5) + '" y="' + (baseline + 3).toFixed(1) + '" font-size="9.5" text-anchor="end" fill="' + softInk + '">0</text>' +
     '<text x="' + (padL - 5) + '" y="' + (padTop + 3).toFixed(1) + '" font-size="9.5" text-anchor="end" fill="' + softInk + '">' + esc(valueFmt(maxV)) + '</text>';
 
-  var maxIdx = 0;
-  values.forEach(function (v, i) { if (v > values[maxIdx]) maxIdx = i; });
-
   var bars = values.map(function (v, i) {
     var bh = v <= 0 ? 0 : Math.max((v / maxV) * plotH, 1.5);
     var x = padL + i * (bw + gap);
     var y = baseline - bh;
-    var isPeak = i === maxIdx && v > 0;
-    var rect = '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="' + Math.min(2, bw / 3).toFixed(1) + '" fill="' + color + '"' + (isPeak ? ' opacity="1"' : ' opacity=".8"') + '></rect>';
-    if (isPeak && bw >= 6) {
-      rect += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 4).toFixed(1) + '" font-size="10" font-weight="600" text-anchor="middle" fill="' + color + '">' + esc(valueFmt(v)) + '</text>';
+    var rect = '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="' + Math.min(2, bw / 3).toFixed(1) + '" fill="' + color + '" opacity=".85"></rect>';
+    if (v > 0 && bw >= 6) {
+      rect += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 4).toFixed(1) + '" font-size="9" font-weight="600" text-anchor="middle" fill="' + color + '">' + esc(valueFmt(v)) + '</text>';
     }
     return rect;
   }).join('');
