@@ -620,7 +620,7 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
   <div class="section-title"><h2>Kaza</h2><button class="link-btn" id="bulk-kaza-btn">Toplu ekle</button></div>
   <div class="card" style="padding:.2rem .8rem" id="kaza-list"></div>
   <div class="card">
-    <div class="card-head mt0"><h3>Kaza eğilimi</h3></div>
+    <div class="card-head mt0"><h3>Kılınan kazalar</h3></div>
     <div class="segmented" id="kaza-chart-period">
       <button data-v="14d" class="active">14 Gün</button>
       <button data-v="month">Aylık</button>
@@ -1764,6 +1764,53 @@ function renderDivergingBarChart(el, values, labels, opts) {
   }).join('') : '';
 
   el.innerHTML = '<div class="chart-wrap"><svg viewBox="0 0 ' + w + ' ' + h + '">' + gridLines + bars + labelsSvg + '</svg></div>';
+}
+
+/* Tek yönlü (0'dan yukarı) bar grafiği — miktar/sayım serileri için
+   (ör. günlük yapılan iş sayısı). renderDivergingBarChart'ın aksine negatif
+   değer beklemez, sıfır ekseni her zaman alt kenardadır. */
+function renderBarSeriesChart(el, values, labels, opts) {
+  opts = opts || {};
+  if (!values.length) { el.innerHTML = '<div class="empty"><p>Henüz veri yok</p></div>'; return; }
+  var w = 320, h = opts.height || 140;
+  var padL = 26, padR = 8, padTop = 20, padBottom = labels ? 22 : 8;
+  var plotW = w - padL - padR;
+  var plotH = h - padTop - padBottom;
+  var gap = values.length > 20 ? 1 : 4;
+  var bw = Math.max((plotW - gap * (values.length - 1)) / values.length, 1);
+  var maxV = Math.max.apply(null, values.concat([1]));
+  var color = opts.color || cssVar('--accent') || '#3B5A73';
+  var ruleColor = cssVar('--rule') || '#e5e5e5';
+  var softInk = cssVar('--ink-soft') || '#8a8a8e';
+  var valueFmt = opts.formatValue || function (v) { return String(Math.round(v)); };
+
+  var baseline = padTop + plotH;
+  var gridLine = '<line x1="' + padL + '" y1="' + baseline.toFixed(1) + '" x2="' + (w - padR) + '" y2="' + baseline.toFixed(1) + '" stroke="' + ruleColor + '" stroke-width="1"></line>' +
+    '<text x="' + (padL - 5) + '" y="' + (baseline + 3).toFixed(1) + '" font-size="9.5" text-anchor="end" fill="' + softInk + '">0</text>' +
+    '<text x="' + (padL - 5) + '" y="' + (padTop + 3).toFixed(1) + '" font-size="9.5" text-anchor="end" fill="' + softInk + '">' + esc(valueFmt(maxV)) + '</text>';
+
+  var maxIdx = 0;
+  values.forEach(function (v, i) { if (v > values[maxIdx]) maxIdx = i; });
+
+  var bars = values.map(function (v, i) {
+    var bh = v <= 0 ? 0 : Math.max((v / maxV) * plotH, 1.5);
+    var x = padL + i * (bw + gap);
+    var y = baseline - bh;
+    var isPeak = i === maxIdx && v > 0;
+    var rect = '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="' + Math.min(2, bw / 3).toFixed(1) + '" fill="' + color + '"' + (isPeak ? ' opacity="1"' : ' opacity=".8"') + '></rect>';
+    if (isPeak && bw >= 6) {
+      rect += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 4).toFixed(1) + '" font-size="10" font-weight="600" text-anchor="middle" fill="' + color + '">' + esc(valueFmt(v)) + '</text>';
+    }
+    return rect;
+  }).join('');
+
+  var labelsSvg = labels ? values.map(function (v, i) {
+    if (!labels[i]) return '';
+    var x = padL + i * (bw + gap) + bw / 2;
+    return '<text x="' + x.toFixed(1) + '" y="' + (h - 6) + '" font-size="9.5" text-anchor="middle" fill="' + softInk + '">' + esc(labels[i]) + '</text>';
+  }).join('') : '';
+
+  el.innerHTML = '<div class="chart-wrap"><svg viewBox="0 0 ' + w + ' ' + h + '">' + gridLine + bars + labelsSvg + '</svg></div>';
 }
 
 /* ---------------------------------------------------------------------- */
@@ -3672,13 +3719,13 @@ function openBulkKazaSheet() {
 
 var kazaChartPeriod = '14d';
 
-/* Belirli bir referans tarihte (dahil) toplam bekleyen kaza sayısını hesaplar:
-   şu anki toplamdan, o tarihten SONRA yapılan tüm değişiklikleri geri çıkararak. */
-function kazaTotalAsOf(p, isoDate) {
-  var totalNow = PRAYER_KEYS.reduce(function (s, k) { return s + (p.kazaCounts[k] || 0); }, 0);
+/* Belirli bir tarih aralığında (dahil) FİİLEN KILINAN kaza sayısı.
+   kazaLog'daki negatif delta'lar "kılındı" anlamına gelir (azalt butonu);
+   pozitif delta'lar yeni eklenen kaza borcu olduğu için sayılmaz. */
+function kazaPerformedInRange(p, startISO, endISO) {
   var log = p.kazaLog || [];
-  var sumAfter = log.filter(function (l) { return l.date > isoDate; }).reduce(function (s, l) { return s + l.delta; }, 0);
-  return Math.max(0, totalNow - sumAfter);
+  return log.filter(function (l) { return l.date >= startISO && l.date <= endISO && l.delta < 0; })
+    .reduce(function (s, l) { return s - l.delta; }, 0); // delta negatif olduğu için çıkarma pozitif toplar
 }
 
 function renderKazaChart() {
@@ -3687,32 +3734,35 @@ function renderKazaChart() {
   var values = [], labels = [];
 
   if (kazaChartPeriod === '14d') {
+    // Her gün için o gün kılınan kaza sayısı (0 dahil — hiç kılınmadıysa bar boş kalır).
     var startDay = addDays(today, -13);
     for (var i = 0; i < 14; i++) {
       var d = addDays(startDay, i);
-      values.push(kazaTotalAsOf(p, d));
-      labels.push(i === 0 || i === 13 ? formatDateTR(d, { year: false }) : '');
+      values.push(kazaPerformedInRange(p, d, d));
+      labels.push(i === 0 || i === 13 || i === 6 ? formatDateTR(d, { year: false }) : '');
     }
   } else if (kazaChartPeriod === 'month') {
-    // Son 12 ayın HER AYININ SON GÜNÜNDEKİ toplam bekleyen kaza sayısı.
-    var todayDate = parseISO(today);
+    // Son 12 ayın HER AYINDA TOPLAM kılınan kaza sayısı.
     for (var m = 11; m >= 0; m--) {
-      var ref = new Date(); ref.setDate(1); ref.setMonth(ref.getMonth() - m + 1); ref.setDate(0); // o ayın son günü
-      var refISO = ref > todayDate ? today : toISO(ref);
-      values.push(kazaTotalAsOf(p, refISO));
-      labels.push((m === 11 || m === 0) ? MONTHS_TR[ref.getMonth()].slice(0, 3) : '');
+      var refStart = new Date(); refStart.setDate(1); refStart.setMonth(refStart.getMonth() - m);
+      var refEndObj = new Date(refStart); refEndObj.setMonth(refEndObj.getMonth() + 1); refEndObj.setDate(0);
+      var startISO = toISO(refStart);
+      var endISO = toISO(refEndObj) > today ? today : toISO(refEndObj);
+      values.push(kazaPerformedInRange(p, startISO, endISO));
+      labels.push((m === 11 || m === 0) ? MONTHS_TR[refStart.getMonth()].slice(0, 3) : '');
     }
   } else { // 'year'
-    // Son 5 yılın HER YILININ SON GÜNÜNDEKİ toplam bekleyen kaza sayısı.
-    var thisYear = new Date(today).getFullYear();
+    // Son 5 yılın HER YILINDA TOPLAM kılınan kaza sayısı.
+    var thisYear = parseISO(today).getFullYear();
     for (var y = 4; y >= 0; y--) {
       var year = thisYear - y;
-      var refDate = year === thisYear ? today : (year + '-12-31');
-      values.push(kazaTotalAsOf(p, refDate));
+      var startISO2 = year + '-01-01';
+      var endISO2 = year === thisYear ? today : (year + '-12-31');
+      values.push(kazaPerformedInRange(p, startISO2, endISO2));
       labels.push(String(year));
     }
   }
-  renderLineChart(document.getElementById('kaza-chart'), values, labels, { height: 110, color: 'var(--danger)' });
+  renderBarSeriesChart(document.getElementById('kaza-chart'), values, labels, { height: 110, color: 'var(--success)' });
 }
 
 /* ---- Kur'an ------------------------------------------------------------ */
