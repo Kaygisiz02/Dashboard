@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Günlük Ajandam</title>
-<meta name="theme-color" content="#F3EEE2">
+<meta name="theme-color" content="#F7F8FA">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Ajandam">
@@ -13,90 +13,88 @@
 <style>
 /* ==========================================================================
    Günlük Ajandam — app.css
-   Design language: bir kağıt günlüğün dijital hali. Sıcak krem kağıt zemin,
-   mürekkep tonu yazı, dolma kalem/mühür ilhamlı vurgu renkleri, defter
-   çizgisi hissi veren ince kurallar. Serif başlıklar, sans gövde metni.
+   Design language: modern, temiz mobil uygulama. Yüksek kaliteli sistem
+   fontları, canlı ve güvenilir mavi vurgu rengi, hem açık hem koyu temada
+   net kontrast. Instagram/Facebook seviyesinde cila.
    ========================================================================== */
 
 /* ---- Tokens ------------------------------------------------------------ */
 :root {
-  --paper: #F3EEE2;
-  --paper-raised: #FBF7EE;
-  --ink: #2B2417;
-  --ink-soft: #8C7F68;
-  --rule: rgba(43, 36, 23, .11);
-  --rule-strong: rgba(43, 36, 23, .18);
-  --shadow: 0 1px 2px rgba(43,36,23,.05), 0 8px 20px -10px rgba(43,36,23,.16);
-  --danger: #9C3B2C;
-  --success: #3D6B45;
-  --warning: #A8752A;
+  --paper: #F7F8FA;
+  --paper-raised: #FFFFFF;
+  --ink: #101418;
+  --ink-soft: #65676B;
+  --rule: rgba(16, 20, 24, .08);
+  --rule-strong: rgba(16, 20, 24, .14);
+  --shadow: 0 1px 2px rgba(16,20,24,.04), 0 8px 20px -10px rgba(16,20,24,.14);
+  --danger: #E0245E;
+  --success: #00A86B;
+  --warning: #F5A623;
 
-  --accent: #2E4C6D;
-  --accent-ink: #FBF7EE;
-  --accent-soft: rgba(46, 76, 109, .12);
+  --accent: #0570E8;
+  --accent-ink: #FFFFFF;
+  --accent-soft: rgba(5, 112, 232, .12);
 
-  --radius-s: 7px;
-  --radius-m: 13px;
-  --radius-l: 19px;
+  --radius-s: 8px;
+  --radius-m: 14px;
+  --radius-l: 20px;
   --gutter: 1.1rem;
   --header-h: 3.8rem;
   --tabbar-h: calc(3.9rem + env(safe-area-inset-bottom, 0px));
 
-  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
 
   color-scheme: light;
 }
 
 [data-theme="dark"] {
-  --paper: #17140F;
-  --paper-raised: #241F17;
-  --ink: #EDE6D6;
-  --ink-soft: #9C9078;
-  --rule: rgba(237, 230, 214, .10);
-  --rule-strong: rgba(237, 230, 214, .17);
-  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 22px -10px rgba(0,0,0,.6);
-  --danger: #D97F6C;
-  --success: #6FAE77;
-  --warning: #D9A857;
-  --accent-soft: rgba(140, 172, 199, .16);
+  --paper: #000000;
+  --paper-raised: #16181C;
+  --ink: #F7F8FA;
+  --ink-soft: #8B8D91;
+  --rule: rgba(247, 248, 250, .09);
+  --rule-strong: rgba(247, 248, 250, .16);
+  --shadow: 0 1px 2px rgba(0,0,0,.5), 0 10px 24px -10px rgba(0,0,0,.7);
+  --danger: #FF4472;
+  --success: #26D080;
+  --warning: #FFB93D;
+  --accent-soft: rgba(58, 158, 255, .18);
   color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
   [data-theme="auto"] {
-    --paper: #17140F;
-    --paper-raised: #241F17;
-    --ink: #EDE6D6;
-    --ink-soft: #9C9078;
-    --rule: rgba(237, 230, 214, .10);
-    --rule-strong: rgba(237, 230, 214, .17);
-    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 22px -10px rgba(0,0,0,.6);
-    --danger: #D97F6C;
-    --success: #6FAE77;
-    --warning: #D9A857;
-    --accent-soft: rgba(140, 172, 199, .16);
+    --paper: #000000;
+    --paper-raised: #16181C;
+    --ink: #F7F8FA;
+    --ink-soft: #8B8D91;
+    --rule: rgba(247, 248, 250, .09);
+    --rule-strong: rgba(247, 248, 250, .16);
+    --shadow: 0 1px 2px rgba(0,0,0,.5), 0 10px 24px -10px rgba(0,0,0,.7);
+    --danger: #FF4472;
+    --success: #26D080;
+    --warning: #FFB93D;
+    --accent-soft: rgba(58, 158, 255, .18);
     color-scheme: dark;
   }
 }
 
-/* Accent palette (data-accent on <html>) — dolma kalem mürekkep tonları */
-[data-accent="ink-blue"]  { --accent: #2E4C6D; --accent-soft: rgba(46,76,109,.12); }
-[data-accent="fountain"]  { --accent: #2B6B45; --accent-soft: rgba(43,107,69,.12); }
-[data-accent="wax-red"]   { --accent: #9C3B2C; --accent-soft: rgba(156,59,44,.12); }
-[data-accent="plum"]      { --accent: #6B4468; --accent-soft: rgba(107,68,104,.13); }
-[data-accent="ochre"]     { --accent: #8C651F; --accent-soft: rgba(140,101,31,.13); }
-[data-accent="graphite"]  { --accent: #4A4335; --accent-soft: rgba(74,67,53,.12); }
+/* Accent palette (data-accent on <html>) — canlı, modern app renkleri */
+[data-accent="ink-blue"]  { --accent: #0570E8; --accent-soft: rgba(5,112,232,.12); }
+[data-accent="fountain"]  { --accent: #008055; --accent-soft: rgba(0,128,85,.12); }
+[data-accent="wax-red"]   { --accent: #E0245E; --accent-soft: rgba(224,36,94,.12); }
+[data-accent="plum"]      { --accent: #8B5CF6; --accent-soft: rgba(139,92,246,.13); }
+[data-accent="ochre"]     { --accent: #A66300; --accent-soft: rgba(166,99,0,.14); }
+[data-accent="graphite"]  { --accent: #4A4A4A; --accent-soft: rgba(74,74,74,.12); }
 
 /* ---- Reset --------------------------------------------------------------*/
 *, *::before, *::after { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
   margin: 0;
-  background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E"),
-    var(--paper);
+  background: var(--paper);
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 16px;
@@ -126,10 +124,8 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
   padding: calc(var(--header-h) + 1.1rem) 1.1rem 6rem 1.1rem;
 }
 .eyebrow {
-  font-family: var(--font-display);
-  font-size: .82rem;
-  font-style: italic;
-  font-weight: 400;
+  font-size: .8rem;
+  font-weight: 600;
   letter-spacing: .01em;
   color: var(--ink-soft);
   margin: 0 0 .3rem;
@@ -216,8 +212,7 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 }
 .card-tab {
   display: block;
-  font-family: var(--font-display);
-  font-size: .78rem; font-style: italic; font-weight: 400;
+  font-size: .74rem; font-weight: 700;
   color: var(--accent);
   margin-bottom: .45rem;
 }
@@ -1628,9 +1623,9 @@ function renderLineChart(el, values, labels, opts) {
   });
   var path = pts.map(function (p, i) { return (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
   var area = path + ' L' + pts[pts.length - 1][0].toFixed(1) + ' ' + (padTop + plotH) + ' L' + pts[0][0].toFixed(1) + ' ' + (padTop + plotH) + ' Z';
-  var accent = opts.color || cssVar('--accent') || '#2E4C6D';
-  var ruleColor = cssVar('--rule') || 'rgba(43,36,23,.11)';
-  var softInk = cssVar('--ink-soft') || '#8C7F68';
+  var accent = opts.color || cssVar('--accent') || '#0570E8';
+  var ruleColor = cssVar('--rule') || 'rgba(16,20,24,.08)';
+  var softInk = cssVar('--ink-soft') || '#65676B';
   var valueFmt = opts.formatValue || function (v) { return String(Math.round(v)); };
 
   // Y ekseni: üst (max) ve alt (min) referans çizgisi + değer etiketi.
@@ -1666,7 +1661,7 @@ function renderBarChart(el, values, labels, opts) {
   if (!values.length) { el.innerHTML = '<div class="empty"><p>Henüz veri yok</p></div>'; return; }
   var max = Math.max.apply(null, values.concat([1]));
   var bw = (w - pad * 2 - gap * (values.length - 1)) / values.length;
-  var accent = opts.color || cssVar('--accent') || '#2E4C6D';
+  var accent = opts.color || cssVar('--accent') || '#0570E8';
   var bars = values.map(function (v, i) {
     var bh = (v / max) * (h - pad * 2 - 14);
     var x = pad + i * (bw + gap);
@@ -1697,8 +1692,8 @@ function renderDonut(el, slices, opts) {
     return c;
   }).join('');
   var centerText =
-    '<text x="' + cx + '" y="' + (cy - 6) + '" font-size="10" text-anchor="middle" fill="' + (cssVar('--ink-soft') || '#8C7F68') + '">Toplam</text>' +
-    '<text x="' + cx + '" y="' + (cy + 14) + '" font-size="15" font-weight="700" text-anchor="middle" fill="' + (cssVar('--ink') || '#2B2417') + '">' + esc(formatMoneyCompact(total)) + '</text>';
+    '<text x="' + cx + '" y="' + (cy - 6) + '" font-size="10" text-anchor="middle" fill="' + (cssVar('--ink-soft') || '#65676B') + '">Toplam</text>' +
+    '<text x="' + cx + '" y="' + (cy + 14) + '" font-size="15" font-weight="700" text-anchor="middle" fill="' + (cssVar('--ink') || '#101418') + '">' + esc(formatMoneyCompact(total)) + '</text>';
   var svgSize = Math.min(size, 180);
   var svg = '<svg viewBox="0 0 ' + size + ' ' + size + '" style="width:' + svgSize + 'px;height:' + svgSize + 'px">' + circles + centerText + '</svg>';
   var legend = '<div class="donut-legend">' + slices.map(function (s) {
@@ -1713,7 +1708,7 @@ function renderDonut(el, slices, opts) {
   el.innerHTML = '<div class="chart-wrap center">' + svg + '</div>' + legend;
 }
 
-var CHART_PALETTE = ['#2E4C6D', '#2B6B45', '#9C3B2C', '#6B4468', '#8C651F', '#4A4335', '#5C8A8C', '#B5754E'];
+var CHART_PALETTE = ['#0570E8', '#008055', '#E0245E', '#8B5CF6', '#A66300', '#4A4A4A', '#17B0C9', '#FF7A45'];
 
 function renderDivergingBarChart(el, values, labels, opts) {
   opts = opts || {};
@@ -1730,11 +1725,11 @@ function renderDivergingBarChart(el, values, labels, opts) {
   var gap = values.length > 20 ? 1 : 3;
   var bw = Math.max((plotW - gap * (values.length - 1)) / values.length, 1);
   var maxAbs = Math.max.apply(null, values.map(function (v) { return Math.abs(v); }).concat([1]));
-  var pos = opts.posColor || cssVar('--success') || '#3D6B45';
-  var neg = opts.negColor || cssVar('--danger') || '#9C3B2C';
-  var ruleColor = cssVar('--rule') || 'rgba(43,36,23,.11)';
-  var ruleStrong = cssVar('--rule-strong') || 'rgba(43,36,23,.18)';
-  var softInk = cssVar('--ink-soft') || '#8C7F68';
+  var pos = opts.posColor || cssVar('--success') || '#00A86B';
+  var neg = opts.negColor || cssVar('--danger') || '#E0245E';
+  var ruleColor = cssVar('--rule') || 'rgba(16,20,24,.08)';
+  var ruleStrong = cssVar('--rule-strong') || 'rgba(16,20,24,.14)';
+  var softInk = cssVar('--ink-soft') || '#65676B';
 
   // Y ekseni: üst sınır, 0, alt sınır için üç referans çizgisi + kısa tutar etiketi.
   var gridLines = [padTop, mid, padTop + plotH].map(function (y, i) {
@@ -1783,9 +1778,9 @@ function renderBarSeriesChart(el, values, labels, opts) {
   var gap = values.length > 20 ? 1 : 4;
   var bw = Math.max((plotW - gap * (values.length - 1)) / values.length, 1);
   var maxV = Math.max.apply(null, values.concat([1]));
-  var color = opts.color || cssVar('--accent') || '#2E4C6D';
-  var ruleColor = cssVar('--rule') || 'rgba(43,36,23,.11)';
-  var softInk = cssVar('--ink-soft') || '#8C7F68';
+  var color = opts.color || cssVar('--accent') || '#0570E8';
+  var ruleColor = cssVar('--rule') || 'rgba(16,20,24,.08)';
+  var softInk = cssVar('--ink-soft') || '#65676B';
   var valueFmt = opts.formatValue || function (v) { return String(Math.round(v)); };
 
   var baseline = padTop + plotH;
@@ -3978,7 +3973,7 @@ function categoryBreakdown(monthPrefix) {
   var top = cats.slice(0, maxSlices).map(function (c, i) { return { label: c, value: byCat[c], color: CHART_PALETTE[i] }; });
   if (cats.length > maxSlices) {
     var restTotal = cats.slice(maxSlices).reduce(function (s, c) { return s + byCat[c]; }, 0);
-    top.push({ label: 'Diğer kategoriler', value: restTotal, color: cssVar('--ink-soft') || '#8C7F68' });
+    top.push({ label: 'Diğer kategoriler', value: restTotal, color: cssVar('--ink-soft') || '#65676B' });
   }
   return top;
 }
