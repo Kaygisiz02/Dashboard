@@ -464,6 +464,12 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
   .tabbar { max-width: 640px; left: 50%; transform: translateX(-50%); border-radius: 20px 20px 0 0; border-left: 1px solid var(--rule); border-right: 1px solid var(--rule); }
 }
 
+/* ---- Yönetici Girişi (admin sheet içinde) ---------------------------- */
+.gate-error {
+  color: var(--danger); font-size: .85rem; text-align: center;
+  margin: -.4rem 0 .9rem; min-height: 1.1em;
+}
+
 </style>
 <script>
   (function () {
@@ -1005,6 +1011,7 @@ var ICON_PATHS = {
   calendar: '<rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
   more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
   gear: '<circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.4M12 18.6V21M21 12h-2.4M5.4 12H3M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7M18.4 18.4l-1.7-1.7M7.3 7.3 5.6 5.6"/>',
+  lock: '<rect x="5" y="11" width="14" height="9" rx="1.8"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
   check: '<path d="M5 13l4 4L19 7"/>',
@@ -1489,6 +1496,11 @@ function openSettingsSheet() {
     '<button class="btn btn-danger btn-block" id="set-reset">' + icon('trash') + ' Tüm verileri sıfırla</button>' +
     '</div>';
 
+  html += '<div class="eyebrow" style="margin-top:1.2rem">Yetkili Erişim</div>';
+  html += '<div class="stack">' +
+    '<button class="btn btn-secondary btn-block" id="set-admin">' + icon('lock') + ' Yönetici Paneli</button>' +
+    '</div>';
+
   openSheet({
     title: 'Ayarlar', bodyHTML: html, onOpen: function (body) {
       body.querySelectorAll('#theme-seg button').forEach(function (btn) {
@@ -1516,6 +1528,10 @@ function openSettingsSheet() {
       document.getElementById('set-reset').addEventListener('click', function () {
         confirmDialog({ title: 'Tüm veriler silinsin mi?', message: 'Bu işlem geri alınamaz. Önce dışa aktarmanı öneririz.', confirmText: 'Sıfırla', danger: true })
           .then(function (ok) { if (ok) resetAllData(); });
+      });
+      document.getElementById('set-admin').addEventListener('click', function () {
+        closeSheet();
+        setTimeout(openAdminLoginSheet, 220);
       });
     }
   });
@@ -4633,6 +4649,124 @@ document.addEventListener('click', function (e) {
   closeSheet();
   navigateTo(el.getAttribute('data-nav'));
 });
+
+/* ---------------------------------------------------------------------- */
+/* Yönetici Paneli                                                         */
+/* ---------------------------------------------------------------------- */
+/* Yetkili kişiler burada tanımlı. İsim büyük/küçük harf ve boşluk
+   duyarsız karşılaştırılır (trim + toUpperCase). PIN birebir eşleşmeli.
+   NOT: Bu sadece istemci tarafında (client-side) bir kontroldür; kaynağa
+   erişebilen biri için gerçek bir güvenlik önlemi değildir, kazara/yetkisiz
+   erişimi engellemek içindir. Aşağıdaki listeyi düzenleyerek kişi
+   ekleyebilir/çıkarabilir veya PIN değiştirebilirsin. */
+var AUTHORIZED_USERS = [
+  { name: 'Bektaş Baykara', pin: '7350' },
+  { name: 'Yetkili Kişi 2', pin: '0000' },
+  { name: 'Yetkili Kişi 3', pin: '0000' }
+];
+
+function normalizeAdminName(s) {
+  return String(s || '').trim().toLocaleUpperCase('tr-TR').replace(/\s+/g, ' ');
+}
+
+function checkAdminCredentials(name, pin) {
+  var n = normalizeAdminName(name);
+  var p = String(pin || '').trim();
+  var match = AUTHORIZED_USERS.filter(function (u) {
+    return normalizeAdminName(u.name) === n && u.pin === p;
+  })[0];
+  return match || null;
+}
+
+/* Ayarlar sheet'inden çağrılır. Önce isim+PIN sorar, doğrulanırsa
+   asıl Yönetici Paneli sheet'ini açar. */
+function openAdminLoginSheet() {
+  var html =
+    '<p class="muted" style="margin-top:0">Bu bölüm sadece yetkili kişiler içindir.</p>' +
+    '<div class="field"><label>Ad Soyad</label><input type="text" id="admin-name" autocomplete="off" placeholder="Adın Soyadın"></div>' +
+    '<div class="field"><label>PIN</label><input type="password" id="admin-pin" inputmode="numeric" autocomplete="off" placeholder="••••" maxlength="12"></div>' +
+    '<div class="gate-error" id="admin-login-error"></div>' +
+    '<button class="btn btn-primary btn-block" id="admin-login-submit">Giriş Yap</button>';
+
+  openSheet({
+    title: 'Yönetici Girişi', bodyHTML: html, onOpen: function (body) {
+      var nameEl = document.getElementById('admin-name');
+      var pinEl = document.getElementById('admin-pin');
+      var errEl = document.getElementById('admin-login-error');
+
+      function attempt() {
+        var user = checkAdminCredentials(nameEl.value, pinEl.value);
+        if (!nameEl.value.trim() || !pinEl.value.trim()) {
+          errEl.textContent = 'Ad ve PIN alanlarını doldur.';
+          return;
+        }
+        if (user) {
+          errEl.textContent = '';
+          closeSheet();
+          setTimeout(function () { openAdminPanelSheet(user); }, 220);
+        } else {
+          errEl.textContent = 'Ad veya PIN hatalı.';
+          pinEl.value = '';
+          pinEl.focus();
+        }
+      }
+
+      document.getElementById('admin-login-submit').addEventListener('click', attempt);
+      [nameEl, pinEl].forEach(function (inp) {
+        inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') attempt(); });
+      });
+      nameEl.focus();
+    }
+  });
+}
+
+/* Girişten sonra açılan asıl panel: uygulamanın genel durumuna dair
+   özet bilgiler ve yönetime özel işlemler. */
+function openAdminPanelSheet(user) {
+  var tasks = get('tasks', []);
+  var routines = get('routines', []).filter(function (r) { return !r.archived; });
+  var goals = get('goals', []);
+  var notes = get('notes', []);
+  var finance = get('finance', []);
+  var vocab = get('vocab', []);
+  var reading = get('reading', []);
+  var xp = get('xp', 0);
+  var appUser = get('user', {});
+
+  var openTasks = tasks.filter(function (t) { return t.status !== 'done'; }).length;
+  var doneTasks = tasks.length - openTasks;
+
+  var html = '';
+  html += '<p class="muted" style="margin-top:0">Giriş yapan: <strong>' + esc(user.name) + '</strong></p>';
+
+  html += '<div class="eyebrow" style="margin-top:.6rem">Uygulama özeti</div>';
+  html += '<div class="stack">' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Profil sahibi</span></span><span class="muted">' + esc(appUser.name || '—') + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Toplam XP</span></span><span class="muted">' + xp + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Görevler</span></span><span class="muted">' + doneTasks + ' / ' + tasks.length + ' tamamlandı</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Aktif rutinler</span></span><span class="muted">' + routines.length + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Hedefler</span></span><span class="muted">' + goals.length + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Notlar</span></span><span class="muted">' + notes.length + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Finans kayıtları</span></span><span class="muted">' + finance.length + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Kelime / okuma</span></span><span class="muted">' + vocab.length + ' kelime, ' + reading.length + ' kitap</span></div>' +
+    '</div>';
+
+  html += '<div class="eyebrow" style="margin-top:1.2rem">Yönetim işlemleri</div>';
+  html += '<div class="stack">' +
+    '<button class="btn btn-secondary btn-block" id="admin-export">' + icon('download') + ' Tüm veriyi dışa aktar (JSON)</button>' +
+    '<button class="btn btn-danger btn-block" id="admin-reset">' + icon('trash') + ' Tüm verileri sıfırla</button>' +
+    '</div>';
+
+  openSheet({
+    title: 'Yönetici Paneli', bodyHTML: html, onOpen: function () {
+      document.getElementById('admin-export').addEventListener('click', exportData);
+      document.getElementById('admin-reset').addEventListener('click', function () {
+        confirmDialog({ title: 'Tüm veriler silinsin mi?', message: 'Bu işlem geri alınamaz. Önce dışa aktarmanı öneririz.', confirmText: 'Sıfırla', danger: true })
+          .then(function (ok) { if (ok) resetAllData(); });
+      });
+    }
+  });
+}
 
 initCore();
 navigateTo('today');
