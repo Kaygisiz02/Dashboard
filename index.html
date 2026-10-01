@@ -409,6 +409,15 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 
 /* ---- Badge grid (Başarılarım) ---------------------------------------------*/
 .badge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .7rem; }
+
+/* ---- Stat grid (Yönetici Paneli özet kartları) -----------------------*/
+.stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .7rem; }
+.stat-card {
+  background: var(--paper-raised); border: 1px solid var(--rule); border-radius: var(--radius-m);
+  box-shadow: var(--shadow); padding: .8rem .9rem;
+}
+.stat-card .stat-value { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; line-height: 1.1; }
+.stat-card .stat-label { color: var(--ink-soft); font-size: .78rem; margin-top: .25rem; }
 .badge {
   display: flex; flex-direction: column; align-items: center; gap: .5rem;
   background: var(--paper-raised); border: 1px solid var(--rule); border-radius: var(--radius-m);
@@ -644,7 +653,22 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
   <div class="eyebrow">Finans</div>
   <h1>Finans</h1>
 
+  <div class="card" style="padding:.5rem .8rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem">
+    <button class="icon-btn" id="fin-month-prev" aria-label="Önceki ay"></button>
+    <div style="text-align:center;flex:1">
+      <div style="font-weight:700" id="fin-month-label"></div>
+    </div>
+    <button class="icon-btn" id="fin-month-next" aria-label="Sonraki ay"></button>
+    <button class="link-btn" id="fin-month-today" style="margin-left:.4rem">Bugün</button>
+  </div>
+
   <div class="card" id="fin-overview"></div>
+
+  <div class="section-title"><h2>Hesaplar</h2><button class="link-btn" id="fin-account-add-btn">Ekle</button></div>
+  <div id="fin-accounts"></div>
+
+  <div class="section-title"><h2>Taksitler</h2><button class="link-btn" id="fin-installment-add-btn">Ekle</button></div>
+  <div id="fin-installments"></div>
 
   <div class="card">
     <div class="card-head mt0"><h3>Net trend</h3></div>
@@ -700,6 +724,50 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 </main>
 </div>
 
+<div id="view-yearreport" style="display:none">
+<main class="page">
+  <div class="eyebrow">Yıl Özeti</div>
+  <h1>Yıl Özeti</h1>
+
+  <div class="card" style="padding:.5rem .8rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem">
+    <button class="icon-btn" id="yr-prev" aria-label="Önceki yıl"></button>
+    <div style="text-align:center;flex:1"><div style="font-weight:700" id="yr-label"></div></div>
+    <button class="icon-btn" id="yr-next" aria-label="Sonraki yıl"></button>
+  </div>
+
+  <div class="section-title"><h2>Finans</h2></div>
+  <div class="card" id="yr-finance"></div>
+
+  <div class="section-title"><h2>Üretkenlik</h2></div>
+  <div class="card" id="yr-productivity"></div>
+
+  <div class="section-title"><h2>Öğrenme &amp; Okuma</h2></div>
+  <div class="card" id="yr-learning"></div>
+
+  <div class="section-title"><h2>Seviye &amp; Notlar</h2></div>
+  <div class="card" id="yr-misc"></div>
+</main>
+</div>
+
+<div id="view-admin" style="display:none">
+<main class="page">
+  <button class="btn btn-secondary" id="admin-exit-btn" style="margin-bottom:.9rem">◂ Ayarlara dön</button>
+  <div class="eyebrow">Yönetici</div>
+  <h1 id="admin-page-title">Yönetici Paneli</h1>
+  <p class="muted" id="admin-session-info" style="margin-top:-.4rem"></p>
+
+  <div class="stat-grid" id="admin-stats" style="margin-top:.9rem"></div>
+
+  <div class="segmented" id="admin-tabs" style="margin-top:1.1rem">
+    <button data-v="overview" class="active">Genel Bakış</button>
+    <button data-v="users">Kullanıcılar</button>
+    <button data-v="settings">Ayarlar</button>
+  </div>
+
+  <div id="admin-tab-body" style="margin-top:1rem"></div>
+</main>
+</div>
+
 <script>
 /* ==========================================================================
    Günlük Ajandam — core.js
@@ -733,6 +801,9 @@ var STORAGE_KEYS = {
   reading: 'gunlukAjandam_reading',
   prayers: 'gunlukAjandam_prayers',
   finance: 'gunlukAjandam_finance',
+  accounts: 'gunlukAjandam_accounts',
+  installments: 'gunlukAjandam_installments',
+  notifiedBudgetOverruns: 'gunlukAjandam_notifiedBudgetOverruns',
   budget: 'gunlukAjandam_budget',
   recurringFinance: 'gunlukAjandam_recurringFinance',
   notes: 'gunlukAjandam_notes',
@@ -741,7 +812,7 @@ var STORAGE_KEYS = {
   dashboardCards: 'gunlukAjandam_dashboardCards'
 };
 
-var USER_SCOPED_KEYS = ['user', 'xp', 'tasks', 'routines', 'events', 'goals', 'vocab', 'reading', 'prayers', 'finance', 'budget', 'recurringFinance', 'notes'];
+var USER_SCOPED_KEYS = ['user', 'xp', 'tasks', 'routines', 'events', 'goals', 'vocab', 'reading', 'prayers', 'finance', 'accounts', 'installments', 'notifiedBudgetOverruns', 'budget', 'recurringFinance', 'notes'];
 
 var ACTIVE_USER_ID_KEY = 'gunlukAjandam_activeUserId';
 var DEFAULT_USER_ID = 'default';
@@ -1034,7 +1105,7 @@ var ICON_PATHS = {
   routines: '<path d="M4 12a8 8 0 0 1 14-5.3L20 8"/><path d="M20 4v4h-4"/><path d="M20 12a8 8 0 0 1-14 5.3L4 16"/><path d="M4 20v-4h4"/>',
   calendar: '<rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
   more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
-  gear: '<circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.4M12 18.6V21M21 12h-2.4M5.4 12H3M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7M18.4 18.4l-1.7-1.7M7.3 7.3 5.6 5.6"/>',
+  gear: '<path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z"/><path d="M19.4 12a7.4 7.4 0 0 0-.12-1.33l2.03-1.58-2-3.46-2.4.96a7.5 7.5 0 0 0-2.3-1.33L14.2 2.8H9.8l-.41 2.46a7.5 7.5 0 0 0-2.3 1.33l-2.4-.96-2 3.46 2.03 1.58A7.4 7.4 0 0 0 4.6 12c0 .45.04.89.12 1.33l-2.03 1.58 2 3.46 2.4-.96a7.5 7.5 0 0 0 2.3 1.33l.41 2.46h4.4l.41-2.46a7.5 7.5 0 0 0 2.3-1.33l2.4.96 2-3.46-2.03-1.58c.08-.44.12-.88.12-1.33Z"/>',
   lock: '<rect x="5" y="11" width="14" height="9" rx="1.8"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   user: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-4 4.5-6 7-6s6 2 7 6"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
@@ -1403,7 +1474,9 @@ var PAGES = {
   worship:      { title: 'İbadet',      href: 'ibadet.html',      tab: false, icon: 'moon' },
   finance:      { title: 'Finans',      href: 'finans.html',      tab: false, icon: 'wallet' },
   notes:        { title: 'Notlar',      href: 'notlar.html',      tab: false, icon: 'note' },
-  achievements: { title: 'Başarılarım', href: 'basarilarim.html', tab: false, icon: 'trophy' }
+  achievements: { title: 'Başarılarım', href: 'basarilarim.html', tab: false, icon: 'trophy' },
+  yearreport:   { title: 'Yıl Özeti',   href: 'yilozeti.html',    tab: false, icon: 'calendar' },
+  admin:        { title: 'Yönetici Paneli', href: 'yonetici.html', tab: false, icon: 'lock' }
 };
 var TAB_ORDER = ['today', 'tasks', 'routines', 'calendar'];
 
@@ -1467,7 +1540,7 @@ function buildTabbar(pageKey) {
 }
 
 function openMoreSheet() {
-  var moreKeys = ['goals', 'learning', 'worship', 'finance', 'notes', 'achievements'];
+  var moreKeys = ['goals', 'learning', 'worship', 'finance', 'notes', 'achievements', 'yearreport'];
   var html = '<div class="stack">';
   moreKeys.forEach(function (key) {
     var p = PAGES[key];
@@ -1512,6 +1585,13 @@ function openSettingsSheet() {
   html += '<div class="eyebrow" style="margin-top:1.2rem">Seviye</div>';
   var p = xpProgress(get('xp', 0));
   html += '<div class="card mt0" style="margin-top:.4rem"><div class="card-head"><h3>Seviye ' + p.level + '</h3><span class="mono muted">' + p.into + '/' + p.span + ' XP</span></div><div class="progress"><div style="width:' + p.pct + '%"></div></div></div>';
+
+  html += '<div class="eyebrow" style="margin-top:1.2rem">Bildirimler</div>';
+  html += '<div class="card mt0" style="padding:.8rem .9rem">' +
+    '<div class="row-sub" id="notif-status" style="margin-bottom:.6rem"></div>' +
+    '<button class="btn btn-secondary btn-block" id="notif-enable">' + icon('info') + ' Bütçe aşımı bildirimlerini aç</button>' +
+    '<p class="hint" style="margin-top:.5rem">Bir kategoride bütçeni aştığında, bu sekme açık veya arka planda olduğu sürece tarayıcı bildirimi gösterilir. Sekme tamamen kapalıyken bildirim gelmez.</p>' +
+    '</div>';
 
   html += '<div class="eyebrow" style="margin-top:1.2rem">Veri</div>';
   html += '<div class="stack">' +
@@ -1558,6 +1638,8 @@ function openSettingsSheet() {
         closeSheet();
         setTimeout(openAdminLoginSheet, 220);
       });
+      renderNotifStatus();
+      document.getElementById('notif-enable').addEventListener('click', requestNotifPermission);
     }
   });
 }
@@ -3997,11 +4079,189 @@ function openWorshipAddMenu() {
 
 var financeTrendPeriod = 'month';
 var historyFilter = { type: 'all', category: null, start: '', end: '' };
+var finSelectedMonth = todayISO().slice(0, 7); // "YYYY-MM" — Finans sayfasında gezinilen ay
 
 function getFinance() { return get('finance', []); }
 function saveFinance(list) { set('finance', list); }
+
+/* ---- Hesap / Kart yönetimi -----------------------------------------------
+   type: 'bank' | 'cash' | 'credit_card'
+   bank: 'bank' ve 'credit_card' için banka adı (opsiyonel)
+   cardLimit: 'credit_card' için toplam limit (opsiyonel)
+   statementDay: 'credit_card' için hesap kesim günü (1-31, opsiyonel) */
+var ACCOUNT_TYPES = [
+  { key: 'bank', label: 'Banka Hesabı' },
+  { key: 'cash', label: 'Nakit' },
+  { key: 'credit_card', label: 'Kredi Kartı' }
+];
+var ACCOUNT_COLORS = ['#2563EB', '#16A34A', '#DC2626', '#9333EA', '#D97706', '#0891B2', '#DB2777'];
+var DEFAULT_ACCOUNT_ID = 'acc_default';
+
+function getAccounts() {
+  var list = get('accounts', null);
+  if (list === null) {
+    // İlk çalıştırma / henüz hesap tanımlanmamış: geçmiş işlemleri barındıracak
+    // varsayılan bir "Genel" hesap oluşturuyoruz, hiçbir veri kaybolmuyor.
+    list = [{ id: DEFAULT_ACCOUNT_ID, name: 'Genel', type: 'cash', bank: '', cardLimit: '', statementDay: '', color: ACCOUNT_COLORS[0], createdAt: todayISO() }];
+    set('accounts', list);
+  }
+  return list;
+}
+function saveAccounts(list) { set('accounts', list); }
+
+/* Hesabı olmayan (accountId alanı boş) her finans kaydını varsayılan
+   hesaba bağlar. Yeni kullanıcı/temiz kurulumlarda no-op'tur. */
+function ensureFinanceAccountMigration() {
+  var accounts = getAccounts(); // yoksa burada oluşturulur
+  var defaultId = accounts[0].id;
+  var finance = getFinance();
+  var changed = false;
+  finance = finance.map(function (f) {
+    if (!f.accountId) { f.accountId = defaultId; changed = true; }
+    return f;
+  });
+  if (changed) saveFinance(finance);
+}
+
+function accountById(id) {
+  return getAccounts().find(function (a) { return a.id === id; }) || null;
+}
+
+/* Bir hesabın güncel bakiyesi: o hesaba ait tüm gelir - gider.
+   Kredi kartı için bu, "kullanılan limit" (borç) anlamına gelir. */
+function accountBalance(accountId) {
+  return getFinance().filter(function (f) { return f.accountId === accountId; })
+    .reduce(function (s, f) { return s + (f.type === 'income' ? 1 : -1) * (Number(f.amount) || 0); }, 0);
+}
+
+/* ---- Taksitli ödemeler --------------------------------------------------
+   { id, title, totalAmount, installmentCount, monthlyAmount, startMonth
+     (YYYY-MM), accountId, category, paidMonths: ["YYYY-MM", ...] }
+   Kalan taksit = installmentCount - paidMonths.length.
+   Bir ay "ödendi" işaretlenince o taksit tutarı Finans'a gider kaydı
+   olarak düşer (source: 'installment', installmentId, installmentMonth ile
+   etiketlenir), geri alınırsa o kayıt silinir. */
+function getInstallments() { return get('installments', []); }
+function saveInstallments(list) { set('installments', list); }
+
+function installmentMonths(inst) {
+  var months = [];
+  var d = parseISO(inst.startMonth + '-01');
+  for (var i = 0; i < inst.installmentCount; i++) {
+    months.push(d.getFullYear() + '-' + pad2(d.getMonth() + 1));
+    d.setMonth(d.getMonth() + 1);
+  }
+  return months;
+}
+function installmentRemaining(inst) {
+  return Math.max(0, inst.installmentCount - (inst.paidMonths || []).length);
+}
+function installmentRemainingAmount(inst) {
+  return installmentRemaining(inst) * Number(inst.monthlyAmount);
+}
+
+function toggleInstallmentMonth(instId, monthKey) {
+  var all = getInstallments();
+  var idx = all.findIndex(function (x) { return x.id === instId; });
+  if (idx === -1) return;
+  var inst = all[idx];
+  if (!inst.paidMonths) inst.paidMonths = [];
+  var pos = inst.paidMonths.indexOf(monthKey);
+  var nowPaid = pos === -1;
+
+  if (nowPaid) {
+    inst.paidMonths.push(monthKey);
+    var fin = getFinance();
+    fin.push({
+      id: uid(), title: inst.title + ' (taksit)', amount: Number(inst.monthlyAmount) || 0,
+      type: 'expense', category: inst.category || 'Diğer', date: monthKey + '-01',
+      accountId: inst.accountId, source: 'installment', installmentId: inst.id, installmentMonth: monthKey
+    });
+    saveFinance(fin);
+  } else {
+    inst.paidMonths.splice(pos, 1);
+    saveFinance(getFinance().filter(function (f) { return !(f.installmentId === instId && f.installmentMonth === monthKey); }));
+  }
+  all[idx] = inst;
+  saveInstallments(all);
+}
+
 function getBudget() { return get('budget', {}); }
 function saveBudget(b) { set('budget', b); }
+
+/* ---- Tarayıcı bildirimleri (bütçe aşımı) --------------------------------
+   Tarayıcının yerleşik Notification API'sini kullanır. Bu sekme açık ya da
+   arka planda olduğu sürece çalışır; sekme tamamen kapatılırsa (veya
+   tarayıcı kapatılırsa) bildirim gelmez — bu, sunucusuz/tek dosyalık bir
+   uygulamanın teknik sınırıdır.
+   "Hangi kategori, hangi ay için zaten bildirildi" listesi localStorage'da
+   kullanıcıya özel tutulur, böylece her render'da aynı aşım için tekrar
+   tekrar bildirim gitmez. */
+function notifSupported() { return typeof Notification !== 'undefined'; }
+function notifPermission() { return notifSupported() ? Notification.permission : 'unsupported'; }
+
+function renderNotifStatus() {
+  var el = document.getElementById('notif-status');
+  var btn = document.getElementById('notif-enable');
+  if (!el || !btn) return;
+  if (!notifSupported()) {
+    el.textContent = 'Bu tarayıcı bildirimleri desteklemiyor.';
+    btn.style.display = 'none';
+    return;
+  }
+  var p = notifPermission();
+  if (p === 'granted') {
+    el.textContent = 'Bildirimler açık.';
+    btn.style.display = 'none';
+  } else if (p === 'denied') {
+    el.textContent = 'Bildirimlere izin verilmemiş. Tarayıcı site ayarlarından açmalısın.';
+    btn.style.display = 'none';
+  } else {
+    el.textContent = 'Bildirimler kapalı.';
+    btn.style.display = '';
+  }
+}
+
+function requestNotifPermission() {
+  if (!notifSupported()) { showToast('Bu tarayıcı bildirimleri desteklemiyor'); return; }
+  Notification.requestPermission().then(function () {
+    renderNotifStatus();
+    if (Notification.permission === 'granted') showToast('Bildirimler açıldı');
+  });
+}
+
+function getNotifiedBudgetOverruns() { return get('notifiedBudgetOverruns', {}); }
+function saveNotifiedBudgetOverruns(v) { set('notifiedBudgetOverruns', v); }
+
+/* Seçili ayda bütçesi aşılmış ama henüz bildirilmemiş kategorileri bulur
+   ve her biri için bir tarayıcı bildirimi gösterir. initFinance() her
+   Finans sayfası açılışında çağırır. */
+function checkBudgetOverrunsAndNotify() {
+  if (!notifSupported() || Notification.permission !== 'granted') return;
+  var budget = getBudget();
+  var cats = Object.keys(budget);
+  if (!cats.length) return;
+  var mt = finSelectedMonth;
+  var notified = getNotifiedBudgetOverruns();
+  if (!notified[mt]) notified[mt] = [];
+  var changed = false;
+
+  cats.forEach(function (c) {
+    var limit = Number(budget[c]) || 0;
+    if (!limit) return;
+    var spent = getFinance().filter(function (f) { return f.type === 'expense' && f.category === c && f.date && f.date.slice(0, 7) === mt; })
+      .reduce(function (s, f) { return s + Number(f.amount); }, 0);
+    if (spent > limit && notified[mt].indexOf(c) === -1) {
+      try {
+        new Notification('Bütçe aşıldı: ' + c, { body: formatMoney(spent) + ' harcandı, bütçen ' + formatMoney(limit) + ' idi.' });
+      } catch (e) { console.warn('Bildirim gösterilemedi', e); }
+      notified[mt].push(c);
+      changed = true;
+    }
+  });
+  if (changed) saveNotifiedBudgetOverruns(notified);
+}
+
 function getRecurring() { return get('recurringFinance', []); }
 function saveRecurring(list) { set('recurringFinance', list); }
 
@@ -4049,13 +4309,30 @@ function monthTotals(monthPrefix) {
   return { income: income, expense: expense, net: income - expense };
 }
 
+function renderMonthNav() {
+  document.getElementById('fin-month-prev').innerHTML = icon('chevronL');
+  document.getElementById('fin-month-next').innerHTML = icon('chevronR');
+  var d = parseISO(finSelectedMonth + '-01');
+  document.getElementById('fin-month-label').textContent = MONTHS_TR[d.getMonth()] + ' ' + d.getFullYear();
+  var isCurrent = finSelectedMonth === todayISO().slice(0, 7);
+  document.getElementById('fin-month-today').style.display = isCurrent ? 'none' : '';
+}
+function shiftFinMonth(delta) {
+  var d = parseISO(finSelectedMonth + '-01');
+  d.setMonth(d.getMonth() + delta);
+  finSelectedMonth = d.getFullYear() + '-' + pad2(d.getMonth() + 1);
+  renderMonthNav();
+  renderAll();
+}
+
 function renderOverview() {
   var bal = currentBalance();
-  var mt = monthTotals(todayISO().slice(0, 7));
+  var mt = monthTotals(finSelectedMonth);
+  var isCurrent = finSelectedMonth === todayISO().slice(0, 7);
   document.getElementById('fin-overview').innerHTML =
     '<div class="card-head mt0"><h3>Toplam bakiye</h3></div>' +
     '<div class="card-stat" style="font-size:2rem">' + formatMoney(bal) + '</div>' +
-    '<div class="eyebrow" style="margin-top:.7rem">Bu ay</div>' +
+    '<div class="eyebrow" style="margin-top:.7rem">' + (isCurrent ? 'Bu ay' : esc(MONTHS_TR[parseISO(finSelectedMonth + '-01').getMonth()])) + '</div>' +
     '<div style="display:flex;gap:1.1rem;margin-top:.3rem" class="row-sub">' +
     '<span style="color:var(--success)">' + icon('arrowUp') + ' ' + formatMoney(mt.income) + '</span>' +
     '<span style="color:var(--danger)">' + icon('arrowDown') + ' ' + formatMoney(mt.expense) + '</span>' +
@@ -4065,8 +4342,8 @@ function renderOverview() {
 function computeTrendData(period) {
   var today = todayISO();
   if (period === 'month') {
-    var mPrefix = today.slice(0, 7);
-    var nDays = daysInMonth(today);
+    var mPrefix = finSelectedMonth;
+    var nDays = daysInMonth(mPrefix + '-01');
     var values = [], labels = [];
     for (var day = 1; day <= nDays; day++) {
       var iso = mPrefix + '-' + pad2(day);
@@ -4107,12 +4384,235 @@ function categoryBreakdown(monthPrefix) {
   return top;
 }
 function renderCategoryChart() {
-  renderDonut(document.getElementById('fin-category-chart'), categoryBreakdown(todayISO().slice(0, 7)), { size: 130 });
+  var isCurrent = finSelectedMonth === todayISO().slice(0, 7);
+  var label = isCurrent ? 'Bu ay' : (MONTHS_TR[parseISO(finSelectedMonth + '-01').getMonth()] + ' ' + parseISO(finSelectedMonth + '-01').getFullYear());
+  var headEl = document.querySelector('#fin-category-chart').closest('.card').querySelector('.card-head h3');
+  if (headEl) headEl.textContent = label + ' · kategoriler';
+  renderDonut(document.getElementById('fin-category-chart'), categoryBreakdown(finSelectedMonth), { size: 130 });
+}
+
+function accountTypeLabel(type) {
+  var t = ACCOUNT_TYPES.find(function (x) { return x.key === type; });
+  return t ? t.label : type;
+}
+
+function renderAccounts() {
+  var accounts = getAccounts();
+  var el = document.getElementById('fin-accounts');
+  el.innerHTML = '<div class="card" style="padding:.2rem .8rem">' + accounts.map(function (a) {
+    var bal = accountBalance(a.id);
+    var sub = accountTypeLabel(a.type) + (a.bank ? ' · ' + esc(a.bank) : '');
+    var valueLine;
+    if (a.type === 'credit_card') {
+      var limit = Number(a.cardLimit) || 0;
+      var used = Math.max(0, -bal); // gider fazla ise borç pozitif
+      valueLine = limit ? (formatMoney(used) + ' / ' + formatMoney(limit)) : formatMoney(used);
+    } else {
+      valueLine = formatMoney(bal);
+    }
+    return '<div class="list-row" data-account-id="' + a.id + '" data-open-account style="cursor:pointer">' +
+      '<span style="width:10px;height:10px;border-radius:50%;background:' + esc(a.color || '#888') + ';flex:none"></span>' +
+      '<div class="row-main"><div class="row-title">' + esc(a.name) + '</div><div class="row-sub">' + sub + '</div></div>' +
+      '<span class="mono">' + valueLine + '</span></div>';
+  }).join('') + '</div>';
+  el.querySelectorAll('[data-open-account]').forEach(function (row) {
+    row.addEventListener('click', function () { openAccountSheet(row.dataset.accountId); });
+  });
+}
+
+function openAccountSheet(id) {
+  var accounts = getAccounts();
+  var a = id ? accounts.find(function (x) { return x.id === id; }) : null;
+  var isNew = !a;
+  var isOnlyAccount = accounts.length <= 1;
+  var draft = a ? JSON.parse(JSON.stringify(a)) : { id: uid(), name: '', type: 'bank', bank: '', cardLimit: '', statementDay: '', color: ACCOUNT_COLORS[accounts.length % ACCOUNT_COLORS.length], createdAt: todayISO() };
+
+  function bodyHTML() {
+    return '' +
+      '<div class="field"><label>Hesap adı</label><input type="text" id="acf-name" value="' + esc(draft.name) + '" placeholder="Ör. Ziraat Vadesiz"></div>' +
+      '<div class="field"><label>Tür</label><div class="segmented" id="acf-type">' + ACCOUNT_TYPES.map(function (t) {
+        return '<button data-v="' + t.key + '" class="' + (draft.type === t.key ? 'active' : '') + '">' + t.label + '</button>';
+      }).join('') + '</div></div>' +
+      '<div class="field" id="acf-bank-field" style="display:' + (draft.type === 'bank' || draft.type === 'credit_card' ? '' : 'none') + '"><label>Banka adı (opsiyonel)</label><input type="text" id="acf-bank" value="' + esc(draft.bank || '') + '" placeholder="Ör. Ziraat Bankası"></div>' +
+      '<div id="acf-cc-fields" style="display:' + (draft.type === 'credit_card' ? '' : 'none') + '">' +
+      '<div class="field-row"><div class="field"><label>Kart limiti</label><input type="number" id="acf-limit" value="' + esc(draft.cardLimit === undefined ? '' : String(draft.cardLimit)) + '" placeholder="Ör. 50000"></div>' +
+      '<div class="field"><label>Hesap kesim günü</label><input type="number" min="1" max="31" id="acf-statement" value="' + esc(draft.statementDay === undefined ? '' : String(draft.statementDay)) + '" placeholder="Ör. 15"></div></div>' +
+      '</div>' +
+      '<div class="stack" style="margin-top:.5rem">' +
+      '<button class="btn btn-primary btn-block" id="acf-save">Kaydet</button>' +
+      (isNew || isOnlyAccount ? '' : '<button class="btn btn-danger btn-block" id="acf-delete">Hesabı sil</button>') +
+      '</div>';
+  }
+
+  openSheet({
+    title: isNew ? 'Yeni hesap' : 'Hesabı düzenle', bodyHTML: bodyHTML(), onOpen: function (body) {
+      body.querySelectorAll('#acf-type button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          draft.type = b.dataset.v;
+          body.querySelectorAll('#acf-type button').forEach(function (x) { x.classList.toggle('active', x === b); });
+          document.getElementById('acf-bank-field').style.display = (draft.type === 'bank' || draft.type === 'credit_card') ? '' : 'none';
+          document.getElementById('acf-cc-fields').style.display = draft.type === 'credit_card' ? '' : 'none';
+        });
+      });
+      document.getElementById('acf-save').addEventListener('click', function () {
+        var name = document.getElementById('acf-name').value.trim();
+        if (!name) { showToast('Hesap adı gerekli'); return; }
+        draft.name = name;
+        draft.bank = document.getElementById('acf-bank') ? document.getElementById('acf-bank').value.trim() : '';
+        if (draft.type === 'credit_card') {
+          draft.cardLimit = Number(document.getElementById('acf-limit').value) || '';
+          draft.statementDay = Number(document.getElementById('acf-statement').value) || '';
+        } else {
+          draft.cardLimit = ''; draft.statementDay = '';
+        }
+        var all = getAccounts();
+        var idx = all.findIndex(function (x) { return x.id === draft.id; });
+        if (idx === -1) all.push(draft); else all[idx] = draft;
+        saveAccounts(all);
+        closeSheet();
+        renderAccounts();
+        showToast('Kaydedildi');
+      });
+      var delBtn = document.getElementById('acf-delete');
+      if (delBtn) {
+        delBtn.addEventListener('click', function () {
+          var usageCount = getFinance().filter(function (f) { return f.accountId === draft.id; }).length;
+          var msg = usageCount ? ('Bu hesaba bağlı ' + usageCount + ' işlem, varsayılan hesaba taşınacak.') : 'Bu işlem geri alınamaz.';
+          confirmDialog({ title: 'Hesap silinsin mi?', message: msg, confirmText: 'Sil', danger: true }).then(function (ok) {
+            if (!ok) return;
+            var remaining = getAccounts().filter(function (x) { return x.id !== draft.id; });
+            saveAccounts(remaining);
+            var fallbackId = remaining[0].id;
+            var fin = getFinance().map(function (f) { if (f.accountId === draft.id) f.accountId = fallbackId; return f; });
+            saveFinance(fin);
+            closeSheet();
+            renderAccounts();
+            renderAll();
+          });
+        });
+      }
+    }
+  });
+}
+
+function renderInstallments() {
+  var list = getInstallments();
+  var el = document.getElementById('fin-installments');
+  if (!list.length) { el.innerHTML = '<p class="muted">Henüz taksitli ödeme eklenmedi.</p>'; return; }
+  el.innerHTML = '<div class="card" style="padding:.2rem .8rem">' + list.map(function (inst) {
+    var remaining = installmentRemaining(inst);
+    var remainingAmt = installmentRemainingAmount(inst);
+    var done = remaining === 0;
+    return '<div class="list-row" data-installment-id="' + inst.id + '" data-open-installment style="cursor:pointer">' +
+      '<span class="icon-btn" style="pointer-events:none">' + icon('wallet') + '</span>' +
+      '<div class="row-main"><div class="row-title">' + esc(inst.title) + (done ? ' · bitti' : '') + '</div>' +
+      '<div class="row-sub">' + formatMoney(inst.monthlyAmount) + '/ay · ' + (inst.installmentCount - remaining) + '/' + inst.installmentCount + ' taksit ödendi</div></div>' +
+      '<span class="mono" style="color:' + (done ? 'var(--success)' : 'var(--danger)') + '">' + (done ? 'Bitti' : formatMoney(remainingAmt)) + '</span></div>';
+  }).join('') + '</div>';
+  el.querySelectorAll('[data-open-installment]').forEach(function (row) {
+    row.addEventListener('click', function () { openInstallmentDetailSheet(row.dataset.installmentId); });
+  });
+}
+
+function openInstallmentSheet() {
+  var accounts = getAccounts();
+  var draft = { id: uid(), title: '', totalAmount: '', installmentCount: 3, monthlyAmount: '', startMonth: finSelectedMonth, accountId: accounts[0].id, category: '', paidMonths: [] };
+
+  function bodyHTML() {
+    return '' +
+      '<div class="field"><label>Başlık</label><input type="text" id="if-title" value="' + esc(draft.title) + '" placeholder="Ör. Buzdolabı"></div>' +
+      '<div class="field-row"><div class="field"><label>Toplam tutar</label><input type="number" step="0.01" id="if-total" placeholder="Ör. 15000"></div>' +
+      '<div class="field"><label>Taksit sayısı</label><input type="number" min="2" max="36" id="if-count" value="' + draft.installmentCount + '"></div></div>' +
+      '<div class="field"><label>Başlangıç ayı</label><input type="month" id="if-startmonth" value="' + esc(draft.startMonth) + '"></div>' +
+      '<div class="field"><label>Hesap / Kart</label><select id="if-account" style="width:100%;background:var(--paper-raised);border:1px solid var(--rule-strong);border-radius:6px;padding:.62rem .7rem">' +
+      accounts.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="field" style="position:relative"><label>Kategori</label>' +
+      '<input type="text" id="if-category" value="" placeholder="Kategori seç ya da yeni yaz" autocomplete="off">' +
+      '<div class="cat-dropdown" id="if-cat-dropdown" style="display:none"></div></div>' +
+      '<div class="hint" id="if-monthly-preview" style="margin:.3rem 0 .9rem"></div>' +
+      '<button class="btn btn-primary btn-block" id="if-save">Kaydet</button>';
+  }
+
+  openSheet({
+    title: 'Yeni taksitli ödeme', bodyHTML: bodyHTML(), onOpen: function () {
+      wireCategoryDropdown('if-category', 'if-cat-dropdown', function () { return financeCategoriesForType('expense'); });
+      function updatePreview() {
+        var total = parseFloat(document.getElementById('if-total').value) || 0;
+        var count = parseInt(document.getElementById('if-count').value, 10) || 1;
+        var monthly = count ? total / count : 0;
+        document.getElementById('if-monthly-preview').textContent = monthly ? ('Aylık taksit: ' + formatMoney(monthly)) : '';
+      }
+      document.getElementById('if-total').addEventListener('input', updatePreview);
+      document.getElementById('if-count').addEventListener('input', updatePreview);
+      document.getElementById('if-save').addEventListener('click', function () {
+        var title = document.getElementById('if-title').value.trim();
+        var total = parseFloat(document.getElementById('if-total').value);
+        var count = parseInt(document.getElementById('if-count').value, 10);
+        if (!title || !total || total <= 0 || !count || count < 1) { showToast('Başlık, tutar ve taksit sayısı gerekli'); return; }
+        draft.title = title;
+        draft.totalAmount = total;
+        draft.installmentCount = count;
+        draft.monthlyAmount = Math.round((total / count) * 100) / 100;
+        draft.startMonth = document.getElementById('if-startmonth').value || finSelectedMonth;
+        draft.accountId = document.getElementById('if-account').value;
+        draft.category = document.getElementById('if-category').value.trim() || 'Diğer';
+        var all = getInstallments();
+        all.push(draft);
+        saveInstallments(all);
+        closeSheet();
+        renderInstallments();
+        showToast('Taksitli ödeme eklendi');
+      });
+    }
+  });
+}
+
+function openInstallmentDetailSheet(id) {
+  var inst = getInstallments().find(function (x) { return x.id === id; });
+  if (!inst) return;
+  var months = installmentMonths(inst);
+  var paid = inst.paidMonths || [];
+
+  var html = '<p class="muted" style="margin-top:0">' + formatMoney(inst.monthlyAmount) + ' / ay · ' + inst.installmentCount + ' taksit · toplam ' + formatMoney(inst.totalAmount) + '</p>';
+  html += '<div class="stack">' + months.map(function (m, i) {
+    var isPaid = paid.indexOf(m) !== -1;
+    var d = parseISO(m + '-01');
+    var label = MONTHS_TR[d.getMonth()] + ' ' + d.getFullYear();
+    return '<div class="list-row" data-month="' + m + '">' +
+      '<span class="row-main"><span class="row-title">' + (i + 1) + '. taksit</span><span class="row-sub">' + label + '</span></span>' +
+      '<button class="btn ' + (isPaid ? 'btn-secondary' : 'btn-primary') + '" data-toggle-installment-month style="min-width:110px">' + (isPaid ? icon('check') + ' Ödendi' : 'Öde') + '</button>' +
+      '</div>';
+  }).join('') + '</div>';
+  html += '<button class="btn btn-danger btn-block" id="if-delete" style="margin-top:1rem">Taksitli ödemeyi sil</button>';
+
+  openSheet({
+    title: inst.title, bodyHTML: html, onOpen: function (body) {
+      body.querySelectorAll('[data-toggle-installment-month]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var monthKey = btn.closest('[data-month]').dataset.month;
+          toggleInstallmentMonth(inst.id, monthKey);
+          openInstallmentDetailSheet(inst.id); // yeniden çiz
+          renderInstallments();
+          renderAll();
+        });
+      });
+      document.getElementById('if-delete').addEventListener('click', function () {
+        confirmDialog({ title: 'Taksitli ödeme silinsin mi?', message: 'Ödendi işaretlenen taksitlerin finans kayıtları da silinir.', confirmText: 'Sil', danger: true })
+          .then(function (ok) {
+            if (!ok) return;
+            saveInstallments(getInstallments().filter(function (x) { return x.id !== inst.id; }));
+            saveFinance(getFinance().filter(function (f) { return f.installmentId !== inst.id; }));
+            closeSheet();
+            renderInstallments();
+            renderAll();
+          });
+      });
+    }
+  });
 }
 
 function renderBudgets() {
   var budget = getBudget();
-  var mt = todayISO().slice(0, 7);
   var cats = Object.keys(budget);
   var el = document.getElementById('fin-budgets');
   if (!cats.length) { el.innerHTML = '<p class="muted">Henüz bütçe eklenmedi.</p>'; return; }
@@ -4326,7 +4826,9 @@ function openTransactionSheet(id) {
   var list = getFinance();
   var f = id ? list.find(function (x) { return x.id === id; }) : null;
   var isNew = !f;
-  var draft = f ? JSON.parse(JSON.stringify(f)) : { id: uid(), title: '', amount: '', type: 'expense', category: '', date: todayISO(), source: 'manual' };
+  var accounts = getAccounts();
+  var draft = f ? JSON.parse(JSON.stringify(f)) : { id: uid(), title: '', amount: '', type: 'expense', category: '', date: todayISO(), source: 'manual', accountId: accounts[0].id };
+  if (!draft.accountId) draft.accountId = accounts[0].id;
 
   function bodyHTML() {
     return '' +
@@ -4340,6 +4842,8 @@ function openTransactionSheet(id) {
       '<div class="field" style="margin-top:.8rem"><label>Açıklama</label><input type="text" id="txf-title" value="' + esc(draft.title) + '"></div>' +
       '<div class="field-row"><div class="field"><label>Tutar</label><input type="number" step="0.01" id="txf-amount" value="' + esc(draft.amount) + '"></div>' +
       '<div class="field"><label>Tarih</label><input type="date" id="txf-date" value="' + esc(draft.date) + '"></div></div>' +
+      '<div class="field"><label>Hesap</label><select id="txf-account" style="width:100%;background:var(--paper-raised);border:1px solid var(--rule-strong);border-radius:6px;padding:.62rem .7rem">' +
+      accounts.map(function (a) { return '<option value="' + esc(a.id) + '" ' + (draft.accountId === a.id ? 'selected' : '') + '>' + esc(a.name) + '</option>'; }).join('') + '</select></div>' +
       '<div class="field" style="position:relative"><label>Kategori</label>' +
       '<input type="text" id="txf-category" value="' + esc(draft.category) + '" placeholder="Kategori seç ya da yeni yaz" autocomplete="off">' +
       '<div class="cat-dropdown" id="txf-cat-dropdown" style="display:none"></div></div>' +
@@ -4372,6 +4876,7 @@ function openTransactionSheet(id) {
         if (!title || !amount || amount <= 0) { showToast('Açıklama ve tutar gerekli'); return; }
         draft.title = title; draft.amount = amount;
         draft.date = document.getElementById('txf-date').value || todayISO();
+        draft.accountId = document.getElementById('txf-account').value;
         draft.category = document.getElementById('txf-category').value.trim() || 'Diğer';
         var all = getFinance();
         var idx = all.findIndex(function (x) { return x.id === draft.id; });
@@ -4379,6 +4884,7 @@ function openTransactionSheet(id) {
         saveFinance(all);
         closeSheet();
         renderAll();
+        checkBudgetOverrunsAndNotify();
         addXP(2, { silent: true });
         showToast('Kaydedildi');
       });
@@ -4477,30 +4983,42 @@ function renderHistory() {
   if (!list.length) { el.innerHTML = '<div class="empty"><p>Kayıt yok.</p></div>'; return; }
   el.innerHTML = '<div class="card" style="padding:.2rem .8rem">' + list.map(function (f) {
     var pos = f.type === 'income';
+    var acc = f.accountId ? accountById(f.accountId) : null;
     return '<div class="list-row" data-id="' + f.id + '" data-open style="cursor:pointer">' +
       '<span class="chip" style="color:' + (pos ? 'var(--success)' : 'var(--danger)') + '">' + (pos ? icon('arrowUp') : icon('arrowDown')) + '</span>' +
-      '<div class="row-main"><div class="row-title">' + esc(f.title) + '</div><div class="row-sub">' + esc(f.category || '') + ' \u00b7 ' + esc(formatDateTR(f.date, { year: false })) + (f.source === 'recurring' ? ' \u00b7 sabit' : '') + '</div></div>' +
+      '<div class="row-main"><div class="row-title">' + esc(f.title) + '</div><div class="row-sub">' + esc(f.category || '') + ' \u00b7 ' + esc(formatDateTR(f.date, { year: false })) + (acc ? ' \u00b7 ' + esc(acc.name) : '') + (f.source === 'recurring' ? ' \u00b7 sabit' : '') + '</div></div>' +
       '<span class="mono" style="color:' + (pos ? 'var(--success)' : 'var(--danger)') + '">' + formatMoney(f.amount) + '</span></div>';
   }).join('') + '</div>';
   el.querySelectorAll('[data-open]').forEach(function (row) { row.addEventListener('click', function () { openTransactionSheet(row.dataset.id); }); });
 }
 
 function renderAll() {
+  renderAccounts();
   renderOverview();
   renderTrendChart();
   renderCategoryChart();
   renderBudgets();
+  renderInstallments();
   renderRecurring();
   renderHistory();
 }
 
 function initFinance() {
+  ensureFinanceAccountMigration();
   financeTrendPeriod = 'month';
   historyFilter = { type: 'all', category: null, start: '', end: '' };
+  finSelectedMonth = todayISO().slice(0, 7);
   document.getElementById('fin-add-fab').innerHTML = icon('plus');
   document.getElementById('fin-add-fab').addEventListener('click', function () { openTransactionSheet(null); });
   document.getElementById('fin-budget-btn').addEventListener('click', openBudgetSheet);
   document.getElementById('fin-recurring-add-btn').addEventListener('click', function () { openRecurringSheet(null); });
+  document.getElementById('fin-account-add-btn').addEventListener('click', function () { openAccountSheet(null); });
+  document.getElementById('fin-installment-add-btn').addEventListener('click', function () { openInstallmentSheet(); });
+  document.getElementById('fin-month-prev').addEventListener('click', function () { shiftFinMonth(-1); checkBudgetOverrunsAndNotify(); });
+  document.getElementById('fin-month-next').addEventListener('click', function () { shiftFinMonth(1); checkBudgetOverrunsAndNotify(); });
+  document.getElementById('fin-month-today').addEventListener('click', function () { finSelectedMonth = todayISO().slice(0, 7); renderMonthNav(); renderAll(); checkBudgetOverrunsAndNotify(); });
+  renderMonthNav();
+  checkBudgetOverrunsAndNotify();
   document.querySelectorAll('#fin-trend-period button').forEach(function (b) {
     b.addEventListener('click', function () {
       financeTrendPeriod = b.dataset.v;
@@ -4724,14 +5242,91 @@ function initAchievements() {
   renderAchievements();
 }
 
+/* ---------------------------------------------------------------------- */
+/* Yıl Özeti                                                                */
+/* ---------------------------------------------------------------------- */
+var yrSelectedYear = new Date().getFullYear();
+
+function initYearReport() {
+  yrSelectedYear = new Date().getFullYear();
+  document.getElementById('yr-prev').innerHTML = icon('chevronL');
+  document.getElementById('yr-next').innerHTML = icon('chevronR');
+  document.getElementById('yr-prev').addEventListener('click', function () { yrSelectedYear--; renderYearReport(); });
+  document.getElementById('yr-next').addEventListener('click', function () { yrSelectedYear++; renderYearReport(); });
+  renderYearReport();
+}
+
+function renderYearReport() {
+  var y = yrSelectedYear;
+  var yPrefix = String(y);
+  document.getElementById('yr-label').textContent = yPrefix;
+  var isFuture = y > new Date().getFullYear();
+  document.getElementById('yr-next').disabled = isFuture;
+
+  // ---- Finans ----
+  var finance = getFinance().filter(function (f) { return f.date && f.date.slice(0, 4) === yPrefix; });
+  var income = finance.filter(function (f) { return f.type === 'income'; }).reduce(function (s, f) { return s + Number(f.amount); }, 0);
+  var expense = finance.filter(function (f) { return f.type === 'expense'; }).reduce(function (s, f) { return s + Number(f.amount); }, 0);
+  var byCat = {};
+  finance.filter(function (f) { return f.type === 'expense'; }).forEach(function (f) {
+    var c = f.category || 'Diğer';
+    byCat[c] = (byCat[c] || 0) + Number(f.amount);
+  });
+  var topCat = Object.keys(byCat).sort(function (a, b) { return byCat[b] - byCat[a]; })[0];
+  document.getElementById('yr-finance').innerHTML =
+    '<div class="list-row"><span class="row-main"><span class="row-title">Toplam gelir</span></span><span class="mono" style="color:var(--success)">' + formatMoney(income) + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Toplam gider</span></span><span class="mono" style="color:var(--danger)">' + formatMoney(expense) + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Net</span></span><span class="mono">' + formatMoney(income - expense) + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">En çok harcanan kategori</span></span><span class="muted">' + (topCat ? esc(topCat) + ' (' + formatMoney(byCat[topCat]) + ')' : '—') + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">İşlem sayısı</span></span><span class="muted">' + finance.length + '</span></div>';
+
+  // ---- Üretkenlik: görevler + rutinler + hedefler ----
+  var tasks = get('tasks', []).filter(function (t) { return t.due && t.due.slice(0, 4) === yPrefix; });
+  var doneTasks = tasks.filter(function (t) { return t.status === 'done'; }).length;
+  var routines = get('routines', []);
+  var routineChecks = 0;
+  routines.forEach(function (r) {
+    Object.keys(r.log || {}).forEach(function (d) { if (d.slice(0, 4) === yPrefix && r.log[d]) routineChecks++; });
+  });
+  var goals = getGoals();
+  var goalHits = 0;
+  goals.forEach(function (g) {
+    Object.keys(g.progress || {}).forEach(function (k) {
+      if (k.slice(0, 4) === yPrefix && g.progress[k] >= g.target) goalHits++;
+    });
+  });
+  document.getElementById('yr-productivity').innerHTML =
+    '<div class="list-row"><span class="row-main"><span class="row-title">Tamamlanan görev</span></span><span class="muted">' + doneTasks + ' / ' + tasks.length + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Rutin işaretlemesi</span></span><span class="muted">' + routineChecks + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Hedef tutturma</span></span><span class="muted">' + goalHits + '</span></div>';
+
+  // ---- Öğrenme & Okuma ----
+  var vocab = getVocab();
+  var reading = getReading();
+  var finishedBooks = reading.filter(function (b) { return b.finished && b.finishedAt && b.finishedAt.slice(0, 4) === yPrefix; });
+  var pagesRead = finishedBooks.reduce(function (s, b) { return s + (Number(b.totalPages) || 0); }, 0);
+  document.getElementById('yr-learning').innerHTML =
+    '<div class="list-row"><span class="row-main"><span class="row-title">Toplam kelime (öğrenilen)</span></span><span class="muted">' + vocab.length + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Bitirilen kitap</span></span><span class="muted">' + finishedBooks.length + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Okunan sayfa (bitenler)</span></span><span class="muted">' + pagesRead + '</span></div>';
+
+  // ---- Seviye & Notlar ----
+  var xp = get('xp', 0);
+  var level = levelFromXP(xp);
+  var notes = get('notes', []).filter(function (n) { return n.createdAt && n.createdAt.slice(0, 4) === yPrefix; });
+  document.getElementById('yr-misc').innerHTML =
+    '<div class="list-row"><span class="row-main"><span class="row-title">Toplam XP</span></span><span class="muted">' + xp + ' (Seviye ' + level + ')</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Bu yıl eklenen not</span></span><span class="muted">' + notes.length + '</span></div>';
+}
+
 </script>
 <script>
 window.SINGLE_FILE_APP = true;
-var PAGE_VIEWS = ['today','tasks','routines','calendar','goals','learning','worship','finance','notes','achievements'];
+var PAGE_VIEWS = ['today','tasks','routines','calendar','goals','learning','worship','finance','notes','achievements','yearreport','admin'];
 var PAGE_INIT_FN = {
   today: 'initDashboard', tasks: 'initTasks', routines: 'initRoutines', calendar: 'initCalendar',
   goals: 'initGoals', learning: 'initLearning', worship: 'initWorship', finance: 'initFinance',
-  notes: 'initNotes', achievements: 'initAchievements'
+  notes: 'initNotes', achievements: 'initAchievements', yearreport: 'initYearReport', admin: 'initAdmin'
 };
 var VIEW_TEMPLATES = {};
 PAGE_VIEWS.forEach(function (k) {
@@ -4795,8 +5390,8 @@ function checkAdminCredentials(name, pin) {
   return match || null;
 }
 
-/* Ayarlar sheet'inden çağrılır. Önce isim+PIN sorar, doğrulanırsa
-   asıl Yönetici Paneli sheet'ini açar. */
+var adminSessionUser = null; // başarılı girişten sonra doldurulur
+
 function openAdminLoginSheet() {
   var html =
     '<p class="muted" style="margin-top:0">Bu bölüm sadece yetkili kişiler içindir.</p>' +
@@ -4819,8 +5414,9 @@ function openAdminLoginSheet() {
         }
         if (user) {
           errEl.textContent = '';
+          adminSessionUser = user;
           closeSheet();
-          setTimeout(function () { openAdminPanelSheet(user); }, 220);
+          setTimeout(function () { navigateTo('admin'); }, 150);
         } else {
           errEl.textContent = 'Ad veya PIN hatalı.';
           pinEl.value = '';
@@ -4837,65 +5433,175 @@ function openAdminLoginSheet() {
   });
 }
 
-/* ---- Ana panel: kullanıcı listesi + özet + yönetim ------------------- */
-function openAdminPanelSheet(sessionUser) {
-  var html = '';
-  html += '<p class="muted" style="margin-top:0">Giriş yapan: <strong>' + esc(sessionUser.name) + '</strong></p>';
+/* ---- Admin sayfası: tam sayfa, sekmeli (Genel Bakış / Kullanıcılar / Ayarlar) */
+var adminActiveTab = 'overview';
 
-  html += '<div class="eyebrow" style="margin-top:.6rem">Kullanıcılar</div>';
-  html += '<div class="stack">' + AUTHORIZED_USERS.map(function (u) {
+function initAdmin() {
+  if (!adminSessionUser) {
+    // Doğrudan URL/geri tuşuyla buraya düşülürse girişe geri gönder.
+    navigateTo('today');
+    return;
+  }
+  adminActiveTab = 'overview';
+  document.getElementById('admin-session-info').textContent = 'Giriş yapan: ' + adminSessionUser.name;
+  document.getElementById('admin-exit-btn').addEventListener('click', function () {
+    adminSessionUser = null;
+    navigateTo('today');
+  });
+  document.querySelectorAll('#admin-tabs button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      adminActiveTab = b.dataset.v;
+      document.querySelectorAll('#admin-tabs button').forEach(function (x) { x.classList.toggle('active', x === b); });
+      renderAdminTabBody();
+    });
+  });
+  renderAdminStats();
+  renderAdminTabBody();
+}
+
+function renderAdminStats() {
+  var totalUsers = AUTHORIZED_USERS.length;
+  var totalTasks = 0, totalXP = 0, openTasks = 0;
+  AUTHORIZED_USERS.forEach(function (u) {
+    var tasks = get('tasks', [], u.id);
+    totalTasks += tasks.length;
+    openTasks += tasks.filter(function (t) { return t.status !== 'done'; }).length;
+    totalXP += get('xp', 0, u.id);
+  });
+  var cards = [
+    { value: totalUsers, label: 'Kullanıcı' },
+    { value: openTasks, label: 'Açık görev' },
+    { value: totalTasks, label: 'Toplam görev' },
+    { value: totalXP, label: 'Toplam XP' }
+  ];
+  document.getElementById('admin-stats').innerHTML = cards.map(function (c) {
+    return '<div class="stat-card"><div class="stat-value">' + c.value + '</div><div class="stat-label">' + c.label + '</div></div>';
+  }).join('');
+}
+
+function renderAdminTabBody() {
+  var el = document.getElementById('admin-tab-body');
+  if (adminActiveTab === 'overview') {
+    el.innerHTML = renderAdminOverviewTab();
+  } else if (adminActiveTab === 'users') {
+    el.innerHTML = renderAdminUsersTab();
+    wireAdminUsersTab(el);
+  } else {
+    el.innerHTML = renderAdminSettingsTab();
+    wireAdminSettingsTab(el);
+  }
+}
+
+function renderAdminOverviewTab() {
+  var html = '<div class="section-title" style="margin-top:0"><h2>Kullanıcılar</h2></div>';
+  html += '<div class="card" style="padding:.2rem .8rem">' + AUTHORIZED_USERS.map(function (u) {
     var xp = get('xp', 0, u.id);
     var tasks = get('tasks', [], u.id);
     var openTasks = tasks.filter(function (t) { return t.status !== 'done'; }).length;
-    return '<button class="list-row" data-admin-user-id="' + esc(u.id) + '" style="width:100%;text-align:left;background:none;border:none;cursor:pointer">' +
+    return '<div class="list-row" data-admin-user-id="' + esc(u.id) + '" data-open-admin-user style="cursor:pointer">' +
       icon('user') +
       '<span class="row-main"><span class="row-title">' + esc(u.name) + '</span><span class="row-sub">' + tasks.length + ' görev (' + openTasks + ' açık) · ' + xp + ' XP</span></span>' +
       icon('chevronR') +
-      '</button>';
+      '</div>';
   }).join('') + '</div>';
+  return html;
+}
 
-  html += '<div class="eyebrow" style="margin-top:1.2rem">Yönetim</div>';
-  html += '<div class="stack">' +
-    '<button class="list-row" data-admin-nav="users" style="width:100%;text-align:left;background:none;border:none;cursor:pointer">' + icon('lock') + '<span class="row-main"><span class="row-title">Yetkili kişiler</span><span class="row-sub">Kişi ekle, çıkar, PIN yönet</span></span></button>' +
-    '<button class="list-row" data-admin-nav="appsettings" style="width:100%;text-align:left;background:none;border:none;cursor:pointer">' + icon('gear') + '<span class="row-main"><span class="row-title">Cihaz ayarlarını sıfırla</span><span class="row-sub">Tema, kontrol paneli düzeni</span></span></button>' +
-    '</div>';
+function renderAdminUsersTab() {
+  var html = '<p class="muted" style="margin-top:0">Yönetici Paneline erişebilecek ve kendi verisine sahip olacak kişiler. En az bir kişi kalmalı.</p>';
+  html += '<div class="stack" id="admin-users-list"></div>';
+  html += '<div class="section-title"><h2>Yeni kişi ekle</h2></div>';
+  html += '<div class="card" style="padding:.9rem .9rem .3rem">';
+  html += '<div class="field"><label>Ad Soyad</label><input type="text" id="admin-newuser-name" placeholder="Adı Soyadı"></div>';
+  html += '<div class="field"><label>PIN</label><input type="text" id="admin-newuser-pin" inputmode="numeric" maxlength="12" placeholder="Örn. 4821"></div>';
+  html += '<div class="gate-error" id="admin-newuser-error"></div>';
+  html += '<button class="btn btn-primary btn-block" id="admin-newuser-add" style="margin-bottom:.9rem">Kişi ekle</button>';
+  html += '</div>';
+  return html;
+}
 
-  openSheet({
-    title: 'Yönetici Paneli', bodyHTML: html, onOpen: function (body) {
-      body.querySelectorAll('[data-admin-user-id]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          var uid = btn.getAttribute('data-admin-user-id');
-          var target = AUTHORIZED_USERS.filter(function (u) { return u.id === uid; })[0];
-          if (target) openAdminUserDetailSheet(sessionUser, target);
-        });
-      });
-      body.querySelectorAll('[data-admin-nav]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          var target = btn.getAttribute('data-admin-nav');
-          if (target === 'users') openAdminUsersSheet(sessionUser);
-          else if (target === 'appsettings') openAdminAppSettingsSheet(sessionUser);
-        });
-      });
-    }
+function wireAdminUsersTab(root) {
+  renderAdminUsersList();
+  root.querySelectorAll('[data-open-admin-user]').forEach(function (row) {
+    row.addEventListener('click', function () {
+      var uid = row.dataset.adminUserId;
+      var target = AUTHORIZED_USERS.find(function (u) { return u.id === uid; });
+      if (target) openAdminUserDetailSheet(target);
+    });
+  });
+  root.querySelectorAll('[data-open-admin-user]'); // no-op guard for lint tools
+  document.getElementById('admin-newuser-add').addEventListener('click', function () {
+    var name = document.getElementById('admin-newuser-name').value.trim();
+    var pin = document.getElementById('admin-newuser-pin').value.trim();
+    var errEl = document.getElementById('admin-newuser-error');
+    if (!name || !pin) { errEl.textContent = 'Ad ve PIN gerekli.'; return; }
+    if (!/^[0-9]{4,12}$/.test(pin)) { errEl.textContent = 'PIN sadece rakam olmalı (4-12 hane).'; return; }
+    var exists = AUTHORIZED_USERS.some(function (u) { return normalizeAdminName(u.name) === normalizeAdminName(name); });
+    if (exists) { errEl.textContent = 'Bu isimde bir kişi zaten var.'; return; }
+    AUTHORIZED_USERS.push({ id: nextAdminUserId(), name: name, pin: pin });
+    saveAuthorizedUsers();
+    errEl.textContent = '';
+    showToast('Kişi eklendi — kendi görev/not verisiyle başlayacak');
+    renderAdminStats();
+    renderAdminTabBody();
   });
 }
 
-/* Geri butonu içeren alt panellerin başlığını üretir. */
-function adminBackHeader(title) {
-  return '<button class="btn btn-secondary" id="admin-back" style="margin-bottom:1rem">' + icon('chevronL') + ' Panele dön</button>' +
-    '<h3 style="margin:0 0 1rem">' + esc(title) + '</h3>';
-}
-function bindAdminBack(sessionUser) {
-  var back = document.getElementById('admin-back');
-  if (back) back.addEventListener('click', function () { openAdminPanelSheet(sessionUser); });
+function renderAdminUsersList() {
+  var list = document.getElementById('admin-users-list');
+  if (!list) return;
+  list.innerHTML = '<div class="card" style="padding:.2rem .8rem">' + AUTHORIZED_USERS.map(function (u, i) {
+    return '<div class="list-row" data-idx="' + i + '">' +
+      '<span class="row-main"><span class="row-title">' + esc(u.name) + '</span><span class="row-sub">PIN: ' + esc(u.pin) + '</span></span>' +
+      (AUTHORIZED_USERS.length > 1 ? '<button class="icon-btn admin-user-del" aria-label="Kaldır">' + icon('trash') + '</button>' : '') +
+      '</div>';
+  }).join('') + '</div>';
+  list.querySelectorAll('.admin-user-del').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var idx = Number(btn.closest('[data-idx]').dataset.idx);
+      var removed = AUTHORIZED_USERS[idx];
+      confirmDialog({ title: 'Kişi kaldırılsın mı?', message: esc(removed.name) + ' artık Yönetici Paneline giremeyecek. Verisi silinmez, sadece erişimi kalkar.', confirmText: 'Kaldır', danger: true })
+        .then(function (ok) {
+          if (!ok) return;
+          AUTHORIZED_USERS.splice(idx, 1);
+          saveAuthorizedUsers();
+          showToast('Kişi kaldırıldı');
+          renderAdminStats();
+          renderAdminUsersList();
+        });
+    });
+  });
 }
 
-/* ---- Bir kullanıcının detayı: özet + veri yönetimi + dışa/içe aktar --- */
-function openAdminUserDetailSheet(sessionUser, targetUser) {
-  renderAdminUserDetailBody(sessionUser, targetUser, 'tasks');
+function renderAdminSettingsTab() {
+  var html = '<div class="section-title" style="margin-top:0"><h2>Cihaz ayarları</h2></div>';
+  html += '<p class="muted">Bunlar bu cihazdaki görsel tercihlerdir; kullanıcı verilerine (görev/rutin/not) dokunmaz.</p>';
+  html += '<div class="card" style="padding:.2rem .8rem">' +
+    '<button class="list-row" id="admin-reset-theme" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="row-main"><span class="row-title">Tema ve vurgu rengini sıfırla</span></span></button>' +
+    '<button class="list-row" id="admin-reset-dashcards" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="row-main"><span class="row-title">Kontrol paneli kartlarını sıfırla</span></span></button>' +
+    '</div>';
+  return html;
 }
 
-function renderAdminUserDetailBody(sessionUser, targetUser, activeTab) {
+function wireAdminSettingsTab(root) {
+  document.getElementById('admin-reset-theme').addEventListener('click', function () {
+    localStorage.removeItem(STORAGE_KEYS.theme);
+    localStorage.removeItem(STORAGE_KEYS.accent);
+    showToast('Tema sıfırlandı — sayfa yenileniyor');
+    setTimeout(function () { window.location.reload(); }, 500);
+  });
+  document.getElementById('admin-reset-dashcards').addEventListener('click', function () {
+    localStorage.removeItem(STORAGE_KEYS.dashboardCards);
+    showToast('Kontrol paneli kartları sıfırlandı');
+  });
+}
+
+/* ---- Kullanıcı detay sheet'i: özet + veri yönetimi + dışa/içe aktar ---- */
+function openAdminUserDetailSheet(targetUser) {
+  renderAdminUserDetailBody(targetUser, 'tasks');
+}
+
+function renderAdminUserDetailBody(targetUser, activeTab) {
   var uid = targetUser.id;
   var tasks = get('tasks', [], uid);
   var routines = get('routines', [], uid).filter(function (r) { return !r.archived; });
@@ -4909,11 +5615,10 @@ function renderAdminUserDetailBody(sessionUser, targetUser, activeTab) {
 
   var doneTasks = tasks.filter(function (t) { return t.status === 'done'; }).length;
 
-  var html = adminBackHeader(targetUser.name);
+  var html = '<p class="muted" style="margin-top:0">' + esc(appUser.name || targetUser.name) + '</p>';
 
   html += '<div class="eyebrow" style="margin-top:.6rem">Özet</div>';
   html += '<div class="stack">' +
-    '<div class="list-row"><span class="row-main"><span class="row-title">Profil adı</span></span><span class="muted">' + esc(appUser.name || '—') + '</span></div>' +
     '<div class="list-row"><span class="row-main"><span class="row-title">Toplam XP</span></span><span class="muted">' + xp + '</span></div>' +
     '<div class="list-row"><span class="row-main"><span class="row-title">Görevler</span></span><span class="muted">' + doneTasks + ' / ' + tasks.length + ' tamamlandı</span></div>' +
     '<div class="list-row"><span class="row-main"><span class="row-title">Aktif rutinler</span></span><span class="muted">' + routines.length + '</span></div>' +
@@ -4947,11 +5652,10 @@ function renderAdminUserDetailBody(sessionUser, targetUser, activeTab) {
     '</div>';
 
   openSheet({
-    title: 'Yönetici Paneli', bodyHTML: html, onOpen: function () {
-      bindAdminBack(sessionUser);
+    title: targetUser.name, bodyHTML: html, onOpen: function () {
       renderAdminDataList(uid, activeTab);
       document.querySelectorAll('#admin-data-tabs button').forEach(function (btn) {
-        btn.addEventListener('click', function () { renderAdminUserDetailBody(sessionUser, targetUser, btn.dataset.v); });
+        btn.addEventListener('click', function () { renderAdminUserDetailBody(targetUser, btn.dataset.v); });
       });
       document.getElementById('admin-export').addEventListener('click', function () { exportData(uid); });
       var importBtn = document.getElementById('admin-import');
@@ -5023,33 +5727,7 @@ function renderAdminDataList(uid, activeTab) {
   });
 }
 
-/* ---- Alt panel: cihaz ayarlarını sıfırla (tema, kart düzeni) ---------- */
-function openAdminAppSettingsSheet(sessionUser) {
-  var html = adminBackHeader('Cihaz Ayarlarını Sıfırla');
-  html += '<p class="muted" style="margin-top:0">Bunlar bu cihazdaki görsel tercihlerdir; kullanıcı verilerine (görev/rutin/not) dokunmaz.</p>';
-  html += '<div class="stack">' +
-    '<button class="list-row" id="admin-reset-theme" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="row-main"><span class="row-title">Tema ve vurgu rengini sıfırla</span></span></button>' +
-    '<button class="list-row" id="admin-reset-dashcards" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="row-main"><span class="row-title">Kontrol paneli kartlarını sıfırla</span></span></button>' +
-    '</div>';
-
-  openSheet({
-    title: 'Yönetici Paneli', bodyHTML: html, onOpen: function () {
-      bindAdminBack(sessionUser);
-      document.getElementById('admin-reset-theme').addEventListener('click', function () {
-        localStorage.removeItem(STORAGE_KEYS.theme);
-        localStorage.removeItem(STORAGE_KEYS.accent);
-        showToast('Tema sıfırlandı — sayfa yenileniyor');
-        setTimeout(function () { window.location.reload(); }, 500);
-      });
-      document.getElementById('admin-reset-dashcards').addEventListener('click', function () {
-        localStorage.removeItem(STORAGE_KEYS.dashboardCards);
-        showToast('Kontrol paneli kartları sıfırlandı');
-      });
-    }
-  });
-}
-
-/* ---- Alt panel: yetkili kişi yönetimi ---------------------------------- */
+/* ---- Yetkili kişi listesi kalıcılığı ----------------------------------- */
 var ADMIN_USERS_STORAGE_KEY = 'gunlukAjandam_authorizedUsers';
 
 function loadAuthorizedUsersOverride() {
@@ -5070,62 +5748,6 @@ function nextAdminUserId() {
   return 'u' + n;
 }
 
-function openAdminUsersSheet(sessionUser) {
-  var html = adminBackHeader('Yetkili Kişiler');
-  html += '<p class="muted" style="margin-top:0">Yönetici Paneline erişebilecek ve kendi verisine sahip olacak kişiler. En az bir kişi kalmalı.</p>';
-  html += '<div class="stack" id="admin-users-list"></div>';
-  html += '<div class="eyebrow" style="margin-top:1.2rem">Yeni kişi ekle</div>';
-  html += '<div class="field"><label>Ad Soyad</label><input type="text" id="admin-newuser-name" placeholder="Adı Soyadı"></div>';
-  html += '<div class="field"><label>PIN</label><input type="text" id="admin-newuser-pin" inputmode="numeric" maxlength="12" placeholder="Örn. 4821"></div>';
-  html += '<div class="gate-error" id="admin-newuser-error"></div>';
-  html += '<button class="btn btn-primary btn-block" id="admin-newuser-add">Kişi ekle</button>';
-
-  openSheet({
-    title: 'Yönetici Paneli', bodyHTML: html, onOpen: function () {
-      bindAdminBack(sessionUser);
-      renderAdminUsersList(sessionUser);
-      document.getElementById('admin-newuser-add').addEventListener('click', function () {
-        var name = document.getElementById('admin-newuser-name').value.trim();
-        var pin = document.getElementById('admin-newuser-pin').value.trim();
-        var errEl = document.getElementById('admin-newuser-error');
-        if (!name || !pin) { errEl.textContent = 'Ad ve PIN gerekli.'; return; }
-        if (!/^[0-9]{4,12}$/.test(pin)) { errEl.textContent = 'PIN sadece rakam olmalı (4-12 hane).'; return; }
-        var exists = AUTHORIZED_USERS.some(function (u) { return normalizeAdminName(u.name) === normalizeAdminName(name); });
-        if (exists) { errEl.textContent = 'Bu isimde bir kişi zaten var.'; return; }
-        AUTHORIZED_USERS.push({ id: nextAdminUserId(), name: name, pin: pin });
-        saveAuthorizedUsers();
-        errEl.textContent = '';
-        showToast('Kişi eklendi — kendi görev/not verisiyle başlayacak');
-        openAdminUsersSheet(sessionUser);
-      });
-    }
-  });
-}
-
-function renderAdminUsersList(sessionUser) {
-  var list = document.getElementById('admin-users-list');
-  if (!list) return;
-  list.innerHTML = AUTHORIZED_USERS.map(function (u, i) {
-    return '<div class="list-row" data-idx="' + i + '">' +
-      '<span class="row-main"><span class="row-title">' + esc(u.name) + '</span><span class="row-sub">PIN: ' + esc(u.pin) + '</span></span>' +
-      (AUTHORIZED_USERS.length > 1 ? '<button class="icon-btn admin-user-del" aria-label="Kaldır">' + icon('trash') + '</button>' : '') +
-      '</div>';
-  }).join('');
-  list.querySelectorAll('.admin-user-del').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var idx = Number(btn.closest('[data-idx]').dataset.idx);
-      var removed = AUTHORIZED_USERS[idx];
-      confirmDialog({ title: 'Kişi kaldırılsın mı?', message: esc(removed.name) + ' artık Yönetici Paneline giremeyecek. Verisi silinmez, sadece erişimi kalkar.', confirmText: 'Kaldır', danger: true })
-        .then(function (ok) {
-          if (!ok) return;
-          AUTHORIZED_USERS.splice(idx, 1);
-          saveAuthorizedUsers();
-          showToast('Kişi kaldırıldı');
-          renderAdminUsersList(sessionUser);
-        });
-    });
-  });
-}
 
 loadAuthorizedUsersOverride();
 
