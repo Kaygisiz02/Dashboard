@@ -4744,59 +4744,107 @@ function pickReceiptTitle(lines) {
    en büyük parasal görünümlü değer. Aynı satırda etiket + tutar olmayan
    durumlarda (etiket bir satırda, tutar bir sonraki satırda) o senaryoyu
    da dener, çünkü fiş yazıcıları bunu sık sık iki sütuna bölerek basar. */
+/* OCR çoğunlukla "TOPLAM" gibi etiket kelimelerini de bozarak okur
+   (özellikle kırışık/eğik fişlerde). Bu yüzden etiketleri SADECE tam
+   kelime olarak değil, OCR'ın sık yaptığı karakter karışıklıklarını da
+   (0/O, 1/I/İ, 5/S gibi) tolere eden gevşek bir biçimde de arıyoruz. */
+function looseLabelTest(line, patterns) {
+  var normalized = line.toUpperCase('tr-TR')
+    .replace(/0/g, 'O').replace(/1/g, 'I').replace(/İ/g, 'I')
+    .replace(/5/g, 'S').replace(/8/g, 'B');
+  for (var i = 0; i < patterns.length; i++) {
+    if (patterns[i].test(line) || patterns[i].test(normalized)) return true;
+  }
+  return false;
+}
+
 function extractReceiptAmount(lines, fullText) {
   var moneyPattern = /\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}|\d+\.\d{2}/;
-  var labelPriority = [
-    /genel\s*toplam/i,
-    /\btoplam\b/i,
-    /\btutar\b/i,
-    /ödenen/i,
-    /nakit|kredi\s*kart/i
+  var labelGroups = [
+    [/genel\s*toplam/i, /GENEL\s*TOPLAM/],
+    [/\btoplam\b/i, /\bTOPLAM\b/],
+    [/\btutar\b/i, /\bTUTAR\b/],
+    [/ödenen/i, /ODENEN/],
+    [/nakit|kredi\s*kart/i, /NAKIT|KREDI\s*KART/]
   ];
 
-  for (var p = 0; p < labelPriority.length; p++) {
+  for (var p = 0; p < labelGroups.length; p++) {
     for (var i = 0; i < lines.length; i++) {
-      if (!labelPriority[p].test(lines[i])) continue;
+      if (!looseLabelTest(lines[i], labelGroups[p])) continue;
       var sameLineMatch = lines[i].match(moneyPattern);
-      if (sameLineMatch) { var v = parseTRAmount(sameLineMatch[0]); if (!isNaN(v)) return v; }
+      if (sameLineMatch) { var v = parseTRAmount(sameLineMatch[0]); if (!isNaN(v) && v > 0) return v; }
       // Etiket ayrı satırda, tutar bir sonraki satırda olabilir (iki sütunlu fiş düzeni)
       if (lines[i + 1]) {
         var nextLineMatch = lines[i + 1].match(moneyPattern);
-        if (nextLineMatch) { var v2 = parseTRAmount(nextLineMatch[0]); if (!isNaN(v2)) return v2; }
+        if (nextLineMatch) { var v2 = parseTRAmount(nextLineMatch[0]); if (!isNaN(v2) && v2 > 0) return v2; }
       }
     }
   }
 
-  // Hiçbir etiket eşleşmediyse: metindeki en büyük parasal değeri al,
-  // ama tek/çift haneli "adet" gibi küçük sayıları değil, gerçek tutara
-  // benzeyen (ondalık kısmı olan) değerleri tercih et.
+  // Hiçbir etiket eşleşmediyse: metindeki TÜM parasal değerleri topla.
+  // En büyüğünü kör kör almak OCR gürültüsünden (satır birleşmesi, yanlış
+  // karakter okuma) doğan absürt büyük sayıları seçme riski taşır. Bunun
+  // yerine ORTANCA (medyan) değere yakın olanı tercih ederiz: bir fişte
+  // tek tük ürün fiyatları ve bir toplam olur, toplam genelde en büyük
+  // birkaç değerden biridir ama uç (aşırı büyük/küçük) bir OCR hatası
+  // değildir — medyan bu gürültüye karşı çok daha dayanıklıdır.
   var all = fullText.match(/\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}/g);
   if (all && all.length) {
-    var parsed = all.map(parseTRAmount).filter(function (n) { return !isNaN(n) && n > 0; });
-    if (parsed.length) return Math.max.apply(null, parsed);
+    var parsed = all.map(parseTRAmount).filter(function (n) { return !isNaN(n) && n > 0; }).sort(function (a, b) { return a - b; });
+    if (parsed.length === 1) return parsed[0];
+    if (parsed.length > 1) {
+      // En büyük değer, ikinci en büyük değerin 3 katından fazlaysa
+      // muhtemelen OCR gürültüsüdür (satır birleşmesi vb.) — atla, bir
+      // alttakini dene. Değilse en büyüğü al (genelde TOPLAM budur).
+      var largest = parsed[parsed.length - 1];
+      var secondLargest = parsed[parsed.length - 2];
+      if (secondLargest > 0 && largest > secondLargest * 3) return secondLargest;
+      return largest;
+    }
   }
   return null;
 }
 
 /* Fişte birden fazla tarih olabilir (işlem tarihi, fiş basım tarihi vb.).
    "tarih" etiketiyle aynı satırda geçen tarihi önceliklendirir; yoksa
-   metindeki ilk geçerli tarihi kullanır. */
+   metindeki ilk geçerli tarihi kullanır. Bulunan yıl, bugünden makul bir
+   aralıkta (son 5 yıl – gelecek 1 yıl) değilse OCR hatası sayılıp
+   reddedilir (ör. "2025" rakamındaki "2"nin "0" okunup "0025" ya da
+   "5" nin "2" okunup eski bir yıl çıkması gibi yaygın OCR kaymaları). */
+function isPlausibleReceiptYear(y) {
+  var nowY = new Date().getFullYear();
+  return y >= nowY - 5 && y <= nowY + 1;
+}
+
 function extractReceiptDate(lines, fullText) {
-  var dPattern = /(\d{2})[.\/](\d{2})[.\/](\d{4})/;
-  var dPattern2 = /(\d{4})-(\d{2})-(\d{2})/;
+  var dPattern = /(\d{2})[.\/](\d{2})[.\/](\d{4})/g;
+  var dPattern2 = /(\d{4})-(\d{2})-(\d{2})/g;
+
+  function tryLine(line) {
+    var m;
+    dPattern.lastIndex = 0;
+    while ((m = dPattern.exec(line)) !== null) {
+      var y = parseInt(m[3], 10);
+      if (isPlausibleReceiptYear(y)) return m[3] + '-' + m[2] + '-' + m[1];
+    }
+    dPattern2.lastIndex = 0;
+    while ((m = dPattern2.exec(line)) !== null) {
+      var y2 = parseInt(m[1], 10);
+      if (isPlausibleReceiptYear(y2)) return m[1] + '-' + m[2] + '-' + m[3];
+    }
+    return null;
+  }
 
   for (var i = 0; i < lines.length; i++) {
     if (!/tarih/i.test(lines[i])) continue;
-    var dm = lines[i].match(dPattern);
-    if (dm) return dm[3] + '-' + dm[2] + '-' + dm[1];
-    var dm2 = lines[i].match(dPattern2);
-    if (dm2) return dm2[1] + '-' + dm2[2] + '-' + dm2[3];
+    var found = tryLine(lines[i]);
+    if (found) return found;
   }
 
-  var fm = fullText.match(dPattern);
-  if (fm) return fm[3] + '-' + fm[2] + '-' + fm[1];
-  var fm2 = fullText.match(dPattern2);
-  if (fm2) return fm2[1] + '-' + fm2[2] + '-' + fm2[3];
+  for (var j = 0; j < lines.length; j++) {
+    var found2 = tryLine(lines[j]);
+    if (found2) return found2;
+  }
   return null;
 }
 
@@ -4804,6 +4852,11 @@ function applyExtractedText(text) {
   var lines = text.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
   var amount = extractReceiptAmount(lines, text);
   var dateISO = extractReceiptDate(lines, text);
+  // Hata ayıklama için OCR'ın ham çıktısını konsola yazıyoruz; yanlış
+  // okuma şikayetlerinde tarayıcı konsolundan gerçek OCR metni görülebilir.
+  console.log('[OCR ham metin]', text);
+  console.log('[OCR bulunan tutar]', amount, '| tarih:', dateISO);
+  var amountLooksOff = amount !== null && amount > 100000;
 
   var title = pickReceiptTitle(lines);
   var lowerText = text.toLowerCase();
@@ -4823,13 +4876,18 @@ function applyExtractedText(text) {
     catInput.dispatchEvent(new Event('input')); // tetikleyici çip metnini de güncelle
   }
   if (isIncome) document.querySelectorAll('#txf-type button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === 'income'); });
+
+  return { amountFound: amount !== null, dateFound: dateISO !== null, amountLooksOff: amountLooksOff };
 }
 
-/* Fiş fotoğrafını OCR'dan önce iyileştirir: gri tonlama + kontrast artırma +
-   adaptif eşikleme (binarizasyon) + büyütme. Telefon kamerasıyla çekilen,
-   gölgeli/düşük kontrastlı fişlerde Tesseract'ın doğruluğunu belirgin
-   şekilde artırır (ham renkli fotoğraf yerine temiz siyah-beyaz metin verir).
-   Tarayıcı içi Canvas API ile çalışır, dışarıdan kütüphane gerektirmez. */
+/* Fiş fotoğrafını OCR'dan önce ölçülü biçimde iyileştirir: gri tonlama +
+   kontrast artırma + büyütme. BİLEREK tam siyah-beyaza (binarizasyon)
+   çevirmiyoruz: kırışık/gölgeli/eğri çekilmiş fişlerde sabit bir eşik
+   değeri bazı rakamları siler ya da birbirine karıştırır (ör. kırışıklık
+   gölgesi "6" harfini koparıp "9752" gibi fişte hiç olmayan sayılar
+   üretebilir). Tesseract.js kendi iç adaptif binarizasyonunu zaten
+   uyguluyor; burada sadece onun işini kolaylaştıracak kadar temizlik
+   yapıyoruz, üzerine yazmıyoruz. */
 function preprocessReceiptImage(file) {
   return new Promise(function (resolve, reject) {
     var img = new Image();
@@ -4838,42 +4896,44 @@ function preprocessReceiptImage(file) {
       URL.revokeObjectURL(url);
       try {
         // Çok küçük fişler Tesseract için yetersiz çözünürlükte kalır;
-        // en az ~1600px genişliğe büyüt (OCR küçük metinde çok zayıflar).
-        var targetW = Math.max(img.naturalWidth, 1600);
-        var scale = targetW / img.naturalWidth;
+        // en az ~1800px genişliğe büyüt. Zaten büyükse büyütme, küçültme.
+        var targetW = Math.max(img.naturalWidth, 1800);
+        var scale = Math.min(targetW / img.naturalWidth, 2.5); // aşırı büyütme bulanıklaştırır
         var w = Math.round(img.naturalWidth * scale);
         var h = Math.round(img.naturalHeight * scale);
 
         var canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
         var ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, w, h);
 
         var imgData = ctx.getImageData(0, 0, w, h);
         var d = imgData.data;
 
         // 1) Gri tonlama (luminance ağırlıklı ortalama)
-        var gray = new Uint8ClampedArray(w * h);
+        var n = w * h;
+        var gray = new Float32Array(n);
         for (var i = 0, p = 0; i < d.length; i += 4, p++) {
           gray[p] = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
         }
 
-        // 2) Basit kontrast gerimi (histogramın min/maks değerine göre)
-        var min = 255, max = 0;
-        for (var j = 0; j < gray.length; j++) { if (gray[j] < min) min = gray[j]; if (gray[j] > max) max = gray[j]; }
-        var range = Math.max(1, max - min);
-        for (var k = 0; k < gray.length; k++) { gray[k] = ((gray[k] - min) / range) * 255; }
+        // 2) Hafif kontrast artırma (yüzde 2/98 persentil gerimi — uç
+        //    değerlerden etkilenmeyen, min/max'a göre daha güvenli bir yöntem).
+        var sorted = Array.prototype.slice.call(gray).sort(function (a, b) { return a - b; });
+        var lo = sorted[Math.floor(n * 0.02)];
+        var hi = sorted[Math.floor(n * 0.98)];
+        var range = Math.max(1, hi - lo);
+        for (var k = 0; k < n; k++) {
+          var v = ((gray[k] - lo) / range) * 255;
+          gray[k] = v < 0 ? 0 : v > 255 ? 255 : v;
+        }
 
-        // 3) Adaptif eşikleme yerine basit global eşik (ortalama parlaklığa
-        //    göre) — fiş fonu genelde açık, metin koyu olduğundan iyi çalışır.
-        var sum = 0;
-        for (var s = 0; s < gray.length; s++) sum += gray[s];
-        var mean = sum / gray.length;
-        var threshold = mean * 0.82; // fon ortalamasının biraz altı: metni korur, gölgeyi atar
-
+        // 3) Gri tonlamalı, kontrastı artırılmış görseli geri yaz (binarize ETMİYORUZ)
         for (var q = 0, pp = 0; q < d.length; q += 4, pp++) {
-          var v = gray[pp] < threshold ? 0 : 255;
-          d[q] = d[q + 1] = d[q + 2] = v;
+          var gv = gray[pp];
+          d[q] = d[q + 1] = d[q + 2] = gv;
         }
 
         ctx.putImageData(imgData, 0, 0);
@@ -4884,13 +4944,37 @@ function preprocessReceiptImage(file) {
         reject(err);
       }
     };
-    img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('görsel yüklenemedi')); };
+    img.onerror = function (ev) {
+      URL.revokeObjectURL(url);
+      console.warn('[preprocessReceiptImage] img.onerror detayları:', { fileType: file && file.type, fileSize: file && file.size, fileName: file && file.name, event: ev });
+      reject(new Error('görsel yüklenemedi (tip: ' + (file && file.type) + ')'));
+    };
     img.src = url;
   });
 }
 
+/* Tarayıcılar (Safari dahil) HEIC/HEIF dosyalarını JavaScript/Canvas
+   üzerinden decode edemez — bu format sadece işletim sistemi seviyesinde
+   açılabilir, web sayfası içinden değil. iPhone'da kamera varsayılan
+   olarak HEIC kaydeder, bu yüzden hem görsel ön işleme hem Tesseract'ın
+   kendisi bu dosyalarda sessizce başarısız olur. Burada belirgin bir
+   uyarı vererek kullanıcıyı doğru yöne yönlendiriyoruz. */
+function isLikelyUnsupportedImageFormat(file) {
+  if (!file) return false;
+  var type = (file.type || '').toLowerCase();
+  var name = (file.name || '').toLowerCase();
+  return type.indexOf('heic') !== -1 || type.indexOf('heif') !== -1 ||
+    name.endsWith('.heic') || name.endsWith('.heif');
+}
+
 function scanReceiptImage(file) {
   var status = document.getElementById('txf-scan-status');
+
+  if (isLikelyUnsupportedImageFormat(file)) {
+    status.textContent = 'Bu fotoğraf HEIC formatında, tarayıcı bunu okuyamıyor. iPhone Ayarlar → Kamera → Biçimler bölümünden "Uyumluluk Öncelikli" (JPEG) seçip tekrar çek, ya da fotoğrafı paylaşırken "JPEG olarak kopyala" seçeneğini kullan.';
+    return;
+  }
+
   status.textContent = 'Görsel hazırlanıyor…';
   if (typeof Tesseract === 'undefined') { status.textContent = 'OCR kütüphanesi yüklenemedi — internet bağlantısını kontrol et.'; return; }
 
@@ -4909,11 +4993,25 @@ function scanReceiptImage(file) {
       status.textContent = 'Görselde metin bulunamadı — net ve aydınlık bir fotoğrafla tekrar dene, ya da elle doldur.';
       return;
     }
-    applyExtractedText(text);
-    status.textContent = 'Tahmini bilgiler dolduruldu — kontrol et.';
+    var outcome = applyExtractedText(text);
+    if (outcome.amountLooksOff) {
+      status.textContent = 'Tutar şüpheli görünüyor (çok büyük) — lütfen kontrol edip gerekirse elle düzelt.';
+    } else if (!outcome.amountFound && !outcome.dateFound) {
+      status.textContent = 'Tutar ve tarih net okunamadı — lütfen elle kontrol et.';
+    } else if (!outcome.amountFound) {
+      status.textContent = 'Tutar net okunamadı — lütfen elle gir.';
+    } else if (!outcome.dateFound) {
+      status.textContent = 'Tarih net okunamadı — bugünün tarihi kullanıldı, gerekirse değiştir.';
+    } else {
+      status.textContent = 'Tahmini bilgiler dolduruldu — kontrol et.';
+    }
   }).catch(function (err) {
-    console.warn('OCR hatası:', err);
-    status.textContent = 'Görsel okunamadı — elle doldurabilirsin.';
+    console.warn('OCR hatası:', err, '| dosya tipi:', file && file.type, '| dosya adı:', file && file.name);
+    if (isLikelyUnsupportedImageFormat(file)) {
+      status.textContent = 'Bu fotoğraf formatı (HEIC) okunamıyor. Kamera ayarlarından "Uyumluluk Öncelikli" seç ya da JPEG olarak paylaşıp tekrar dene.';
+    } else {
+      status.textContent = 'Görsel okunamadı — farklı bir fotoğrafla dene, ya da elle doldurabilirsin.';
+    }
   });
 }
 
