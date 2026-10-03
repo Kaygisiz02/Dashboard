@@ -761,6 +761,7 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
   <div class="segmented" id="admin-tabs" style="margin-top:1.1rem">
     <button data-v="overview" class="active">Genel Bakış</button>
     <button data-v="users">Kullanıcılar</button>
+    <button data-v="logs">Loglar</button>
     <button data-v="settings">Ayarlar</button>
   </div>
 
@@ -807,6 +808,7 @@ var STORAGE_KEYS = {
   budget: 'gunlukAjandam_budget',
   recurringFinance: 'gunlukAjandam_recurringFinance',
   notes: 'gunlukAjandam_notes',
+  adminActivityLog: 'gunlukAjandam_adminActivityLog',
   theme: 'gunlukAjandam_theme',
   accent: 'gunlukAjandam_accent',
   dashboardCards: 'gunlukAjandam_dashboardCards'
@@ -4737,23 +4739,71 @@ function pickReceiptTitle(lines) {
   return candidates[0].replace(/\*+/g, '').trim();
 }
 
-function applyExtractedText(text) {
-  var lines = text.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
-  var amount = null;
-  var m = text.match(/(toplam|tutar|ödenen|genel toplam)[^\d]{0,15}([\d.,]+)/i);
-  if (m) amount = parseTRAmount(m[2]);
-  if (!amount || isNaN(amount)) {
-    var all = text.match(/\d{1,3}(\.\d{3})*,\d{2}|\d+,\d{2}/g);
-    if (all && all.length) {
-      var parsed = all.map(parseTRAmount).filter(function (n) { return !isNaN(n); });
-      if (parsed.length) amount = Math.max.apply(null, parsed);
+/* Fiş metninde tutarı satır bazlı, önceliklendirilmiş biçimde arar.
+   Öncelik sırası: "GENEL TOPLAM" > "TOPLAM"/"TUTAR"/"ÖDENEN" > fişteki
+   en büyük parasal görünümlü değer. Aynı satırda etiket + tutar olmayan
+   durumlarda (etiket bir satırda, tutar bir sonraki satırda) o senaryoyu
+   da dener, çünkü fiş yazıcıları bunu sık sık iki sütuna bölerek basar. */
+function extractReceiptAmount(lines, fullText) {
+  var moneyPattern = /\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}|\d+\.\d{2}/;
+  var labelPriority = [
+    /genel\s*toplam/i,
+    /\btoplam\b/i,
+    /\btutar\b/i,
+    /ödenen/i,
+    /nakit|kredi\s*kart/i
+  ];
+
+  for (var p = 0; p < labelPriority.length; p++) {
+    for (var i = 0; i < lines.length; i++) {
+      if (!labelPriority[p].test(lines[i])) continue;
+      var sameLineMatch = lines[i].match(moneyPattern);
+      if (sameLineMatch) { var v = parseTRAmount(sameLineMatch[0]); if (!isNaN(v)) return v; }
+      // Etiket ayrı satırda, tutar bir sonraki satırda olabilir (iki sütunlu fiş düzeni)
+      if (lines[i + 1]) {
+        var nextLineMatch = lines[i + 1].match(moneyPattern);
+        if (nextLineMatch) { var v2 = parseTRAmount(nextLineMatch[0]); if (!isNaN(v2)) return v2; }
+      }
     }
   }
-  var dateISO = null;
-  var dm = text.match(/(\d{2})[.\/](\d{2})[.\/](\d{4})/);
-  var dm2 = !dm && text.match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (dm) dateISO = dm[3] + '-' + dm[2] + '-' + dm[1];
-  else if (dm2) dateISO = dm2[1] + '-' + dm2[2] + '-' + dm2[3];
+
+  // Hiçbir etiket eşleşmediyse: metindeki en büyük parasal değeri al,
+  // ama tek/çift haneli "adet" gibi küçük sayıları değil, gerçek tutara
+  // benzeyen (ondalık kısmı olan) değerleri tercih et.
+  var all = fullText.match(/\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}/g);
+  if (all && all.length) {
+    var parsed = all.map(parseTRAmount).filter(function (n) { return !isNaN(n) && n > 0; });
+    if (parsed.length) return Math.max.apply(null, parsed);
+  }
+  return null;
+}
+
+/* Fişte birden fazla tarih olabilir (işlem tarihi, fiş basım tarihi vb.).
+   "tarih" etiketiyle aynı satırda geçen tarihi önceliklendirir; yoksa
+   metindeki ilk geçerli tarihi kullanır. */
+function extractReceiptDate(lines, fullText) {
+  var dPattern = /(\d{2})[.\/](\d{2})[.\/](\d{4})/;
+  var dPattern2 = /(\d{4})-(\d{2})-(\d{2})/;
+
+  for (var i = 0; i < lines.length; i++) {
+    if (!/tarih/i.test(lines[i])) continue;
+    var dm = lines[i].match(dPattern);
+    if (dm) return dm[3] + '-' + dm[2] + '-' + dm[1];
+    var dm2 = lines[i].match(dPattern2);
+    if (dm2) return dm2[1] + '-' + dm2[2] + '-' + dm2[3];
+  }
+
+  var fm = fullText.match(dPattern);
+  if (fm) return fm[3] + '-' + fm[2] + '-' + fm[1];
+  var fm2 = fullText.match(dPattern2);
+  if (fm2) return fm2[1] + '-' + fm2[2] + '-' + fm2[3];
+  return null;
+}
+
+function applyExtractedText(text) {
+  var lines = text.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
+  var amount = extractReceiptAmount(lines, text);
+  var dateISO = extractReceiptDate(lines, text);
 
   var title = pickReceiptTitle(lines);
   var lowerText = text.toLowerCase();
@@ -4775,12 +4825,91 @@ function applyExtractedText(text) {
   if (isIncome) document.querySelectorAll('#txf-type button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === 'income'); });
 }
 
+/* Fiş fotoğrafını OCR'dan önce iyileştirir: gri tonlama + kontrast artırma +
+   adaptif eşikleme (binarizasyon) + büyütme. Telefon kamerasıyla çekilen,
+   gölgeli/düşük kontrastlı fişlerde Tesseract'ın doğruluğunu belirgin
+   şekilde artırır (ham renkli fotoğraf yerine temiz siyah-beyaz metin verir).
+   Tarayıcı içi Canvas API ile çalışır, dışarıdan kütüphane gerektirmez. */
+function preprocessReceiptImage(file) {
+  return new Promise(function (resolve, reject) {
+    var img = new Image();
+    var url = URL.createObjectURL(file);
+    img.onload = function () {
+      URL.revokeObjectURL(url);
+      try {
+        // Çok küçük fişler Tesseract için yetersiz çözünürlükte kalır;
+        // en az ~1600px genişliğe büyüt (OCR küçük metinde çok zayıflar).
+        var targetW = Math.max(img.naturalWidth, 1600);
+        var scale = targetW / img.naturalWidth;
+        var w = Math.round(img.naturalWidth * scale);
+        var h = Math.round(img.naturalHeight * scale);
+
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+
+        var imgData = ctx.getImageData(0, 0, w, h);
+        var d = imgData.data;
+
+        // 1) Gri tonlama (luminance ağırlıklı ortalama)
+        var gray = new Uint8ClampedArray(w * h);
+        for (var i = 0, p = 0; i < d.length; i += 4, p++) {
+          gray[p] = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        }
+
+        // 2) Basit kontrast gerimi (histogramın min/maks değerine göre)
+        var min = 255, max = 0;
+        for (var j = 0; j < gray.length; j++) { if (gray[j] < min) min = gray[j]; if (gray[j] > max) max = gray[j]; }
+        var range = Math.max(1, max - min);
+        for (var k = 0; k < gray.length; k++) { gray[k] = ((gray[k] - min) / range) * 255; }
+
+        // 3) Adaptif eşikleme yerine basit global eşik (ortalama parlaklığa
+        //    göre) — fiş fonu genelde açık, metin koyu olduğundan iyi çalışır.
+        var sum = 0;
+        for (var s = 0; s < gray.length; s++) sum += gray[s];
+        var mean = sum / gray.length;
+        var threshold = mean * 0.82; // fon ortalamasının biraz altı: metni korur, gölgeyi atar
+
+        for (var q = 0, pp = 0; q < d.length; q += 4, pp++) {
+          var v = gray[pp] < threshold ? 0 : 255;
+          d[q] = d[q + 1] = d[q + 2] = v;
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+        canvas.toBlob(function (blob) {
+          if (blob) resolve(blob); else reject(new Error('canvas->blob başarısız'));
+        }, 'image/png');
+      } catch (err) {
+        reject(err);
+      }
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('görsel yüklenemedi')); };
+    img.src = url;
+  });
+}
+
 function scanReceiptImage(file) {
   var status = document.getElementById('txf-scan-status');
-  status.textContent = 'Görsel okunuyor…';
+  status.textContent = 'Görsel hazırlanıyor…';
   if (typeof Tesseract === 'undefined') { status.textContent = 'OCR kütüphanesi yüklenemedi — internet bağlantısını kontrol et.'; return; }
-  Tesseract.recognize(file, 'tur+eng').then(function (result) {
-    applyExtractedText(result.data.text || '');
+
+  preprocessReceiptImage(file).then(function (processedBlob) {
+    status.textContent = 'Görsel okunuyor…';
+    return Tesseract.recognize(processedBlob, 'tur+eng');
+  }).catch(function (preprocessErr) {
+    // Ön işleme başarısız olursa (ör. tarayıcı kısıtlaması), orijinal
+    // dosyayla devam et — hiç okumamaktan iyidir.
+    console.warn('Görsel ön işleme başarısız, orijinal dosyayla deneniyor:', preprocessErr);
+    status.textContent = 'Görsel okunuyor…';
+    return Tesseract.recognize(file, 'tur+eng');
+  }).then(function (result) {
+    var text = (result && result.data && result.data.text) || '';
+    if (!text.trim()) {
+      status.textContent = 'Görselde metin bulunamadı — net ve aydınlık bir fotoğrafla tekrar dene, ya da elle doldur.';
+      return;
+    }
+    applyExtractedText(text);
     status.textContent = 'Tahmini bilgiler dolduruldu — kontrol et.';
   }).catch(function (err) {
     console.warn('OCR hatası:', err);
@@ -5361,21 +5490,41 @@ document.addEventListener('click', function (e) {
 /* ---------------------------------------------------------------------- */
 /* Yönetici Paneli                                                         */
 /* ---------------------------------------------------------------------- */
-/* Yetkili kişiler burada tanımlı. Her kişinin kendi verisi ("id" alanı ile
-   ayrılmış tasks/routines/notes/xp vb.) ve Yönetici Paneline giriş yapmasını
-   sağlayan bir PIN'i vardır. İsim büyük/küçük harf ve boşluk duyarsız
-   karşılaştırılır (trim + toUpperCase). PIN birebir eşleşmeli.
+/* Uygulamanın tüm kullanıcıları burada tanımlı. Her kişinin kendi verisi
+   ("id" alanı ile ayrılmış tasks/routines/notes/xp vb.), girişte kullandığı
+   bir PIN'i ve bir rolü vardır:
+   - 'yonetici'  : Panele girer, her şeyi görür/düzenler/siler, kullanıcı
+                   ve rol yönetimi yapabilir.
+   - 'moderator' : Panele girer, kullanıcıları ve verilerini görüntüler,
+                   ama silme/düzenleme/rol değiştirme yapamaz.
+   - 'uye'       : Panele giremez; uygulamayı normal kullanıcı olarak
+                   kullanır, kendi verisi vardır ama Yönetici Paneli bu
+                   kişi için kapalıdır.
+   İsim büyük/küçük harf ve boşluk duyarsız karşılaştırılır (trim +
+   toUpperCase). PIN birebir eşleşmeli.
    NOT: Bu sadece istemci tarafında (client-side) bir kontroldür; kaynağa
    erişebilen biri için gerçek bir güvenlik önlemi değildir, kazara/yetkisiz
    erişimi engellemek içindir. Aşağıdaki listeyi düzenleyerek kişi
-   ekleyebilir/çıkarabilir veya PIN değiştirebilirsin.
+   ekleyebilir/çıkarabilir, PIN veya rol değiştirebilirsin.
    "id": 'default' olan kişi, uygulamanın önceden var olan (taşınmamış)
    verisini kullanır — bu yüzden Bektaş Baykara 'default' id'sini taşıyor. */
-var AUTHORIZED_USERS = [
-  { id: 'default', name: 'Bektaş Baykara', pin: '7350' },
-  { id: 'u2', name: 'Yetkili Kişi 2', pin: '0000' },
-  { id: 'u3', name: 'Yetkili Kişi 3', pin: '0000' }
+var ADMIN_ROLES = [
+  { key: 'yonetici', label: 'Yönetici' },
+  { key: 'moderator', label: 'Moderatör' },
+  { key: 'uye', label: 'Üye' }
 ];
+var AUTHORIZED_USERS = [
+  { id: 'default', name: 'Bektaş Baykara', pin: '7350', role: 'yonetici', status: 'active' },
+  { id: 'u2', name: 'Yetkili Kişi 2', pin: '0000', role: 'moderator', status: 'active' },
+  { id: 'u3', name: 'Yetkili Kişi 3', pin: '0000', role: 'uye', status: 'active' }
+];
+
+function roleLabel(key) {
+  var r = ADMIN_ROLES.find(function (x) { return x.key === key; });
+  return r ? r.label : key;
+}
+function canAccessAdminPanel(user) { return user && (user.role === 'yonetici' || user.role === 'moderator'); }
+function canEditInAdminPanel(user) { return user && user.role === 'yonetici'; }
 
 function normalizeAdminName(s) {
   return String(s || '').trim().toLocaleUpperCase('tr-TR').replace(/\s+/g, ' ');
@@ -5387,7 +5536,31 @@ function checkAdminCredentials(name, pin) {
   var match = AUTHORIZED_USERS.filter(function (u) {
     return normalizeAdminName(u.name) === n && u.pin === p;
   })[0];
-  return match || null;
+  if (!match) return null;
+  if (match.status === 'banned') return { blocked: 'banned', user: match };
+  if (!canAccessAdminPanel(match)) return { blocked: 'role', user: match };
+  return match;
+}
+
+/* ---- Aktivite / Denetim kaydı ------------------------------------------
+   Kim, ne zaman, neyi yaptı listesi. Cihaz genelinde tek bir ortak liste
+   (kullanıcıya özel değil) çünkü amaç "panelde kim ne yaptı"yı görmek.
+   En fazla son 300 kayıt tutulur, eskiler otomatik budanır. */
+var ADMIN_LOG_MAX = 300;
+function getAdminActivityLog() { return get('adminActivityLog', []); }
+function logAdminActivity(type, description, actorOverride) {
+  var log = getAdminActivityLog();
+  log.unshift({
+    id: uid(), type: type, description: description,
+    actor: actorOverride || (adminSessionUser ? adminSessionUser.name : '—'),
+    at: new Date().toISOString()
+  });
+  if (log.length > ADMIN_LOG_MAX) log = log.slice(0, ADMIN_LOG_MAX);
+  set('adminActivityLog', log);
+}
+function formatLogTime(iso) {
+  var d = new Date(iso);
+  return pad2(d.getDate()) + '.' + pad2(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
 }
 
 var adminSessionUser = null; // başarılı girişten sonra doldurulur
@@ -5407,21 +5580,33 @@ function openAdminLoginSheet() {
       var errEl = document.getElementById('admin-login-error');
 
       function attempt() {
-        var user = checkAdminCredentials(nameEl.value, pinEl.value);
+        var result = checkAdminCredentials(nameEl.value, pinEl.value);
         if (!nameEl.value.trim() || !pinEl.value.trim()) {
           errEl.textContent = 'Ad ve PIN alanlarını doldur.';
           return;
         }
-        if (user) {
-          errEl.textContent = '';
-          adminSessionUser = user;
-          closeSheet();
-          setTimeout(function () { navigateTo('admin'); }, 150);
-        } else {
+        if (!result) {
           errEl.textContent = 'Ad veya PIN hatalı.';
+          logAdminActivity('login_failed', 'Başarısız giriş denemesi: "' + esc(nameEl.value.trim()) + '"', nameEl.value.trim());
           pinEl.value = '';
           pinEl.focus();
+          return;
         }
+        if (result.blocked === 'banned') {
+          errEl.textContent = 'Bu hesap engellenmiş, panele giremez.';
+          logAdminActivity('login_failed', esc(result.user.name) + ' giriş denemesi reddedildi (engelli)', result.user.name);
+          return;
+        }
+        if (result.blocked === 'role') {
+          errEl.textContent = 'Bu hesabın (Üye) Yönetici Paneline erişimi yok.';
+          logAdminActivity('login_failed', esc(result.user.name) + ' giriş denemesi reddedildi (Üye rolü)', result.user.name);
+          return;
+        }
+        errEl.textContent = '';
+        adminSessionUser = result;
+        logAdminActivity('login', result.name + ' giriş yaptı (' + roleLabel(result.role) + ')');
+        closeSheet();
+        setTimeout(function () { navigateTo('admin'); }, 150);
       }
 
       document.getElementById('admin-login-submit').addEventListener('click', attempt);
@@ -5443,7 +5628,7 @@ function initAdmin() {
     return;
   }
   adminActiveTab = 'overview';
-  document.getElementById('admin-session-info').textContent = 'Giriş yapan: ' + adminSessionUser.name;
+  document.getElementById('admin-session-info').textContent = 'Giriş yapan: ' + adminSessionUser.name + ' (' + roleLabel(adminSessionUser.role) + ')';
   document.getElementById('admin-exit-btn').addEventListener('click', function () {
     adminSessionUser = null;
     navigateTo('today');
@@ -5483,53 +5668,95 @@ function renderAdminTabBody() {
   var el = document.getElementById('admin-tab-body');
   if (adminActiveTab === 'overview') {
     el.innerHTML = renderAdminOverviewTab();
+    wireAdminOverviewTab(el);
   } else if (adminActiveTab === 'users') {
     el.innerHTML = renderAdminUsersTab();
     wireAdminUsersTab(el);
+  } else if (adminActiveTab === 'logs') {
+    el.innerHTML = renderAdminLogsTab();
+    wireAdminLogsTab(el);
   } else {
     el.innerHTML = renderAdminSettingsTab();
     wireAdminSettingsTab(el);
   }
 }
 
+var adminOverviewSearch = '';
+
 function renderAdminOverviewTab() {
   var html = '<div class="section-title" style="margin-top:0"><h2>Kullanıcılar</h2></div>';
-  html += '<div class="card" style="padding:.2rem .8rem">' + AUTHORIZED_USERS.map(function (u) {
+  html += '<div class="field"><input type="text" id="admin-overview-search" placeholder="İsim ile ara..." value="' + esc(adminOverviewSearch) + '"></div>';
+  html += '<div class="card" id="admin-overview-list" style="padding:.2rem .8rem"></div>';
+  return html;
+}
+
+function renderAdminOverviewList() {
+  var listEl = document.getElementById('admin-overview-list');
+  if (!listEl) return;
+  var q = normalizeAdminName(adminOverviewSearch);
+  var filtered = AUTHORIZED_USERS.filter(function (u) { return !q || normalizeAdminName(u.name).indexOf(q) !== -1; });
+  if (!filtered.length) { listEl.innerHTML = '<div class="empty"><p>Eşleşen kullanıcı yok</p></div>'; return; }
+  listEl.innerHTML = filtered.map(function (u) {
     var xp = get('xp', 0, u.id);
     var tasks = get('tasks', [], u.id);
     var openTasks = tasks.filter(function (t) { return t.status !== 'done'; }).length;
+    var statusBadge = u.status === 'banned' ? ' · <span style="color:var(--danger)">Engelli</span>' : (u.status === 'inactive' ? ' · <span class="muted">Pasif</span>' : '');
     return '<div class="list-row" data-admin-user-id="' + esc(u.id) + '" data-open-admin-user style="cursor:pointer">' +
       icon('user') +
-      '<span class="row-main"><span class="row-title">' + esc(u.name) + '</span><span class="row-sub">' + tasks.length + ' görev (' + openTasks + ' açık) · ' + xp + ' XP</span></span>' +
+      '<span class="row-main"><span class="row-title">' + esc(u.name) + ' <span class="muted" style="font-weight:400">· ' + esc(roleLabel(u.role)) + '</span></span><span class="row-sub">' + tasks.length + ' görev (' + openTasks + ' açık) · ' + xp + ' XP' + statusBadge + '</span></span>' +
       icon('chevronR') +
       '</div>';
-  }).join('') + '</div>';
-  return html;
-}
-
-function renderAdminUsersTab() {
-  var html = '<p class="muted" style="margin-top:0">Yönetici Paneline erişebilecek ve kendi verisine sahip olacak kişiler. En az bir kişi kalmalı.</p>';
-  html += '<div class="stack" id="admin-users-list"></div>';
-  html += '<div class="section-title"><h2>Yeni kişi ekle</h2></div>';
-  html += '<div class="card" style="padding:.9rem .9rem .3rem">';
-  html += '<div class="field"><label>Ad Soyad</label><input type="text" id="admin-newuser-name" placeholder="Adı Soyadı"></div>';
-  html += '<div class="field"><label>PIN</label><input type="text" id="admin-newuser-pin" inputmode="numeric" maxlength="12" placeholder="Örn. 4821"></div>';
-  html += '<div class="gate-error" id="admin-newuser-error"></div>';
-  html += '<button class="btn btn-primary btn-block" id="admin-newuser-add" style="margin-bottom:.9rem">Kişi ekle</button>';
-  html += '</div>';
-  return html;
-}
-
-function wireAdminUsersTab(root) {
-  renderAdminUsersList();
-  root.querySelectorAll('[data-open-admin-user]').forEach(function (row) {
+  }).join('');
+  listEl.querySelectorAll('[data-open-admin-user]').forEach(function (row) {
     row.addEventListener('click', function () {
       var uid = row.dataset.adminUserId;
       var target = AUTHORIZED_USERS.find(function (u) { return u.id === uid; });
       if (target) openAdminUserDetailSheet(target);
     });
   });
-  root.querySelectorAll('[data-open-admin-user]'); // no-op guard for lint tools
+}
+
+function wireAdminOverviewTab() {
+  renderAdminOverviewList();
+  var searchEl = document.getElementById('admin-overview-search');
+  searchEl.addEventListener('input', function () {
+    adminOverviewSearch = searchEl.value;
+    renderAdminOverviewList();
+  });
+}
+
+function renderAdminUsersTab() {
+  var canEdit = canEditInAdminPanel(adminSessionUser);
+  var html = '<p class="muted" style="margin-top:0">Uygulamanın tüm kullanıcıları ve rolleri. En az bir Yönetici kalmalı.</p>';
+  html += '<div class="stack" id="admin-users-list"></div>';
+  if (canEdit) {
+    html += '<div class="section-title"><h2>Yeni kişi ekle</h2></div>';
+    html += '<div class="card" style="padding:.9rem .9rem .3rem">';
+    html += '<div class="field"><label>Ad Soyad</label><input type="text" id="admin-newuser-name" placeholder="Adı Soyadı"></div>';
+    html += '<div class="field"><label>PIN</label><input type="text" id="admin-newuser-pin" inputmode="numeric" maxlength="12" placeholder="Örn. 4821"></div>';
+    html += '<div class="field"><label>Rol</label><div class="segmented" id="admin-newuser-role">' + ADMIN_ROLES.map(function (r, i) {
+      return '<button data-v="' + r.key + '" class="' + (r.key === 'uye' ? 'active' : '') + '">' + r.label + '</button>';
+    }).join('') + '</div></div>';
+    html += '<div class="gate-error" id="admin-newuser-error"></div>';
+    html += '<button class="btn btn-primary btn-block" id="admin-newuser-add" style="margin-bottom:.9rem">Kişi ekle</button>';
+    html += '</div>';
+  } else {
+    html += '<p class="muted" style="font-size:.85rem">Kişi ekleme/çıkarma ve rol değiştirme yalnızca Yönetici rolünde yapılabilir.</p>';
+  }
+  return html;
+}
+
+function wireAdminUsersTab(root) {
+  renderAdminUsersList();
+  var canEdit = canEditInAdminPanel(adminSessionUser);
+  if (!canEdit) return;
+  var newRole = 'uye';
+  document.querySelectorAll('#admin-newuser-role button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      newRole = b.dataset.v;
+      document.querySelectorAll('#admin-newuser-role button').forEach(function (x) { x.classList.toggle('active', x === b); });
+    });
+  });
   document.getElementById('admin-newuser-add').addEventListener('click', function () {
     var name = document.getElementById('admin-newuser-name').value.trim();
     var pin = document.getElementById('admin-newuser-pin').value.trim();
@@ -5538,9 +5765,10 @@ function wireAdminUsersTab(root) {
     if (!/^[0-9]{4,12}$/.test(pin)) { errEl.textContent = 'PIN sadece rakam olmalı (4-12 hane).'; return; }
     var exists = AUTHORIZED_USERS.some(function (u) { return normalizeAdminName(u.name) === normalizeAdminName(name); });
     if (exists) { errEl.textContent = 'Bu isimde bir kişi zaten var.'; return; }
-    AUTHORIZED_USERS.push({ id: nextAdminUserId(), name: name, pin: pin });
+    AUTHORIZED_USERS.push({ id: nextAdminUserId(), name: name, pin: pin, role: newRole, status: 'active' });
     saveAuthorizedUsers();
     errEl.textContent = '';
+    logAdminActivity('create', esc(name) + ' (' + roleLabel(newRole) + ') eklendi');
     showToast('Kişi eklendi — kendi görev/not verisiyle başlayacak');
     renderAdminStats();
     renderAdminTabBody();
@@ -5550,14 +5778,29 @@ function wireAdminUsersTab(root) {
 function renderAdminUsersList() {
   var list = document.getElementById('admin-users-list');
   if (!list) return;
+  var canEdit = canEditInAdminPanel(adminSessionUser);
+  var yoneticiCount = AUTHORIZED_USERS.filter(function (u) { return u.role === 'yonetici'; }).length;
   list.innerHTML = '<div class="card" style="padding:.2rem .8rem">' + AUTHORIZED_USERS.map(function (u, i) {
-    return '<div class="list-row" data-idx="' + i + '">' +
-      '<span class="row-main"><span class="row-title">' + esc(u.name) + '</span><span class="row-sub">PIN: ' + esc(u.pin) + '</span></span>' +
-      (AUTHORIZED_USERS.length > 1 ? '<button class="icon-btn admin-user-del" aria-label="Kaldır">' + icon('trash') + '</button>' : '') +
+    var statusBadge = u.status === 'banned' ? ' · <span style="color:var(--danger)">Engelli</span>' : (u.status === 'inactive' ? ' · Pasif' : '');
+    var isSelfRow = adminSessionUser && adminSessionUser.id === u.id;
+    var canRemoveThis = AUTHORIZED_USERS.length > 1 && !isSelfRow && !(u.role === 'yonetici' && yoneticiCount <= 1);
+    return '<div class="list-row" data-idx="' + i + '" data-admin-user-id="' + esc(u.id) + '" data-open-admin-user style="cursor:pointer">' +
+      '<span class="row-main"><span class="row-title">' + esc(u.name) + ' <span class="muted" style="font-weight:400">· ' + esc(roleLabel(u.role)) + '</span></span><span class="row-sub">PIN: ' + esc(u.pin) + statusBadge + '</span></span>' +
+      (canEdit && canRemoveThis ? '<button class="icon-btn admin-user-del" aria-label="Kaldır">' + icon('trash') + '</button>' : '') +
       '</div>';
   }).join('') + '</div>';
+  list.querySelectorAll('[data-open-admin-user]').forEach(function (row) {
+    row.addEventListener('click', function (e) {
+      if (e.target.closest('.admin-user-del')) return;
+      var uid = row.dataset.adminUserId;
+      var target = AUTHORIZED_USERS.find(function (u) { return u.id === uid; });
+      if (target) openAdminUserDetailSheet(target);
+    });
+  });
+  if (!canEdit) return;
   list.querySelectorAll('.admin-user-del').forEach(function (btn) {
-    btn.addEventListener('click', function () {
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
       var idx = Number(btn.closest('[data-idx]').dataset.idx);
       var removed = AUTHORIZED_USERS[idx];
       confirmDialog({ title: 'Kişi kaldırılsın mı?', message: esc(removed.name) + ' artık Yönetici Paneline giremeyecek. Verisi silinmez, sadece erişimi kalkar.', confirmText: 'Kaldır', danger: true })
@@ -5565,6 +5808,7 @@ function renderAdminUsersList() {
           if (!ok) return;
           AUTHORIZED_USERS.splice(idx, 1);
           saveAuthorizedUsers();
+          logAdminActivity('remove', esc(removed.name) + ' yetkili listesinden kaldırıldı');
           showToast('Kişi kaldırıldı');
           renderAdminStats();
           renderAdminUsersList();
@@ -5573,13 +5817,72 @@ function renderAdminUsersList() {
   });
 }
 
+var adminLogSearch = '';
+var adminLogTypeFilter = 'all';
+var ADMIN_LOG_TYPE_LABELS = {
+  login: 'Giriş', login_failed: 'Başarısız giriş', create: 'Kişi ekleme', remove: 'Kişi kaldırma', role: 'Rol değişikliği',
+  status: 'Durum değişikliği', pin: 'PIN değişikliği', delete: 'Veri silme', reset: 'Veri sıfırlama',
+  switch: 'Kullanıcı geçişi'
+};
+
+function renderAdminLogsTab() {
+  var html = '<div class="section-title" style="margin-top:0"><h2>Aktivite Kaydı</h2></div>';
+  html += '<div class="field"><input type="text" id="admin-log-search" placeholder="Açıklamada ara..." value="' + esc(adminLogSearch) + '"></div>';
+  html += '<div class="segmented" id="admin-log-type-filter" style="margin-bottom:.8rem">' +
+    '<button data-v="all" class="' + (adminLogTypeFilter === 'all' ? 'active' : '') + '">Tümü</button>' +
+    Object.keys(ADMIN_LOG_TYPE_LABELS).map(function (k) {
+      return '<button data-v="' + k + '" class="' + (adminLogTypeFilter === k ? 'active' : '') + '">' + ADMIN_LOG_TYPE_LABELS[k] + '</button>';
+    }).join('') + '</div>';
+  html += '<div id="admin-log-list"></div>';
+  return html;
+}
+
+function renderAdminLogList() {
+  var el = document.getElementById('admin-log-list');
+  if (!el) return;
+  var log = getAdminActivityLog();
+  var q = adminLogSearch.trim().toLocaleLowerCase('tr-TR');
+  var filtered = log.filter(function (entry) {
+    if (adminLogTypeFilter !== 'all' && entry.type !== adminLogTypeFilter) return false;
+    if (q && entry.description.toLocaleLowerCase('tr-TR').indexOf(q) === -1) return false;
+    return true;
+  });
+  if (!filtered.length) { el.innerHTML = '<div class="empty"><p>Kayıt yok</p></div>'; return; }
+  el.innerHTML = '<div class="card" style="padding:.2rem .8rem">' + filtered.map(function (entry) {
+    return '<div class="list-row"><span class="row-main"><span class="row-title">' + esc(entry.description) + '</span>' +
+      '<span class="row-sub">' + esc(entry.actor) + ' · ' + formatLogTime(entry.at) + '</span></span></div>';
+  }).join('') + '</div>';
+}
+
+function wireAdminLogsTab() {
+  renderAdminLogList();
+  var searchEl = document.getElementById('admin-log-search');
+  searchEl.addEventListener('input', function () { adminLogSearch = searchEl.value; renderAdminLogList(); });
+  document.querySelectorAll('#admin-log-type-filter button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      adminLogTypeFilter = b.dataset.v;
+      document.querySelectorAll('#admin-log-type-filter button').forEach(function (x) { x.classList.toggle('active', x === b); });
+      renderAdminLogList();
+    });
+  });
+}
+
 function renderAdminSettingsTab() {
+  var canEdit = canEditInAdminPanel(adminSessionUser);
   var html = '<div class="section-title" style="margin-top:0"><h2>Cihaz ayarları</h2></div>';
   html += '<p class="muted">Bunlar bu cihazdaki görsel tercihlerdir; kullanıcı verilerine (görev/rutin/not) dokunmaz.</p>';
   html += '<div class="card" style="padding:.2rem .8rem">' +
     '<button class="list-row" id="admin-reset-theme" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="row-main"><span class="row-title">Tema ve vurgu rengini sıfırla</span></span></button>' +
     '<button class="list-row" id="admin-reset-dashcards" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="row-main"><span class="row-title">Kontrol paneli kartlarını sıfırla</span></span></button>' +
     '</div>';
+
+  if (canEdit) {
+    html += '<div class="section-title"><h2>Tehlikeli bölge</h2></div>';
+    html += '<p class="muted">Bu işlemler geri alınamaz ve tüm kullanıcıları etkiler.</p>';
+    html += '<div class="stack">' +
+      '<button class="btn btn-danger btn-block" id="admin-reset-everything">' + icon('trash') + ' Tüm kullanıcıların tüm verisini sıfırla</button>' +
+      '</div>';
+  }
   return html;
 }
 
@@ -5594,6 +5897,24 @@ function wireAdminSettingsTab(root) {
     localStorage.removeItem(STORAGE_KEYS.dashboardCards);
     showToast('Kontrol paneli kartları sıfırlandı');
   });
+  var resetAllBtn = document.getElementById('admin-reset-everything');
+  if (resetAllBtn) {
+    resetAllBtn.addEventListener('click', function () {
+      confirmDialog({
+        title: 'Tüm kullanıcıların verisi silinsin mi?',
+        message: AUTHORIZED_USERS.length + ' kullanıcının tüm görev/rutin/not/finans verisi kalıcı olarak silinecek. Bu işlem geri alınamaz.',
+        confirmText: 'Hepsini sıfırla', danger: true
+      }).then(function (ok) {
+        if (!ok) return;
+        logAdminActivity('reset', 'TÜM kullanıcıların verisi sıfırlandı (' + AUTHORIZED_USERS.length + ' kullanıcı)');
+        AUTHORIZED_USERS.forEach(function (u) {
+          USER_SCOPED_KEYS.forEach(function (k) { localStorage.removeItem(resolveStorageKey(k, u.id)); });
+        });
+        showToast('Tüm veriler sıfırlandı — sayfa yenileniyor');
+        setTimeout(function () { window.location.reload(); }, 700);
+      });
+    });
+  }
 }
 
 /* ---- Kullanıcı detay sheet'i: özet + veri yönetimi + dışa/içe aktar ---- */
@@ -5612,12 +5933,47 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
   var reading = get('reading', [], uid);
   var xp = get('xp', 0, uid);
   var appUser = get('user', {}, uid);
+  var canEdit = canEditInAdminPanel(adminSessionUser);
+  var isSelf = adminSessionUser && adminSessionUser.id === targetUser.id;
 
   var doneTasks = tasks.filter(function (t) { return t.status === 'done'; }).length;
 
   var html = '<p class="muted" style="margin-top:0">' + esc(appUser.name || targetUser.name) + '</p>';
 
-  html += '<div class="eyebrow" style="margin-top:.6rem">Özet</div>';
+  // ---- Hesap yönetimi: rol, durum, PIN. Sadece Yönetici düzenleyebilir. ----
+  html += '<div class="eyebrow" style="margin-top:.6rem">Hesap</div>';
+  html += '<div class="stack">';
+  html += '<div class="field"><label>Rol</label>';
+  if (canEdit) {
+    html += '<div class="segmented" id="admin-role-select">' + ADMIN_ROLES.map(function (r) {
+      return '<button data-v="' + r.key + '" class="' + (targetUser.role === r.key ? 'active' : '') + '">' + r.label + '</button>';
+    }).join('') + '</div>';
+  } else {
+    html += '<p class="muted" style="margin:.2rem 0 0">' + esc(roleLabel(targetUser.role)) + ' <span style="font-size:.8em">(düzenlemek için Yönetici olman gerekir)</span></p>';
+  }
+  html += '</div>';
+  html += '<div class="field"><label>Durum</label>';
+  if (canEdit) {
+    html += '<div class="segmented" id="admin-status-select">' +
+      '<button data-v="active" class="' + ((targetUser.status || 'active') === 'active' ? 'active' : '') + '">Aktif</button>' +
+      '<button data-v="inactive" class="' + (targetUser.status === 'inactive' ? 'active' : '') + '">Pasif</button>' +
+      '<button data-v="banned" class="' + (targetUser.status === 'banned' ? 'active' : '') + '">Engelli</button>' +
+      '</div>';
+  } else {
+    html += '<p class="muted" style="margin:.2rem 0 0">' + (targetUser.status === 'banned' ? 'Engelli' : targetUser.status === 'inactive' ? 'Pasif' : 'Aktif') + '</p>';
+  }
+  html += '</div>';
+  if (canEdit) {
+    html += '<div class="field"><label>Yeni PIN (opsiyonel)</label><input type="text" id="admin-pin-change" inputmode="numeric" maxlength="12" placeholder="Değiştirmek için yaz"></div>' +
+      '<button class="btn btn-secondary btn-block" id="admin-pin-save">PIN\'i güncelle</button>';
+  }
+  if (canEdit && !isSelf && uid !== getActiveUserId()) {
+    html += '<button class="btn btn-secondary btn-block" id="admin-switch-user">' + icon('user') + ' Bu kullanıcı olarak devam et</button>' +
+      '<p class="hint" style="margin-top:.3rem">Uygulamayı bu kişinin verisiyle açar. Panelden tekrar kendi hesabına dönebilirsin.</p>';
+  }
+  html += '</div>';
+
+  html += '<div class="eyebrow" style="margin-top:1.2rem">Özet</div>';
   html += '<div class="stack">' +
     '<div class="list-row"><span class="row-main"><span class="row-title">Toplam XP</span></span><span class="muted">' + xp + '</span></div>' +
     '<div class="list-row"><span class="row-main"><span class="row-title">Görevler</span></span><span class="muted">' + doneTasks + ' / ' + tasks.length + ' tamamlandı</span></div>' +
@@ -5637,26 +5993,89 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
   html += '<div class="segmented" id="admin-data-tabs">' + tabs.map(function (t) {
     return '<button data-v="' + t.key + '" class="' + (t.key === activeTab ? 'active' : '') + '">' + t.label + '</button>';
   }).join('') + '</div>';
-  html += '<div id="admin-data-list" style="margin-top:.8rem"></div>';
+  html += '<div id="admin-data-list" style="margin-top:.8rem" data-readonly="' + (canEdit ? '0' : '1') + '"></div>';
 
   html += '<div class="eyebrow" style="margin-top:1.2rem">Bu kullanıcı için veri işlemleri</div>';
   html += '<div class="stack">' +
     '<button class="btn btn-secondary btn-block" id="admin-export">' + icon('download') + ' Bu kullanıcının verisini dışa aktar</button>';
-  if (uid === getActiveUserId()) {
+  if (canEdit && uid === getActiveUserId()) {
     html += '<button class="btn btn-secondary btn-block" id="admin-import">' + icon('upload') + ' Bu kullanıcıya veri içe aktar</button>' +
       '<input type="file" id="admin-import-file" accept="application/json" class="sr-only">';
-  } else {
-    html += '<p class="muted" style="font-size:.85rem">İçe aktarma yalnızca şu anda aktif olan kullanıcı için yapılabilir.</p>';
   }
-  html += '<button class="btn btn-danger btn-block" id="admin-reset-user">' + icon('trash') + ' Bu kullanıcının verisini sıfırla</button>' +
-    '</div>';
+  if (canEdit) {
+    html += '<button class="btn btn-danger btn-block" id="admin-reset-user">' + icon('trash') + ' Bu kullanıcının verisini sıfırla</button>';
+  } else {
+    html += '<p class="muted" style="font-size:.85rem">Veri silme ve içe aktarma yalnızca Yönetici rolünde yapılabilir.</p>';
+  }
+  html += '</div>';
 
   openSheet({
     title: targetUser.name, bodyHTML: html, onOpen: function () {
-      renderAdminDataList(uid, activeTab);
+      renderAdminDataList(uid, activeTab, canEdit);
       document.querySelectorAll('#admin-data-tabs button').forEach(function (btn) {
         btn.addEventListener('click', function () { renderAdminUserDetailBody(targetUser, btn.dataset.v); });
       });
+      if (canEdit) {
+        document.querySelectorAll('#admin-role-select button').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            if (isSelf && btn.dataset.v !== 'yonetici') {
+              showToast('Kendi rolünü Yönetici dışına düşüremezsin');
+              return;
+            }
+            var oldRole = targetUser.role;
+            targetUser.role = btn.dataset.v;
+            var all = AUTHORIZED_USERS.map(function (u) { return u.id === targetUser.id ? targetUser : u; });
+            AUTHORIZED_USERS = all;
+            saveAuthorizedUsers();
+            logAdminActivity('role', esc(targetUser.name) + ' rolü ' + roleLabel(oldRole) + ' → ' + roleLabel(targetUser.role) + ' olarak değiştirildi');
+            showToast('Rol güncellendi');
+            renderAdminUserDetailBody(targetUser, activeTab);
+          });
+        });
+        document.querySelectorAll('#admin-status-select button').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            if (isSelf && btn.dataset.v !== 'active') {
+              showToast('Kendi hesabını pasif/engelli yapamazsın');
+              return;
+            }
+            var oldStatus = targetUser.status || 'active';
+            targetUser.status = btn.dataset.v;
+            var all = AUTHORIZED_USERS.map(function (u) { return u.id === targetUser.id ? targetUser : u; });
+            AUTHORIZED_USERS = all;
+            saveAuthorizedUsers();
+            logAdminActivity('status', esc(targetUser.name) + ' durumu ' + oldStatus + ' → ' + targetUser.status + ' olarak değiştirildi');
+            showToast('Durum güncellendi');
+            renderAdminUserDetailBody(targetUser, activeTab);
+          });
+        });
+        document.getElementById('admin-pin-save').addEventListener('click', function () {
+          var newPin = document.getElementById('admin-pin-change').value.trim();
+          if (!newPin) { showToast('Yeni PIN gir'); return; }
+          if (!/^[0-9]{4,12}$/.test(newPin)) { showToast('PIN sadece rakam olmalı (4-12 hane)'); return; }
+          targetUser.pin = newPin;
+          var all = AUTHORIZED_USERS.map(function (u) { return u.id === targetUser.id ? targetUser : u; });
+          AUTHORIZED_USERS = all;
+          saveAuthorizedUsers();
+          logAdminActivity('pin', esc(targetUser.name) + ' için PIN değiştirildi');
+          showToast('PIN güncellendi');
+          renderAdminUserDetailBody(targetUser, activeTab);
+        });
+      }
+      var switchBtn = document.getElementById('admin-switch-user');
+      if (switchBtn) {
+        switchBtn.addEventListener('click', function () {
+          confirmDialog({ title: esc(targetUser.name) + ' olarak devam edilsin mi?', message: 'Uygulama bu kişinin verisiyle açılacak.', confirmText: 'Devam et' })
+            .then(function (ok) {
+              if (!ok) return;
+              setActiveUserId(targetUser.id);
+              logAdminActivity('switch', esc(adminSessionUser.name) + ', ' + esc(targetUser.name) + ' olarak geçiş yaptı');
+              closeSheet();
+              adminSessionUser = null;
+              navigateTo('today');
+              showToast(targetUser.name + ' olarak devam ediyorsun');
+            });
+        });
+      }
       document.getElementById('admin-export').addEventListener('click', function () { exportData(uid); });
       var importBtn = document.getElementById('admin-import');
       if (importBtn) {
@@ -5665,18 +6084,26 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
           if (e.target.files[0]) importDataFile(e.target.files[0], uid);
         });
       }
-      document.getElementById('admin-reset-user').addEventListener('click', function () {
-        confirmDialog({ title: esc(targetUser.name) + ' verisi silinsin mi?', message: 'Bu işlem geri alınamaz. Önce dışa aktarmanı öneririz.', confirmText: 'Sıfırla', danger: true })
-          .then(function (ok) { if (ok) resetAllData(uid); });
-      });
+      var resetBtn = document.getElementById('admin-reset-user');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', function () {
+          confirmDialog({ title: esc(targetUser.name) + ' verisi silinsin mi?', message: 'Bu işlem geri alınamaz. Önce dışa aktarmanı öneririz.', confirmText: 'Sıfırla', danger: true })
+            .then(function (ok) {
+              if (!ok) return;
+              logAdminActivity('reset', esc(targetUser.name) + ' kullanıcısının verisi sıfırlandı');
+              resetAllData(uid);
+            });
+        });
+      }
     }
   });
 }
 
-function renderAdminDataList(uid, activeTab) {
+function renderAdminDataList(uid, activeTab, canEdit) {
   var list = document.getElementById('admin-data-list');
   if (!list) return;
   var items, renderRow, storeKey;
+  var delBtn = canEdit ? '<button class="icon-btn admin-del" aria-label="Sil">' + icon('trash') + '</button>' : '';
 
   if (activeTab === 'tasks') {
     storeKey = 'tasks';
@@ -5685,7 +6112,7 @@ function renderAdminDataList(uid, activeTab) {
       var statusLabel = t.status === 'done' ? 'Tamamlandı' : (t.status === 'doing' ? 'Devam ediyor' : 'Yapılacak');
       return '<div class="list-row" data-id="' + t.id + '">' +
         '<span class="row-main"><span class="row-title">' + esc(t.title || '(başlıksız)') + '</span><span class="row-sub">' + statusLabel + (t.due ? ' · ' + esc(t.due) : '') + '</span></span>' +
-        '<button class="icon-btn admin-del" aria-label="Sil">' + icon('trash') + '</button></div>';
+        delBtn + '</div>';
     };
   } else if (activeTab === 'routines') {
     storeKey = 'routines';
@@ -5693,7 +6120,7 @@ function renderAdminDataList(uid, activeTab) {
     renderRow = function (r) {
       return '<div class="list-row" data-id="' + r.id + '">' +
         '<span class="row-main"><span class="row-title">' + esc(r.title || '(başlıksız)') + '</span><span class="row-sub">' + esc(r.frequency || '') + (r.archived ? ' · arşivde' : '') + '</span></span>' +
-        '<button class="icon-btn admin-del" aria-label="Sil">' + icon('trash') + '</button></div>';
+        delBtn + '</div>';
     };
   } else {
     storeKey = 'notes';
@@ -5702,7 +6129,7 @@ function renderAdminDataList(uid, activeTab) {
       var preview = (n.text || '').slice(0, 60);
       return '<div class="list-row" data-id="' + n.id + '">' +
         '<span class="row-main"><span class="row-title">' + esc(preview || '(boş not)') + '</span><span class="row-sub">' + esc((n.createdAt || '').slice(0, 10)) + '</span></span>' +
-        '<button class="icon-btn admin-del" aria-label="Sil">' + icon('trash') + '</button></div>';
+        delBtn + '</div>';
     };
   }
 
@@ -5712,6 +6139,7 @@ function renderAdminDataList(uid, activeTab) {
   }
 
   list.innerHTML = '<div class="stack">' + items.map(renderRow).join('') + '</div>';
+  if (!canEdit) return;
   list.querySelectorAll('.admin-del').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var id = btn.closest('[data-id]').dataset.id;
@@ -5719,9 +6147,14 @@ function renderAdminDataList(uid, activeTab) {
         .then(function (ok) {
           if (!ok) return;
           var arr = get(storeKey, [], uid).filter(function (x) { return x.id !== id; });
+          var removed = get(storeKey, [], uid).find(function (x) { return x.id === id; });
           set(storeKey, arr, uid);
+          var ownerUser = AUTHORIZED_USERS.find(function (u) { return u.id === uid; });
+          var ownerLabel = ownerUser ? esc(ownerUser.name) : uid;
+          var recordLabel = (removed && (removed.title || removed.text)) ? ('"' + esc((removed.title || removed.text).slice(0, 40)) + '"') : 'bir kayıt';
+          logAdminActivity('delete', ownerLabel + ' kullanıcısının ' + recordLabel + ' (' + storeKey + ') kaydı silindi');
           showToast('Silindi');
-          renderAdminDataList(uid, activeTab);
+          renderAdminDataList(uid, activeTab, canEdit);
         });
     });
   });
