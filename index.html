@@ -761,7 +761,8 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
   <div class="section-title"><h2>Sabit gelir/gider</h2><button class="link-btn" id="fin-recurring-add-btn">Ekle</button></div>
   <div id="fin-recurring"></div>
 
-  <div class="section-title" id="fin-history-head"><h2>Geçmiş</h2><button class="link-btn" id="hist-export">Dışa aktar (CSV)</button></div>
+  <div class="section-title" id="fin-history-head"><h2>Geçmiş</h2><span><button class="link-btn" id="hist-import">İçe aktar (dosya)</button> <button class="link-btn" id="hist-export" style="margin-left:.6rem">Dışa aktar (CSV)</button></span></div>
+  <div id="hist-undo-wrap"></div>
   <div class="field" style="margin-bottom:.6rem"><input type="search" id="hist-q" placeholder="İşlemlerde ara" autocomplete="off" aria-label="İşlemlerde ara"></div>
   <div class="segmented" id="hist-type-filter">
     <button data-v="all" class="active">Tümü</button>
@@ -879,6 +880,7 @@ var STORAGE_KEYS = {
   recurringFinance: 'gunlukAjandam_recurringFinance',
   transfers: 'gunlukAjandam_transfers',
   savingsGoals: 'gunlukAjandam_savingsGoals',
+  lastImport: 'gunlukAjandam_lastImport',
   notes: 'gunlukAjandam_notes',
   adminActivityLog: 'gunlukAjandam_adminActivityLog',
   theme: 'gunlukAjandam_theme',
@@ -886,7 +888,7 @@ var STORAGE_KEYS = {
   dashboardCards: 'gunlukAjandam_dashboardCards'
 };
 
-var USER_SCOPED_KEYS = ['user', 'xp', 'tasks', 'routines', 'events', 'goals', 'vocab', 'reading', 'prayers', 'finance', 'accounts', 'installments', 'notifiedBudgetOverruns', 'budget', 'recurringFinance', 'notes', 'transfers', 'savingsGoals'];
+var USER_SCOPED_KEYS = ['user', 'xp', 'tasks', 'routines', 'events', 'goals', 'vocab', 'reading', 'prayers', 'finance', 'accounts', 'installments', 'notifiedBudgetOverruns', 'budget', 'recurringFinance', 'notes', 'transfers', 'savingsGoals', 'lastImport'];
 
 var ACTIVE_USER_ID_KEY = 'gunlukAjandam_activeUserId';
 var DEFAULT_USER_ID = 'default';
@@ -2144,6 +2146,7 @@ function initCore() {
   }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 /* ---- dashboard.js ---- */
 /* ==========================================================================
@@ -4264,6 +4267,428 @@ function toggleInstallmentMonth(instId, monthKey) {
   saveInstallments(all);
 }
 
+/* ---- Banka ekstresi (CSV) içe aktarma -----------------------------------
+   Ziraat Mobil / İnternet Şube'den indirilen hesap hareketi CSV'sini okur.
+   - Ayraç (; , sekme) ve kodlama (UTF-8 / Windows-1254) otomatik algılanır.
+   - Başlık satırı (Tarih + Tutar ya da Borç/Alacak) ilk 40 satırda aranır.
+   - Tek "Tutar" sütununda eksi = gider; ayrı Borç/Alacak sütunları da desteklenir.
+   - Önizlemede zaten kayıtlı işlemler (tarih+tutar+tür+açıklama) işaretsiz gelir. */
+function pickStatementFile() {
+  var inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.csv,.txt,.pdf,.xlsx,.xls,image/*,text/csv,text/plain,application/pdf';
+  inp.onchange = function () {
+    var f = inp.files && inp.files[0];
+    if (!f) return;
+    if (/\.pdf$/i.test(f.name) || f.type === 'application/pdf') { importStatementPdf(f); return; }
+    if (/\.(xlsx|xls)$/i.test(f.name)) { importStatementExcel(f); return; }
+    if (/^image\//.test(f.type) || /\.(png|jpe?g|heic|webp)$/i.test(f.name)) { importStatementImage(f); return; }
+    var fr = new FileReader();
+    fr.onload = function () {
+      var buf = fr.result, text;
+      try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+      catch (e) { try { text = new TextDecoder('windows-1254').decode(buf); } catch (e2) { text = new TextDecoder('utf-8').decode(buf); } }
+      openStatementImport(text);
+    };
+    fr.onerror = function () { showToast('Dosya okunamadı'); };
+    fr.readAsArrayBuffer(f);
+  };
+  inp.click();
+}
+
+function stmtParseCSV(text) {
+  text = text.replace(/^\uFEFF/, '');
+  var head = text.split(/\r?\n/).slice(0, 15).join('\n');
+  var delim = ';', best = -1;
+  [';', ',', '\t'].forEach(function (d) {
+    var n = head.split(d).length - 1;
+    if (n > best) { best = n; delim = d; }
+  });
+  var rows = [], row = [], cur = '', inQ = false;
+  for (var i = 0; i < text.length; i++) {
+    var c = text[i];
+    if (inQ) {
+      if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else inQ = false; }
+      else cur += c;
+    } else if (c === '"') inQ = true;
+    else if (c === delim) { row.push(cur); cur = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(cur); cur = '';
+      if (row.some(function (x) { return x.trim() !== ''; })) rows.push(row);
+      row = [];
+    } else cur += c;
+  }
+  row.push(cur);
+  if (row.some(function (x) { return x.trim() !== ''; })) rows.push(row);
+  return rows;
+}
+
+/* ---- Kredi kartı ekstresi (PDF) -----------------------------------------
+   Bankkart e-ekstre: "İşlem Tarihi | İşlem Açıklaması | TL Tutar | USD Tutar | Bankkart Lira".
+   TL tutarın sonundaki "+" borç/harcama, "-" ödeme/iade demektir.
+   "ÖNCEKİ AYDAN DEVİR" gibi devir satırları atlanır. */
+function stmtLinesFromPdfItems(items) {
+  var rowsByY = [];
+  items.forEach(function (it) {
+    if (!it.str || !it.str.trim()) return;
+    var y = it.transform[5], x = it.transform[4];
+    var row = rowsByY.find(function (r) { return Math.abs(r.y - y) < 3; });
+    if (!row) { row = { y: y, cells: [] }; rowsByY.push(row); }
+    row.cells.push({ x: x, s: it.str });
+  });
+  rowsByY.sort(function (a, b) { return b.y - a.y; });
+  return rowsByY.map(function (r) {
+    r.cells.sort(function (a, b) { return a.x - b.x; });
+    return r.cells.map(function (c) { return c.s; }).join(' ').replace(/\s+/g, ' ').trim();
+  });
+}
+
+function stmtRawFromPdfLines(lines) {
+  var MONTHS = { 'ocak': 1, 'şubat': 2, 'subat': 2, 'mart': 3, 'nisan': 4, 'mayıs': 5, 'mayis': 5, 'haziran': 6, 'temmuz': 7, 'ağustos': 8, 'agustos': 8, 'eylül': 9, 'eylul': 9, 'ekim': 10, 'kasım': 11, 'kasim': 11, 'aralık': 12, 'aralik': 12 };
+  var monthRe = '(?:ocak|şubat|subat|mart|nisan|mayıs|mayis|haziran|temmuz|ağustos|agustos|eylül|eylul|ekim|kasım|kasim|aralık|aralik)';
+  var all = lines.join('\n');
+  // Hesap kesim tarihi: "05.10.2026" ya da "20 Eylül 2026"
+  var cutISO = '', cutYear = new Date().getFullYear(), cutMonth = 12;
+  var c1 = all.match(/Hesap Kesim Tarihi\s*:?\s*(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})/i);
+  var c2 = all.match(new RegExp('Hesap Kesim Tarihi\\s*:?\\s*(\\d{1,2})\\s+(' + monthRe + ')\\s+(\\d{4})', 'i'));
+  if (c1) { cutYear = +c1[3]; cutMonth = +c1[2]; cutISO = c1[3] + '-' + pad2(+c1[2]) + '-' + pad2(+c1[1]); }
+  else if (c2) { cutYear = +c2[3]; cutMonth = MONTHS[c2[2].toLocaleLowerCase('tr')]; cutISO = c2[3] + '-' + pad2(cutMonth) + '-' + pad2(+c2[1]); }
+
+  var amtRe = '([+\\-\\u2212]?)\\s*(\\d{1,3}(?:\\.\\d{3})*,\\d{2})\\s*([+\\-\\u00AD\\u2212])?(?:\\s.*)?$';
+  var reNum = new RegExp('^\\W*(\\d{1,2})[.\\/](\\d{1,2})(?:[.\\/](\\d{2,4}))?\\s+(.+?)\\s+' + amtRe);
+  var reName = new RegExp('^\\W*(\\d{1,2})\\s+(' + monthRe + ')\\s+(\\d{4})\\s+(.+?)\\s+' + amtRe, 'i');
+  var reInst = /(\d+(?:\.\d{3})*,\d{2})\s*TL'?lik\s+işlemin\s+(\d+)\s*\/\s*(\d+)\s+taksidi/i;
+  var out = [], last = null, skipped = [];
+  var looksDateRe = new RegExp('(\\d{1,2}[.\\/]\\d{1,2}[.\\/]\\d{2,4}|\\d{1,2}\\s+' + monthRe + '\\s+\\d{4})', 'i');
+  var noiseRe = /kesim|son ödeme|ödeme tarihi|limit|asgari|dönem borcu|dönem içi|önceki dönem|düzenlenme|kart numarası|müşteri/i;
+
+  lines.forEach(function (ln) {
+    var inst = ln.match(reInst);
+    if (inst) {
+      // Taksit açıklama satırı: bir önceki işlemin taksit bilgisi; dönem içinde tahsil edildiği için kesim tarihine bağlanır
+      if (last) {
+        last.title = (last.title + ' (' + inst[2] + '/' + inst[3] + '. taksit)').slice(0, 80);
+        if (cutISO) last.date = cutISO;
+        last = null;
+      }
+      return;
+    }
+    last = null;
+    if (/dev[iİ]r/i.test(ln) || /^\W*toplam/i.test(ln)) return;
+    var date, title, pre, amtStr, post, m = ln.match(reName);
+    if (m) {
+      date = m[3] + '-' + pad2(MONTHS[m[2].toLocaleLowerCase('tr')]) + '-' + pad2(+m[1]);
+      title = m[4]; pre = m[5]; amtStr = m[6]; post = m[7];
+    } else {
+      m = ln.match(reNum);
+      if (!m) {
+        if (looksDateRe.test(ln) && /\d{1,3}(?:\.\d{3})*,\d{2}/.test(ln) && !noiseRe.test(ln)) skipped.push(ln);
+        return;
+      }
+      var year;
+      if (m[3]) year = m[3].length === 2 ? 2000 + (+m[3]) : +m[3];
+      else year = (+m[2] > cutMonth) ? cutYear - 1 : cutYear;
+      date = year + '-' + pad2(+m[2]) + '-' + pad2(+m[1]);
+      title = m[4]; pre = m[5]; amtStr = m[6]; post = m[7];
+    }
+    var amt = stmtParseAmount(amtStr);
+    if (isNaN(amt) || amt === 0) return;
+    // Başta "+" / "-" ya da sonda "-" = ödeme/iade (gelir). Sonda "+" ya da işaretsiz = harcama (gider).
+    var isIncome = (pre === '+' || pre === '-' || pre === '\u2212') || (post && post !== '+');
+    title = title.replace(/\s+/g, ' ').trim();
+    last = { date: date, title: title, signed: isIncome ? Math.abs(amt) : -Math.abs(amt) };
+    out.push(last);
+  });
+  var exp = all.match(/Dönem\s+İçi\s+Harcamalar[^\d]*(\d{1,3}(?:\.\d{3})*,\d{2})/i);
+  out.meta = { skipped: skipped.slice(0, 40), expected: exp ? stmtParseAmount(exp[1]) : null, ocr: false };
+  return out;
+}
+
+function finishStatementLines(lines, ocr) {
+  console.log('[Ekstre satırları]', lines);
+  var raw = stmtRawFromPdfLines(lines);
+  raw.meta.ocr = !!ocr;
+  if (!raw.length) { showToast('İşlem satırı bulunamadı (' + lines.length + ' satır okundu)'); return; }
+  openStatementImport('', raw);
+}
+
+function stmtOcrLines(text) {
+  return String(text || '').split(/\r?\n/).map(function (l) { return l.replace(/\s+/g, ' ').trim(); }).filter(Boolean);
+}
+
+function importStatementImage(file) {
+  if (typeof Tesseract === 'undefined') { showToast('OCR kütüphanesi yüklenemedi'); return; }
+  showToast('Görüntü okunuyor… (biraz sürebilir)');
+  Tesseract.recognize(file, 'tur+eng').then(function (r) { finishStatementLines(stmtOcrLines(r.data.text), true); })
+    .catch(function (err) { console.warn('OCR hatası:', err); showToast('Görüntü okunamadı'); });
+}
+
+function importStatementExcel(file) {
+  if (typeof XLSX === 'undefined') { showToast('Excel kütüphanesi yüklenemedi'); return; }
+  var fr = new FileReader();
+  fr.onerror = function () { showToast('Dosya okunamadı'); };
+  fr.onload = function () {
+    try {
+      var wb = XLSX.read(new Uint8Array(fr.result), { type: 'array', cellDates: true });
+      var best = [];
+      wb.SheetNames.forEach(function (n) {
+        var rws = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, dateNF: 'dd.mm.yyyy', defval: '' })
+          .filter(function (r) { return r.some(function (c) { return String(c).trim() !== ''; }); });
+        if (rws.length > best.length) best = rws;
+      });
+      if (!best.length) { showToast('Excel dosyası boş görünüyor'); return; }
+      openStatementImport('', null, best);
+    } catch (err) { console.warn('Excel hatası:', err); showToast('Excel okunamadı'); }
+  };
+  fr.readAsArrayBuffer(file);
+}
+
+function refreshUndoLink() {
+  var w = document.getElementById('hist-undo-wrap');
+  if (!w) return;
+  var li = get('lastImport', null);
+  if (!li || !li.id || !getFinance().some(function (x) { return x.batch === li.id; })) { w.innerHTML = ''; return; }
+  w.innerHTML = '<div style="margin:-.2rem 0 .6rem"><button class="link-btn" id="hist-undo">Son içe aktarmayı geri al (' + li.count + ' işlem)</button></div>';
+  document.getElementById('hist-undo').onclick = undoLastImport;
+}
+function undoLastImport() {
+  var li = get('lastImport', null);
+  if (!li || !li.id) return;
+  confirmDialog({ title: 'İçe aktarma geri alınsın mı?', message: 'Son içe aktarılan işlemlerin hepsi silinecek.', confirmText: 'Geri al', danger: true }).then(function (ok) {
+    if (!ok) return;
+    saveFinance(getFinance().filter(function (x) { return x.batch !== li.id; }));
+    set('lastImport', {});
+    renderAll();
+    refreshUndoLink();
+    showToast('İçe aktarma geri alındı');
+  });
+}
+
+function importStatementPdf(file) {
+  if (typeof pdfjsLib === 'undefined') { showToast('PDF kütüphanesi yüklenemedi'); return; }
+  showToast('PDF okunuyor…');
+  var fr = new FileReader();
+  fr.onerror = function () { showToast('Dosya okunamadı'); };
+  fr.onload = function () {
+    pdfjsLib.getDocument({ data: new Uint8Array(fr.result) }).promise.then(function (pdf) {
+      var jobs = [];
+      for (var i = 1; i <= Math.min(pdf.numPages, 12); i++) {
+        jobs.push(pdf.getPage(i).then(function (pg) { return pg.getTextContent().then(function (tc) { return stmtLinesFromPdfItems(tc.items); }); }));
+      }
+      return Promise.all(jobs).then(function (pages) {
+        var lines = [].concat.apply([], pages);
+        if (lines.join(' ').length > 80) { finishStatementLines(lines, false); return; }
+        // Metin katmanı yok (taranmış PDF): sayfaları görüntüye çevirip OCR ile oku
+        if (typeof Tesseract === 'undefined') { showToast('PDF içinde metin yok ve OCR yüklenemedi'); return; }
+        showToast('Taranmış PDF, OCR ile okunuyor… (biraz sürebilir)');
+        var ocrLines = [], chain = Promise.resolve();
+        for (var p = 1; p <= Math.min(pdf.numPages, 6); p++) {
+          (function (pn) {
+            chain = chain.then(function () {
+              return pdf.getPage(pn).then(function (pg) {
+                var vp = pg.getViewport({ scale: 2 }), cv = document.createElement('canvas');
+                cv.width = vp.width; cv.height = vp.height;
+                return pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise.then(function () {
+                  return Tesseract.recognize(cv, 'tur+eng');
+                }).then(function (r) { ocrLines = ocrLines.concat(stmtOcrLines(r.data.text)); });
+              });
+            });
+          })(p);
+        }
+        return chain.then(function () { finishStatementLines(ocrLines, true); });
+      });
+    }).catch(function (err) { console.warn('PDF ekstre hatası:', err); showToast('PDF okunamadı'); });
+  };
+  fr.readAsArrayBuffer(file);
+}
+
+function stmtNorm(h) {
+  return String(h || '').toLocaleLowerCase('tr').replace(/\s+/g, ' ').trim();
+}
+
+function stmtParseDate(v) {
+  v = String(v || '').trim();
+  var m = v.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})/);
+  if (m) return m[3] + '-' + pad2(+m[2]) + '-' + pad2(+m[1]);
+  m = v.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return m[1] + '-' + m[2] + '-' + m[3];
+  return '';
+}
+
+function stmtParseAmount(v) {
+  var t = String(v == null ? '' : v).trim();
+  if (!t) return NaN;
+  var neg = /^\(.*\)$/.test(t) || /^-/.test(t) || /-\s*(TL|TRY)?$/i.test(t);
+  t = t.replace(/[^\d.,]/g, '');
+  if (!t) return NaN;
+  if (t.indexOf(',') !== -1 && t.indexOf('.') !== -1) {
+    if (t.lastIndexOf(',') > t.lastIndexOf('.')) t = t.replace(/\./g, '').replace(',', '.');
+    else t = t.replace(/,/g, '');
+  } else if (t.indexOf(',') !== -1) t = t.replace(',', '.');
+  else if ((t.match(/\./g) || []).length > 1) t = t.replace(/\./g, '');
+  var n = parseFloat(t);
+  if (isNaN(n)) return NaN;
+  return neg ? -n : n;
+}
+
+function stmtFindColumns(rows) {
+  for (var r = 0; r < Math.min(rows.length, 40); r++) {
+    var cells = rows[r].map(stmtNorm);
+    var col = { date: -1, desc: -1, amount: -1, debit: -1, credit: -1 };
+    cells.forEach(function (h, i) {
+      if (!h) return;
+      if (/bakiye|valör|valor/.test(h)) return;
+      if (/tarih/.test(h) && (col.date === -1 || /işlem tarihi|^tarih/.test(h))) col.date = i;
+      else if (/açıklama|aciklama|işlem adı|işlem türü|detay/.test(h) && (col.desc === -1 || /açıklama|aciklama/.test(h))) col.desc = i;
+      else if (/borç|borc|çıkış|cikis/.test(h)) col.debit = i;
+      else if (/alacak|giriş|giris/.test(h)) col.credit = i;
+      else if (/tutar|miktar/.test(h) && col.amount === -1) col.amount = i;
+    });
+    var hasAmount = col.amount !== -1 || (col.debit !== -1 && col.credit !== -1) || col.debit !== -1 || col.credit !== -1;
+    if (col.date !== -1 && hasAmount) { col.headerRow = r; return col; }
+  }
+  return null;
+}
+
+function stmtGuessCategory(title, isIncome) {
+  var low = String(title || '').toLocaleLowerCase('tr');
+  if (isIncome) {
+    if (/maaş|maas/.test(low)) return 'Maaş';
+    if (/iade/.test(low)) return 'İade';
+    return 'Diğer Gelir';
+  }
+  var found = '';
+  Object.keys(FIN_CATEGORY_KEYWORDS).some(function (cat) {
+    if (FIN_CATEGORY_KEYWORDS[cat].some(function (kw) { return low.indexOf(kw) !== -1; })) { found = cat; return true; }
+    return false;
+  });
+  return found || 'Diğer';
+}
+
+function stmtKey(date, amount, type, title) {
+  return date + '|' + (Math.round(Math.abs(Number(amount)) * 100) / 100).toFixed(2) + '|' + type + '|' + String(title || '').toLocaleLowerCase('tr').replace(/\s+/g, ' ').trim().slice(0, 80);
+}
+
+function openStatementImport(text, preRaw, preRows) {
+  var raw = preRaw || [];
+  var meta = (preRaw && preRaw.meta) || null;
+  var rows = preRaw ? [] : (preRows || stmtParseCSV(text));
+  var col = preRaw ? null : stmtFindColumns(rows);
+  if (!preRaw && !col) { showToast('Başlık satırı bulunamadı (Tarih ve Tutar sütunları gerekli)'); return; }
+  for (var i = preRaw ? rows.length : col.headerRow + 1; i < rows.length; i++) {
+    var r = rows[i];
+    var date = stmtParseDate(r[col.date]);
+    if (!date) continue;
+    var signed = NaN;
+    if (col.amount !== -1) signed = stmtParseAmount(r[col.amount]);
+    if (isNaN(signed) && (col.debit !== -1 || col.credit !== -1)) {
+      var d = col.debit !== -1 ? stmtParseAmount(r[col.debit]) : NaN;
+      var c = col.credit !== -1 ? stmtParseAmount(r[col.credit]) : NaN;
+      if (!isNaN(d) && d !== 0) signed = -Math.abs(d);
+      else if (!isNaN(c) && c !== 0) signed = Math.abs(c);
+    }
+    if (isNaN(signed) || signed === 0) continue;
+    var title = (col.desc !== -1 ? String(r[col.desc] || '') : '').replace(/\s+/g, ' ').trim() || 'Banka hareketi';
+    raw.push({ date: date, title: title, signed: signed });
+  }
+  if (!raw.length) { showToast('Dosyada içe aktarılacak işlem bulunamadı'); return; }
+
+  var accounts = getAccounts();
+  var state = { invert: false, items: [] };
+
+  function build() {
+    var existing = {};
+    getFinance().forEach(function (f) {
+      var k = stmtKey(f.date, f.amount, f.type, f.title);
+      existing[k] = (existing[k] || 0) + 1;
+    });
+    state.items = raw.map(function (x) {
+      var sg = state.invert ? -x.signed : x.signed;
+      var type = sg > 0 ? 'income' : 'expense';
+      var amount = Math.round(Math.abs(sg) * 100) / 100;
+      var k = stmtKey(x.date, amount, type, x.title);
+      var dup = existing[k] > 0;
+      if (dup) existing[k]--;
+      return { date: x.date, title: x.title, type: type, amount: amount, dup: dup, on: !dup };
+    });
+  }
+
+  function bodyHTML() {
+    var news = state.items.filter(function (x) { return !x.dup; }).length;
+    var selStyle = 'width:100%;background:var(--paper-raised);border:1px solid var(--rule-strong);border-radius:6px;padding:.62rem .7rem';
+    var metaHTML = '';
+    if (meta && meta.ocr) metaHTML += '<p class="muted" style="color:var(--danger)">Bu dosya görüntüden (OCR) okundu; tutar ve tarihleri mutlaka kontrol et.</p>';
+    if (meta && meta.expected != null) {
+      var parsedExp = Math.round(raw.reduce(function (sum, x) { return sum + (x.signed < 0 ? -x.signed : 0); }, 0) * 100) / 100;
+      var diff = Math.round((parsedExp - meta.expected) * 100) / 100;
+      metaHTML += '<p class="muted" style="color:' + (Math.abs(diff) < 0.02 ? 'var(--success)' : 'var(--danger)') + '">Kontrol: ekstredeki harcama ' + formatMoney(meta.expected) + ' · okunan ' + formatMoney(parsedExp) + (Math.abs(diff) < 0.02 ? ' ✓ eşleşiyor' : ' — fark ' + formatMoney(Math.abs(diff)) + ', eksik ya da fazla satır olabilir') + '</p>';
+    }
+    if (meta && meta.skipped && meta.skipped.length) {
+      metaHTML += '<details style="margin:.2rem 0 .6rem"><summary class="muted">Okunamayan ' + meta.skipped.length + ' satır (elle eklemen gerekebilir)</summary>' +
+        meta.skipped.map(function (l) { return '<div class="row-sub" style="padding:.15rem 0">' + esc(l.slice(0, 140)) + '</div>'; }).join('') + '</details>';
+    }
+    var h = '<p class="muted" style="margin-top:0">' + state.items.length + ' işlem bulundu · ' + news + ' yeni · ' + (state.items.length - news) + ' zaten kayıtlı</p>' + metaHTML +
+      '<div class="field"><label>Hesap / Kart</label><select id="si-account" style="' + selStyle + '">' +
+      accounts.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>'; }).join('') + '</select></div>' +
+      '<label style="display:flex;align-items:center;gap:.5rem;margin:.2rem 0 .7rem;font-size:.88rem"><input type="checkbox" id="si-invert"' + (state.invert ? ' checked' : '') + '> Gelir/gider yönü ters çıktıysa işaretle</label>' +
+      '<div style="max-height:42vh;overflow:auto;border:1px solid var(--rule);border-radius:var(--radius-m);padding:0 .6rem">' +
+      state.items.map(function (x, i) {
+        return '<label class="list-row" style="cursor:pointer;gap:.6rem"><input type="checkbox" data-si="' + i + '"' + (x.on ? ' checked' : '') + '>' +
+          '<span class="row-main"><span class="row-title">' + esc(x.title.slice(0, 60)) + '</span>' +
+          '<span class="row-sub">' + esc(formatDateTR(x.date)) + (x.dup ? ' · zaten kayıtlı' : '') + '</span></span>' +
+          '<span class="mono" style="color:' + (x.type === 'income' ? 'var(--success)' : 'var(--danger)') + '">' + (x.type === 'income' ? '+' : '−') + formatMoney(x.amount) + '</span></label>';
+      }).join('') + '</div>' +
+      '<button class="btn btn-primary btn-block" id="si-go" style="margin-top:.9rem"></button>';
+    return h;
+  }
+
+  function updateGo() {
+    var n = state.items.filter(function (x) { return x.on; }).length;
+    var b = document.getElementById('si-go');
+    b.textContent = n + ' işlemi içe aktar';
+    b.disabled = !n;
+  }
+
+  function show(accountId) {
+    openSheet({
+      title: 'Ekstre içe aktar', bodyHTML: bodyHTML(), onOpen: function (body) {
+        if (accountId) document.getElementById('si-account').value = accountId;
+        updateGo();
+        body.querySelectorAll('[data-si]').forEach(function (cb) {
+          cb.addEventListener('change', function () { state.items[+cb.dataset.si].on = cb.checked; updateGo(); });
+        });
+        document.getElementById('si-invert').addEventListener('change', function (e) {
+          state.invert = e.target.checked;
+          build();
+          show(document.getElementById('si-account').value);
+        });
+        document.getElementById('si-go').addEventListener('click', function () {
+          var accId = document.getElementById('si-account').value;
+          var fin = getFinance(), added = 0, batch = uid();
+          state.items.forEach(function (x) {
+            if (!x.on) return;
+            fin.push({
+              id: uid(), title: x.title.slice(0, 80), amount: x.amount, type: x.type,
+              category: stmtGuessCategory(x.title, x.type === 'income'), date: x.date,
+              accountId: accId, source: 'import', batch: batch
+            });
+            added++;
+          });
+          saveFinance(fin);
+          set('lastImport', { id: batch, count: added, at: todayISO() });
+          closeSheet();
+          renderAll();
+          refreshUndoLink();
+          showToast(added + ' işlem içe aktarıldı');
+        });
+      }
+    });
+  }
+
+  build();
+  show(null);
+}
+
 function getBudget() { return get('budget', {}); }
 function saveBudget(b) { set('budget', b); }
 
@@ -5619,6 +6044,8 @@ function initFinance() {
   var hq = document.getElementById('hist-q'); hq.value = '';
   hq.oninput = function () { historyFilter.q = hq.value.trim(); historyLimit = 40; renderHistory(); };
   document.getElementById('hist-export').onclick = exportCSV;
+  document.getElementById('hist-import').onclick = pickStatementFile;
+  refreshUndoLink();
   document.getElementById('fin-goal-add-btn').onclick = function () { openSavingsSheet(null); };
   renderAll();
 }
