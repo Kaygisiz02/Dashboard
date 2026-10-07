@@ -5180,7 +5180,7 @@ function openStatementImport(text, preRaw, preRows) {
   if (!raw.length) { showToast('Dosyada içe aktarılacak işlem bulunamadı'); return; }
 
   var accounts = getAccounts();
-  var state = { invert: false, items: [] };
+  var state = { invert: false, onlyWarn: false, flips: {}, items: [] };
 
   function build() {
     var existing = {}, existingRef = {};
@@ -5189,16 +5189,18 @@ function openStatementImport(text, preRaw, preRows) {
       existing[k] = (existing[k] || 0) + 1;
       if (f.ref) { var rk = f.ref + '|' + f.date + '|' + (Math.round(Math.abs(Number(f.amount)) * 100) / 100).toFixed(2); existingRef[rk] = (existingRef[rk] || 0) + 1; }
     });
-    state.items = raw.map(function (x) {
+    var prevOn = state.items.length === raw.length ? state.items.map(function (it) { return it.on; }) : null;
+    state.items = raw.map(function (x, idx) {
       var sg = state.invert ? -x.signed : x.signed;
       var type = sg > 0 ? 'income' : 'expense';
+      if (state.flips[idx]) type = type === 'income' ? 'expense' : 'income';
       var amount = Math.round(Math.abs(sg) * 100) / 100;
       var k = stmtKey(x.date, amount, type, x.title);
       var rk = x.ref ? (x.ref + '|' + x.date + '|' + amount.toFixed(2)) : '';
       var dup = false;
       if (rk && existingRef[rk] > 0) { dup = true; existingRef[rk]--; if (existing[k] > 0) existing[k]--; }
       else if (existing[k] > 0) { dup = true; existing[k]--; }
-      return { date: x.date, title: x.title, type: type, amount: amount, dup: dup, warn: x.warn || '', ref: x.ref || '', on: !dup && !(x.warn && /doğrulanamadı/.test(x.warn)) };
+      return { date: x.date, title: x.title, type: type, amount: amount, dup: dup, warn: x.warn || '', ref: x.ref || '', on: prevOn ? prevOn[idx] : (!dup && !(x.warn && /doğrulanamadı/.test(x.warn))) };
     });
   }
 
@@ -5212,14 +5214,6 @@ function openStatementImport(text, preRaw, preRows) {
       var diff = Math.round((parsedExp - meta.expected) * 100) / 100;
       metaHTML += '<p class="muted" style="color:' + (Math.abs(diff) < 0.02 ? 'var(--success)' : 'var(--danger)') + '">Kontrol: ekstredeki harcama ' + formatMoney(meta.expected) + ' · okunan ' + formatMoney(parsedExp) + (Math.abs(diff) < 0.02 ? ' ✓ eşleşiyor' : ' — fark ' + formatMoney(Math.abs(diff)) + ', eksik ya da fazla satır olabilir') + '</p>';
     }
-    if (meta && meta.totals && (meta.totals.borc != null || meta.totals.alacak != null)) {
-      var pb = 0, pa = 0;
-      raw.forEach(function (x) { if (x.signed < 0) pb += -x.signed; else pa += x.signed; });
-      pb = Math.round(pb * 100) / 100; pa = Math.round(pa * 100) / 100;
-      var okB = meta.totals.borc == null || Math.abs(pb - meta.totals.borc) < 0.02, okA = meta.totals.alacak == null || Math.abs(pa - meta.totals.alacak) < 0.02;
-      metaHTML += '<p class="muted" style="color:' + ((okB && okA) ? 'var(--success)' : 'var(--danger)') + '">Kontrol: ekstre toplamı Borç ' + (meta.totals.borc != null ? formatMoney(meta.totals.borc) : '–') + ' · Alacak ' + (meta.totals.alacak != null ? formatMoney(meta.totals.alacak) : '–') +
-        ' — okunan Borç ' + formatMoney(pb) + ' · Alacak ' + formatMoney(pa) + ((okB && okA) ? ' ✓ eşleşiyor' : ' — fark var, ⚠ işaretli satırları kontrol et') + '</p>';
-    }
     if (meta && meta.verified != null) {
       metaHTML += '<p class="muted">' + meta.verified + ' / ' + raw.length + ' satır bakiye zinciriyle doğrulandı' + (raw.length - meta.verified ? '; ⚠ işaretliler varsayılan olarak seçili değil.' : '.') + '</p>';
     }
@@ -5231,12 +5225,20 @@ function openStatementImport(text, preRaw, preRows) {
       '<div class="field"><label>Hesap / Kart</label><select id="si-account" style="' + selStyle + '">' +
       accounts.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>'; }).join('') + '</select></div>' +
       '<label style="display:flex;align-items:center;gap:.5rem;margin:.2rem 0 .7rem;font-size:.88rem"><input type="checkbox" id="si-invert"' + (state.invert ? ' checked' : '') + '> Gelir/gider yönü ters çıktıysa işaretle</label>' +
+      '<p id="si-check" class="muted" style="margin:.2rem 0"></p>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:.4rem;margin:.4rem 0 .5rem">' +
+      '<button type="button" class="btn btn-secondary" id="si-sel-all" style="padding:.35rem .6rem">Tümünü seç</button>' +
+      '<button type="button" class="btn btn-secondary" id="si-sel-none" style="padding:.35rem .6rem">Hiçbirini</button>' +
+      '<button type="button" class="btn btn-secondary" id="si-flip-sel" style="padding:.35rem .6rem">Seçilenlerin yönünü çevir ⇄</button>' +
+      '<button type="button" class="btn btn-secondary" id="si-only-warn" style="padding:.35rem .6rem">' + (state.onlyWarn ? 'Tümünü göster' : '⚠ olanları göster') + '</button></div>' +
+      '<p class="muted" style="margin:0 0 .4rem;font-size:.82rem">Tutarın üstüne dokunarak o satırın gelir/gider (alacak/borç) yönünü çevirebilirsin.</p>' +
+      '<p id="si-live" class="muted" style="margin:0 0 .4rem"></p>' +
       '<div style="max-height:42vh;overflow:auto;border:1px solid var(--rule);border-radius:var(--radius-m);padding:0 .6rem">' +
       state.items.map(function (x, i) {
-        return '<label class="list-row" style="cursor:pointer;gap:.6rem"><input type="checkbox" data-si="' + i + '"' + (x.on ? ' checked' : '') + '>' +
+        return '<label class="list-row" data-row="' + i + '" style="cursor:pointer;gap:.6rem' + ((state.onlyWarn && !x.warn) ? ';display:none' : '') + '"><input type="checkbox" data-si="' + i + '"' + (x.on ? ' checked' : '') + '>' +
           '<span class="row-main"><span class="row-title">' + esc(x.title.slice(0, 60)) + '</span>' +
-          '<span class="row-sub">' + esc(formatDateTR(x.date)) + (x.dup ? ' · zaten kayıtlı' : '') + (x.warn ? ' · ⚠ ' + esc(x.warn) : '') + '</span></span>' +
-          '<span class="mono" style="color:' + (x.type === 'income' ? 'var(--success)' : 'var(--danger)') + '">' + (x.type === 'income' ? '+' : '−') + formatMoney(x.amount) + '</span></label>';
+          '<span class="row-sub">' + esc(formatDateTR(x.date)) + (x.dup ? ' · zaten kayıtlı' : '') + (x.warn ? ' · ⚠ ' + esc(x.warn) : '') + (state.flips[i] ? ' · yön elle değiştirildi' : '') + '</span></span>' +
+          '<button type="button" class="mono" data-flip="' + i + '" title="Gelir/gider yönünü çevir" style="color:' + (x.type === 'income' ? 'var(--success)' : 'var(--danger)') + ';background:transparent;border:1px solid var(--rule-strong);border-radius:6px;padding:.25rem .45rem;white-space:nowrap">' + (x.type === 'income' ? '+' : '−') + formatMoney(x.amount) + ' ⇄</button></label>';
       }).join('') + '</div>' +
       '<button class="btn btn-primary btn-block" id="si-go" style="margin-top:.9rem"></button>';
     return h;
@@ -5247,6 +5249,39 @@ function openStatementImport(text, preRaw, preRows) {
     var b = document.getElementById('si-go');
     b.textContent = n + ' işlemi içe aktar';
     b.disabled = !n;
+    refreshSummary();
+  }
+
+  function refreshSummary() {
+    var inc = 0, exp = 0, n = 0;
+    state.items.forEach(function (x) { if (!x.on) return; n++; if (x.type === 'income') inc += x.amount; else exp += x.amount; });
+    var live = document.getElementById('si-live');
+    if (live) live.textContent = 'Seçili ' + n + ' işlem · Gelir +' + formatMoney(inc) + ' · Gider −' + formatMoney(exp) + ' · Net ' + (inc - exp < 0 ? '−' : '+') + formatMoney(Math.abs(inc - exp));
+    var chk = document.getElementById('si-check');
+    if (chk && meta && meta.totals && (meta.totals.borc != null || meta.totals.alacak != null)) {
+      var pb = 0, pa = 0;
+      state.items.forEach(function (x) { if (x.type === 'income') pa += x.amount; else pb += x.amount; });
+      pb = Math.round(pb * 100) / 100; pa = Math.round(pa * 100) / 100;
+      var okB = meta.totals.borc == null || Math.abs(pb - meta.totals.borc) < 0.02, okA = meta.totals.alacak == null || Math.abs(pa - meta.totals.alacak) < 0.02;
+      chk.style.color = (okB && okA) ? 'var(--success)' : 'var(--danger)';
+      chk.textContent = 'Kontrol: ekstre toplamı Borç ' + (meta.totals.borc != null ? formatMoney(meta.totals.borc) : '–') + ' · Alacak ' + (meta.totals.alacak != null ? formatMoney(meta.totals.alacak) : '–') +
+        ' — okunan Borç ' + formatMoney(pb) + ' · Alacak ' + formatMoney(pa) + ((okB && okA) ? ' ✓ eşleşiyor' : ' — fark var; yönü yanlış satırları çevir ya da ⚠ satırlara bak');
+    }
+  }
+
+  function paintFlip(body, i) {
+    var x = state.items[i], btn = body.querySelector('[data-flip="' + i + '"]');
+    if (!btn) return;
+    btn.style.color = x.type === 'income' ? 'var(--success)' : 'var(--danger)';
+    btn.textContent = (x.type === 'income' ? '+' : '−') + formatMoney(x.amount) + ' ⇄';
+    var sub = btn.parentNode.querySelector('.row-sub');
+    if (sub && sub.textContent.indexOf('yön elle değiştirildi') === -1) sub.textContent += ' · yön elle değiştirildi';
+  }
+  function flipItem(body, i) {
+    var x = state.items[i];
+    x.type = x.type === 'income' ? 'expense' : 'income';
+    state.flips[i] = !state.flips[i];
+    paintFlip(body, i);
   }
 
   function show(accountId) {
@@ -5256,6 +5291,23 @@ function openStatementImport(text, preRaw, preRows) {
         updateGo();
         body.querySelectorAll('[data-si]').forEach(function (cb) {
           cb.addEventListener('change', function () { state.items[+cb.dataset.si].on = cb.checked; updateGo(); });
+        });
+        body.querySelectorAll('[data-flip]').forEach(function (btn) {
+          btn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); flipItem(body, +btn.dataset.flip); refreshSummary(); });
+        });
+        function syncChecks() { body.querySelectorAll('[data-si]').forEach(function (cb) { cb.checked = state.items[+cb.dataset.si].on; }); updateGo(); }
+        document.getElementById('si-sel-all').addEventListener('click', function () { state.items.forEach(function (x) { x.on = !x.dup; }); syncChecks(); });
+        document.getElementById('si-sel-none').addEventListener('click', function () { state.items.forEach(function (x) { x.on = false; }); syncChecks(); });
+        document.getElementById('si-flip-sel').addEventListener('click', function () {
+          var n = 0;
+          state.items.forEach(function (x, i) { if (x.on) { flipItem(body, i); n++; } });
+          refreshSummary();
+          showToast(n ? (n + ' satırın yönü çevrildi') : 'Önce satırları seç');
+        });
+        document.getElementById('si-only-warn').addEventListener('click', function () {
+          state.onlyWarn = !state.onlyWarn;
+          body.querySelectorAll('[data-row]').forEach(function (row) { row.style.display = (state.onlyWarn && !state.items[+row.dataset.row].warn) ? 'none' : ''; });
+          this.textContent = state.onlyWarn ? 'Tümünü göster' : '⚠ olanları göster';
         });
         document.getElementById('si-invert').addEventListener('change', function (e) {
           state.invert = e.target.checked;
