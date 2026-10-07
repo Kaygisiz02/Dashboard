@@ -4267,6 +4267,562 @@ function toggleInstallmentMonth(instId, monthKey) {
   saveInstallments(all);
 }
 
+/* ---- Tablo ekstre okuyucu: sözcük kutularından satır kurma + bakiye zinciri doğrulaması ---- */
+/* ---- Tablo ekstre okuyucu (OCR / sözcük kutularından) --------------------
+   Hesap hareketi ekstreleri: Tarih | Fiş No | Açıklama | Tutar | Bakiye.
+   Sözcük konumlarından satırlar kurulur. Eksi işaretleri OCR'da güvenilmez
+   olduğu için işaretler bakiye zincirinden çıkarılır:
+   önceki bakiye = bakiye − tutar. Zincir tutmayan satırlar işaretlenir. */
+var STMT_AMT_RE = /^\d{1,3}(?:\.\d{3})*,\d{2}$/;
+function stmtFixNumTok(t) {
+  t = String(t || '').trim().replace(/^[^\dOolIS|B]+/, '');
+  function norm(x) {
+    if (STMT_AMT_RE.test(x)) return x;
+    // OCR ayraç hataları: "77.946.86", "19,094.78": son ayraç ondalık kabul edilir
+    if (/^\d{1,3}(?:[.,]\d{3})*[.,]\d{2}$/.test(x)) {
+      var dg = x.replace(/[.,]/g, ''), ip = dg.slice(0, -2), dc = dg.slice(-2);
+      ip = ip.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      return ip + ',' + dc;
+    }
+    // "5.00000" gibi virgülü düşmüş okuma: 1-3 hane + ayraç + 3 hane + 2 hane
+    var m5 = x.match(/^(\d{1,3})[.,](\d{3})(\d{2})$/);
+    if (m5) return m5[1] + '.' + m5[2] + ',' + m5[3];
+    return '';
+  }
+  var r = norm(t);
+  if (r) return r;
+  var u = t.replace(/[Oo]/g, '0').replace(/[lI|]/g, '1').replace(/S/g, '5').replace(/B/g, '8');
+  return norm(u);
+}
+function stmtTokDate(t) {
+  t = String(t || '').trim().replace(/[Oo]/g, '0').replace(/[lI|]/g, '1').replace(/,/g, '.');
+  var m = t.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  return m ? (m[3] + '-' + m[2] + '-' + m[1]) : '';
+}
+function stmtNum(a) { return parseFloat(a.replace(/\./g, '').replace(',', '.')); }
+
+function stmtTableFromWords(words, W, H, page, pageCount) {
+  var k = W / 1190;
+  // "24" + "690,06" gibi bölünmüş sayıları birleştir (sağ bölge)
+  var right = words.filter(function (w) { return w.x0 > 0.55 * W; }).sort(function (a, b) { return a.yc - b.yc || a.x0 - b.x0; });
+  var drop = {};
+  for (var q = 0; q < right.length - 1; q++) {
+    var a1 = right[q], b1 = right[q + 1];
+    if (/^\d{1,3}$/.test(String(a1.s).trim()) && /^\d{3},\d{2}$/.test(String(b1.s).trim()) && Math.abs(a1.yc - b1.yc) < 10 * k && b1.x0 - a1.x1 < 0.02 * W) {
+      b1.s = String(a1.s).trim() + '.' + String(b1.s).trim(); b1.x0 = a1.x0; drop[q] = a1;
+    }
+  }
+  Object.keys(drop).forEach(function (i) { var idx = words.indexOf(drop[i]); if (idx >= 0) words.splice(idx, 1); });
+
+  var dates = [], amts = [], others = [];
+  words.forEach(function (w) {
+    var t = String(w.s || '').trim();
+    if (!t) return;
+    var iso = w.x0 < 0.2 * W ? stmtTokDate(t) : '';
+    if (iso) { dates.push({ w: w, iso: iso, y: w.yc }); return; }
+    if (w.x0 > 0.55 * W) {
+      var a = stmtFixNumTok(t);
+      if (a) { amts.push({ w: w, str: a, v: stmtNum(a) }); return; }
+      if (/^[-\u2212\u2013\u2014_~=.]+$/.test(t)) return; // ayrı eksi/çizgi parçaları: güvenilmez, yok say
+    }
+    others.push(w);
+  });
+  var totals = {};
+  others.forEach(function (w) {
+    var t = String(w.s).trim();
+    var kind = /^bor/i.test(t) ? 'borc' : (/^alac/i.test(t) ? 'alacak' : '');
+    if (!kind) return;
+    var best = null, bd = 1e9;
+    amts.forEach(function (a) { var d = Math.abs(a.w.yc - w.yc); if (a.w.x0 > w.x1 && d < 14 * k && d < bd) { bd = d; best = a; } });
+    if (best) { totals[kind] = best.v; amts.splice(amts.indexOf(best), 1); }
+  });
+  var xs = amts.map(function (a) { return a.w.x1; }).sort(function (a, b) { return a - b; });
+  var thr = null, bestGap = 0;
+  for (var j = 1; j < xs.length; j++) { if (xs[j] - xs[j - 1] > bestGap) { bestGap = xs[j] - xs[j - 1]; thr = (xs[j] + xs[j - 1]) / 2; } }
+  if (bestGap < 0.03 * W) thr = null;
+  var events = [];
+  dates.forEach(function (d) { events.push({ y: d.y, kind: 'd', d: d }); });
+  amts.forEach(function (a) { events.push({ y: a.w.yc, kind: (thr !== null && a.w.x1 > thr) ? 'b' : 't', a: a }); });
+  events.sort(function (a, b) { return a.y - b.y; });
+  var groups = [];
+  events.forEach(function (e) {
+    var G = groups[groups.length - 1];
+    if (G && e.y - G.last <= 13 * k) { G.ev.push(e); G.last = e.y; }
+    else groups.push({ ev: [e], last: e.y });
+  });
+  var rows = [];
+  groups.forEach(function (G) {
+    var r = { date: '', y: 0, dw: null, tut: null, bal: null, desc: [], fis: '' };
+    var ysum = 0, yn = 0;
+    G.ev.forEach(function (e) {
+      if (e.kind === 'd') { if (!r.dw) { r.date = e.d.iso; r.dw = e.d.w; } }
+      else if (e.kind === 't') { if (!r.tut) r.tut = e.a; }
+      else if (!r.bal) r.bal = e.a;
+    });
+    // satır merkezi: tarih / tutar hücreleri tek satırlıktır, bakiye bölünebilir
+    var ref = r.dw ? r.dw.yc : (r.tut ? r.tut.w.yc : (r.bal ? r.bal.w.yc : null));
+    if (ref === null) return;
+    r.y = ref;
+    if (!r.tut && !r.bal) return;
+    rows.push(r);
+  });
+  rows.sort(function (a, b) { return a.y - b.y; });
+  var dates = rows; // yardımcı: satır çapaları
+  function nearestAnchor(y) {
+    var best = -1, bd = 1e9;
+    for (var j = 0; j < rows.length; j++) { var d = Math.abs(rows[j].y - y); if (d < bd) { bd = d; best = j; } }
+    return { idx: best, d: bd };
+  }
+  if (!rows.length) return [];
+  // Fiş no: tarih ile açıklama arasındaki sözcükler birleştirilir ("F" + "22838")
+  var fisRe = /^[A-Z][A-Z0-9]{4,7}$/;
+  var fisX1 = [];
+  rows.forEach(function (r) {
+    var cand = others.filter(function (w) { return w.x0 > (r.dw ? r.dw.x1 : 0.12 * W) + 4 * k && w.x0 < 0.27 * W && Math.abs(w.yc - r.y) < 14 * k; })
+      .sort(function (a, b) { return a.x0 - b.x0; });
+    var txt = '', last = null;
+    for (var c = 0; c < cand.length && c < 3; c++) {
+      var piece = String(cand[c].s).trim();
+      if (last && cand[c].x0 - last.x1 > 0.03 * W) break;
+      txt += piece; last = cand[c];
+      if (fisRe.test(txt) && (txt.match(/\d/g) || []).length >= 2) { r.fis = txt; r.fisX1 = last.x1; fisX1.push(last.x1); break; }
+    }
+  });
+  fisX1.sort(function (a, b) { return a - b; });
+  var descLeft = fisX1.length ? fisX1[Math.floor(fisX1.length / 2)] + 6 * k : 0.22 * W;
+  var tutLeft = Infinity;
+  amts.forEach(function (a) { if (thr === null || a.w.x1 <= thr) tutLeft = Math.min(tutLeft, a.w.x0); });
+  var descRight = isFinite(tutLeft) ? tutLeft - 4 * k : 0.78 * W;
+  var dw = others.filter(function (w) {
+    return w.x0 >= descLeft - 3 * k && w.x0 < descRight;
+  }).sort(function (a, b) { return a.yc - b.yc; });
+  var lines = [];
+  dw.forEach(function (w) {
+    var L = lines[lines.length - 1];
+    if (L && Math.abs(w.yc - L.yc) <= 8 * k) { L.ws.push(w); L.yc = (L.yc * (L.ws.length - 1) + w.yc) / L.ws.length; }
+    else lines.push({ yc: w.yc, ws: [w] });
+  });
+  lines.forEach(function (L) {
+    L.ws.sort(function (a, b) { return a.x0 - b.x0; });
+    L.text = L.ws.map(function (w) { return String(w.s).trim(); }).join(' ');
+  });
+  var edgeTop = page > 0 ? 70 * k : -1, edgeBot = page < pageCount - 1 ? H - 70 * k : H + 1;
+  var extras = [], aligned = [];
+  lines.forEach(function (L) {
+    if (L.yc < edgeTop || L.yc > edgeBot) return;
+    var n = nearestAnchor(L.yc);
+    if (n.d <= 5 * k) aligned.push({ L: L, idx: n.idx }); else extras.push(L);
+  });
+  aligned.forEach(function (a) { rows[a.idx].desc.push(a.L); });
+  var A = 0, B = 0;
+  var info = extras.map(function (L) {
+    var up = -1, dn = -1;
+    for (var j = 0; j < rows.length; j++) { if (rows[j].y <= L.yc) up = j; else { dn = j; break; } }
+    var da = up >= 0 ? L.yc - rows[up].y : 1e9, db = dn >= 0 ? rows[dn].y - L.yc : 1e9;
+    if (up >= 0 && dn >= 0) { if (da < db) A++; else if (db < da) B++; }
+    return { L: L, up: up, dn: dn, da: da, db: db };
+  });
+  var model = (B === 0 && A > 0) ? 'top' : ((A === 0 && B > 0) ? 'bottom' : 'middle');
+  info.forEach(function (o) {
+    var idx, d;
+    if (model === 'top') { idx = o.up >= 0 ? o.up : o.dn; d = o.up >= 0 ? o.da : o.db; }
+    else if (model === 'bottom') { idx = o.dn >= 0 ? o.dn : o.up; d = o.dn >= 0 ? o.db : o.da; }
+    else if (o.da <= o.db) { idx = o.up; d = o.da; } else { idx = o.dn; d = o.db; }
+    if (idx == null || idx < 0 || d > 28 * k) return;
+    rows[idx].desc.push(o.L);
+  });
+  var out = [];
+  rows.forEach(function (r) {
+    r.desc.sort(function (a, b) { return a.yc - b.yc; });
+    var edge = (r.y < edgeTop + 30 * k && page > 0) || (r.y > edgeBot - 30 * k && page < pageCount - 1);
+    out.push({
+      date: r.date, fis: r.fis, page: page, y: r.y, edge: edge,
+      desc: r.desc.map(function (L) { return L.text; }).join(' ').replace(/\s+/g, ' ').trim(),
+      A: r.tut ? r.tut.v : NaN, B: r.bal ? r.bal.v : NaN
+    });
+  });
+  out.totals = totals;
+  return out;
+}
+
+function stmtDescKey(r) { return String(r.desc).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10); }
+function stmtSameRow(a, b) {
+  var dateOk = !a.date || !b.date || a.date === b.date;
+  if (a.fis && b.fis && a.fis === b.fis && dateOk && stmtDescKey(a) === stmtDescKey(b)) return true;
+  if (!isNaN(a.B) && !isNaN(b.B) && Math.abs(a.B - b.B) < 0.005 && dateOk &&
+      (isNaN(a.A) || isNaN(b.A) || Math.abs(a.A - b.A) < 0.005)) return true;
+  return false;
+}
+function stmtMergePages(pages) {
+  var acc = [];
+  acc.totals = {};
+  pages.forEach(function (rows) { if (rows && rows.totals) { if (rows.totals.borc != null) acc.totals.borc = rows.totals.borc; if (rows.totals.alacak != null) acc.totals.alacak = rows.totals.alacak; } });
+  function absorb(t, r) { // yinelenen satırdan eksik alanları tamamla
+    if (isNaN(t.A) && !isNaN(r.A)) t.A = r.A;
+    if (isNaN(t.B) && !isNaN(r.B)) t.B = r.B;
+    if (!t.fis && r.fis) t.fis = r.fis;
+    if (!t.date && r.date) t.date = r.date;
+    if (String(r.desc).length > String(t.desc).length && !r.edge) t.desc = r.desc;
+    if (t.edge && !r.edge) { t.edge = false; t.page = r.page; }
+  }
+  function findDup(r) {
+    var tail = acc.slice(-90);
+    for (var i = tail.length - 1; i >= 0; i--) if (stmtSameRow(tail[i], r)) return tail[i];
+    return null;
+  }
+  pages.forEach(function (rows, pi) {
+    var overlap = pi > 0 && rows.some(function (r) { return !r.edge && findDup(r); });
+    if (overlap) {
+      while (acc.length && acc[acc.length - 1].edge && acc[acc.length - 1].page === pi - 1) acc.pop();
+    }
+    rows.forEach(function (r) {
+      var d = findDup(r);
+      if (d) { absorb(d, r); return; }
+      if (overlap && r.edge) return;
+      acc.push(r);
+    });
+  });
+  return acc;
+}
+
+function stmtLev(a, b) {
+  var m = a.length, n = b.length, d = [], i, j;
+  for (i = 0; i <= m; i++) { d[i] = [i]; }
+  for (j = 1; j <= n; j++) d[0][j] = j;
+  for (i = 1; i <= m; i++) for (j = 1; j <= n; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[m][n];
+}
+function stmtDig(x) { return Math.abs(x).toFixed(2).replace('.', ''); }
+
+/* Bakiye zinciri: bakiye[i+1] = bakiye[i] − işaretliTutar[i]  (satırlar yeniden eskiye).
+   İşaretler zincirden çıkarılır. Tutar bakiyeyle uyuşmazsa satır 'bad' olur ve sug alanına
+   bakiyeden hesaplanan tutar yazılır; tutarlar sessizce değiştirilmez. Sadece bakiye
+   okuma hatası (sonraki satır doğrulanıyorsa) onarılır, çünkü bakiye içe aktarılmaz. */
+function stmtChainRepair(rows) {
+  var n = rows.length, EPS = 0.011;
+  function ok(a, b) { return Math.abs(a - b) <= EPS; }
+  function verifies(i, bi) { // i+1. satır, bi bakiyesinden i+2. bakiyeye bağlanıyor mu?
+    if (i + 2 >= n) return false;
+    var r1 = rows[i + 1], r2 = rows[i + 2];
+    if (isNaN(r2.B) || isNaN(r1.A)) return false;
+    return ok(Math.abs(bi - r1.A), r2.B) || ok(Math.abs(bi + r1.A), r2.B);
+  }
+  function priorOr(r, dflt) { var p = stmtSignPrior(r.desc); return p !== 0 ? p : dflt; }
+  function run(sign0, apply) {
+    var bad = 0, unk = 0, repaired = 0, inferred = 0;
+    var cur = (n && !isNaN(rows[0].B)) ? sign0 * rows[0].B : NaN;
+    var i = 0;
+    while (i < n) {
+      var r = rows[i];
+      if (apply) { r.flag = ''; r.sug = null; r.s = 1; }
+      if (i === n - 1) {
+        if (!isNaN(cur) && !isNaN(r.A) && ok(Math.abs(cur), r.A)) { if (apply) r.s = cur < 0 ? -1 : 1; }
+        else { unk++; if (apply) { r.flag = 'unk'; r.s = priorOr(r, -1); } }
+        break;
+      }
+      var nb = rows[i + 1].B;
+      if (isNaN(cur)) { // eşleşme kaybı: sonraki bilinen bakiyeden yeniden başla
+        unk++; if (apply) { r.flag = 'unk'; r.s = priorOr(r, -1); }
+        cur = isNaN(nb) ? NaN : nb; i++; continue;
+      }
+      if (!isNaN(nb) && isNaN(r.A)) { // tutar okunamadı: bakiyelerden türet
+        var a1 = cur - nb, a2 = cur + nb, aa = Math.abs(a1) <= Math.abs(a2) ? a1 : a2;
+        if (apply) { r.A = Math.abs(aa); r.s = aa < 0 ? -1 : 1; r.flag = 'derived'; }
+        cur = aa === a1 ? nb : -nb; unk++; i++; continue;
+      }
+      if (!isNaN(nb)) { // normal adım
+        var pick = null, sgs = [1, -1];
+        for (var c = 0; c < 2; c++) { var v = cur - sgs[c] * r.A; if (ok(Math.abs(v), nb)) { pick = { s: sgs[c], nb: v }; break; } }
+        if (pick) { if (apply) r.s = pick.s; cur = pick.nb; i++; continue; }
+        var rep = null;
+        [1, -1].some(function (s) {
+          var nb2 = cur - s * r.A;
+          if (verifies(i, nb2)) { rep = { s: s, nb2: nb2 }; return true; }
+          return false;
+        });
+        if (rep) { if (apply) { r.s = rep.s; rows[i + 1].B = Math.abs(rep.nb2); } cur = rep.nb2; repaired++; i++; continue; }
+        bad++;
+        var cand = [nb, -nb].map(function (x) { return cur - x; });
+        var sug = Math.abs(cand[0]) <= Math.abs(cand[1]) ? cand[0] : cand[1];
+        if (apply) { r.flag = 'bad'; r.sug = Math.abs(sug); r.s = priorOr(r, sug < 0 ? -1 : 1); }
+        cur = (cur >= 0 ? 1 : -1) * nb; i++; continue;
+      }
+      // bakiyesi okunamayan satırlar dizisi: sonraki bilinen bakiyeye kadar işaretleri birlikte çöz
+      var j = i + 1;
+      while (j < n && isNaN(rows[j].B)) j++;
+      var len = j - i, allA = true;
+      for (var t = i; t < j && t < n; t++) if (isNaN(rows[t].A)) allA = false;
+      if (j >= n || !allA || len > 14) {
+        for (var t2 = i; t2 < Math.min(j, n); t2++) { unk++; if (apply) { rows[t2].flag = 'unk'; rows[t2].s = priorOr(rows[t2], -1); } }
+        cur = j < n ? rows[j].B : NaN; i = j; continue;
+      }
+      var Bj = rows[j].B, sols = [];
+      for (var mask = 0; mask < (1 << len); mask++) {
+        var sum = 0;
+        for (var q = 0; q < len; q++) sum += ((mask >> q) & 1 ? -1 : 1) * rows[i + q].A;
+        if (ok(Math.abs(cur - sum), Bj)) sols.push({ mask: mask, end: cur - sum });
+      }
+      if (!sols.length) {
+        for (var t3 = i; t3 < j; t3++) { bad++; if (apply) { rows[t3].flag = 'bad'; rows[t3].s = priorOr(rows[t3], -1); } }
+        cur = (cur >= 0 ? 1 : -1) * Bj; i = j; continue;
+      }
+      var best = null, bestScore = -1e9, tie = false;
+      sols.forEach(function (sl) {
+        var sc = 0;
+        for (var q2 = 0; q2 < len; q2++) sc += stmtSignPrior(rows[i + q2].desc) * ((sl.mask >> q2) & 1 ? -1 : 1);
+        if (sc > bestScore) { bestScore = sc; best = sl; tie = false; } else if (sc === bestScore) tie = true;
+      });
+      for (var q3 = 0; q3 < len; q3++) {
+        if (apply) { rows[i + q3].s = (best.mask >> q3) & 1 ? -1 : 1; rows[i + q3].flag = (sols.length > 1 && tie) ? 'amb' : ''; }
+      }
+      inferred += len; if (sols.length > 1 && tie) unk += len;
+      cur = best.end; i = j;
+    }
+    return { bad: bad, unk: unk, repaired: repaired, inferred: inferred };
+  }
+  if (!n) return { bad: 0, unk: 0, repaired: 0, inferred: 0 };
+  var t1 = run(1, false), t2 = run(-1, false);
+  var res = run(t2.bad + t2.unk < t1.bad + t1.unk ? -1 : 1, true);
+  stmtResolveSegments(rows);
+  return res;
+}
+
+/* Ayrıştırılmış satırın açıklamasından güçlü işaret ipucu: +1 gelir, -1 gider, 0 belirsiz */
+function stmtSignPrior(desc) {
+  var d = String(desc || '').toLocaleLowerCase('tr').replace(/[ıİ]/g, 'i').replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ö/g, 'o').replace(/ü/g, 'u');
+  if (/maas icin yatan|ek odeme|nobet ucret|maas farki|iade|gonde?r?:|prepaid iade|iptal/.test(d) && !/pos alis/.test(d)) return 1;
+  if (/atm p\.?y\.?|para yatir/.test(d)) return 1;
+  if (/pos alis|sanal pos|atm\s+(qr\s+)?para\s*cek|atm p\.?c\.?|vodafone|turkcell|gaski|gazdas|enejisa|kk tahsilat|kmh tahsilat|islem toplam masraf/.test(d)) return -1;
+  return 0;
+}
+/* Zincir kopuklarında işaret aynası belirsizleşebilir: kopuksuz bölümleri açıklama ipuçlarına göre çevir */
+function stmtResolveSegments(rows) {
+  var seg = [];
+  function flush() {
+    if (!seg.length) return;
+    var score = 0;
+    seg.forEach(function (r) { score += stmtSignPrior(r.desc) * (r.s || 1); });
+    if (score < 0) seg.forEach(function (r) { r.s = -(r.s || 1); });
+    seg = [];
+  }
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (r.flag === 'bad' || r.flag === 'unk' || r.flag === 'amb') {
+      flush();
+      if (!r.s || r.flag === 'unk') { var pr = stmtSignPrior(r.desc); r.s = pr !== 0 ? pr : -1; }
+      continue;
+    }
+    seg.push(r);
+  }
+  flush();
+}
+
+/* Tarihi okunamayan satırlara komşu satırların tarihini ver (aralarında fark varsa belirsiz say) */
+function stmtFillDates(rows) {
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].date) continue;
+    var prev = '', next = '';
+    for (var p = i - 1; p >= 0; p--) if (rows[p].date) { prev = rows[p].date; break; }
+    for (var q = i + 1; q < rows.length; q++) if (rows[q].date) { next = rows[q].date; break; }
+    rows[i].date = prev || next;
+    if (prev !== next) rows[i].dateGuess = true;
+  }
+}
+
+function stmtCleanTitle(d) {
+  var t = String(d || '');
+  if (/ATM\s+(QR\s+)?PARA\s+[ÇC]EKME|YURTI[ÇC]I\s+ATM/i.test(t)) return 'ATM para çekme';
+  var merchant = t.match(/[İIiıl]\S{0,2}YER\S{0,2}\s*:\s*(.+?)(?:\s+MUTABAKAT\b.*)?$/i);
+  if (/POS\s+AL/i.test(t) && merchant) return merchant[1].replace(/\s+/g, ' ').trim().slice(0, 80);
+  t = t.replace(/TR\d{2}[\s\d]{20,}/g, '').replace(/KART\s*NO\s*:\s*[\d*\s]+/gi, '').replace(/MUTABAKAT\s*:\s*\d+/gi, '')
+    .replace(/JOURNAL\s*NO\s*:\s*\d+/gi, '').replace(/F[İI][ŞS]\s*NO\s*:\s*\d+/gi, '').replace(/PROV[İI]ZYON\s*KODU\s*:\s*\d+/gi, '')
+    .replace(/\s+/g, ' ').trim();
+  return t.slice(0, 80) || 'Banka hareketi';
+}
+
+
+/* ---- Görüntü / taranmış PDF için tablo OCR sürücüsü ---------------------- */
+var STMT_CANCEL = false;
+function stmtProgress(msg) {
+  var el = document.getElementById('stmt-progress');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'stmt-progress';
+    el.style.cssText = 'position:fixed;left:12px;right:12px;bottom:84px;z-index:9999;background:var(--paper-raised,#222);color:var(--ink,#fff);border:1px solid var(--rule-strong,#555);border-radius:12px;padding:.8rem 1rem;font-size:.9rem;box-shadow:0 6px 24px rgba(0,0,0,.35)';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = esc(msg) + '<div style="margin-top:.5rem"><button class="link-btn" id="stmt-cancel">İptal</button></div>';
+  document.getElementById('stmt-cancel').onclick = function () { STMT_CANCEL = true; };
+}
+function stmtProgressEnd() { var el = document.getElementById('stmt-progress'); if (el) el.remove(); }
+
+function stmtNewCanvas(w, h) { var c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function stmtAppendCanvas(a, b) {
+  if (!a) return b;
+  var c = stmtNewCanvas(Math.max(a.width, b.width), a.height + b.height), g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+  g.drawImage(a, 0, 0); g.drawImage(b, 0, a.height);
+  a.width = 0; b.width = 0;
+  return c;
+}
+function stmtCropCanvas(cv, y, h, keepSource) {
+  var c = stmtNewCanvas(cv.width, h);
+  c.getContext('2d').drawImage(cv, 0, y, cv.width, h, 0, 0, cv.width, h);
+  if (!keepSource) cv.width = 0;
+  return c;
+}
+/* Sayfa üst/alt beyaz bantlarını kırp: uzun ekran görüntüsünden bölünmüş PDF'lerde sayfa sınırındaki satırlar bütün kalır */
+function stmtTrimCanvas(cv) {
+  var w = cv.width, h = cv.height, d = cv.getContext('2d').getImageData(0, 0, w, h).data;
+  function dark(y) { var n = 0; for (var x = 0; x < w; x += 2) { var i = (y * w + x) * 4; if (d[i] < 200 && d[i + 1] < 200 && d[i + 2] < 200 && ++n >= 3) return true; } return false; }
+  var top = 0, bot = h - 1;
+  while (top < h && !dark(top)) top++;
+  while (bot > top && !dark(bot)) bot--;
+  if (bot <= top) return null;
+  return stmtCropCanvas(cv, top, bot + 1 - top);
+}
+function stmtMakeWorker() {
+  function fallback() { return { rec: function (cv) { return Tesseract.recognize(cv, 'tur+eng'); }, end: function () { return Promise.resolve(); } }; }
+  try {
+    return Tesseract.createWorker('tur+eng').then(function (w) {
+      var p = w.setParameters ? Promise.resolve(w.setParameters({ tessedit_pageseg_mode: '11', preserve_interword_spaces: '1' })).catch(function () {}) : Promise.resolve();
+      return p.then(function () { return { rec: function (cv) { return w.recognize(cv); }, end: function () { return w.terminate(); } }; });
+    }).catch(function () { return fallback(); });
+  } catch (e) { return Promise.resolve(fallback()); }
+}
+
+/* nextSegment(): Promise<canvas|null>. Segmentler art arda birleştirilir, 2400px'lik üst üste binen dilimler OCR'lanır. */
+function stmtOcrSegments(nextSegment, label) {
+  STMT_CANCEL = false;
+  var H = 2400, OVERLAP = 500, STEP = H - OVERLAP;
+  var slices = [], cur = null, worker = null;
+  function ocr(cv) {
+    stmtProgress(label + ' · ' + (slices.length + 1) + '. dilim okunuyor… (uzun sürebilir, bu sayfayı kapatma)');
+    return worker.rec(cv).then(function (r) {
+      var words = [];
+      ((r.data && r.data.words) || []).forEach(function (w) {
+        if (!w.text || !String(w.text).trim() || !w.bbox) return;
+        words.push({ s: w.text, x0: w.bbox.x0, x1: w.bbox.x1, yc: (w.bbox.y0 + w.bbox.y1) / 2 });
+      });
+      slices.push({ words: words, W: cv.width, H: cv.height, text: (r.data && r.data.text) || '' });
+    });
+  }
+  function pump() {
+    if (STMT_CANCEL) return Promise.reject(new Error('cancel'));
+    return nextSegment().then(function (seg) {
+      if (!seg) return null;
+      cur = stmtAppendCanvas(cur, seg);
+      function drain() {
+        if (cur.height < H) return Promise.resolve();
+        var sl = stmtCropCanvas(cur, 0, H, true);
+        return ocr(sl).then(function () {
+          sl.width = 0;
+          cur = stmtCropCanvas(cur, STEP, cur.height - STEP);
+          if (STMT_CANCEL) return Promise.reject(new Error('cancel'));
+          return drain();
+        });
+      }
+      return drain().then(pump);
+    });
+  }
+  return stmtMakeWorker().then(function (w) { worker = w; return pump(); }).then(function () {
+    if (cur && (slices.length === 0 || cur.height > OVERLAP + 40)) return ocr(cur);
+  }).then(function () { return worker.end(); }).then(function () { return slices; },
+    function (err) { try { worker && worker.end(); } catch (e) {} throw err; });
+}
+
+function stmtLooksLikeTable(pages) {
+  var total = 0, withB = 0, withA = 0;
+  pages.forEach(function (rows) { rows.forEach(function (r) { total++; if (!isNaN(r.B)) withB++; if (!isNaN(r.A)) withA++; }); });
+  return total >= 8 && withB / total >= 0.6 && withA / total >= 0.8;
+}
+
+function finishStatementTable(pages, ocr) {
+  var merged = stmtMergePages(pages);
+  stmtChainRepair(merged);
+  stmtFillDates(merged);
+  var raw = [], clean = 0;
+  merged.forEach(function (r) {
+    if (isNaN(r.A) || !(r.A > 0) || !r.date) return;
+    var warn = '';
+    if (r.flag === 'bad' || r.flag === 'unk' || r.flag === 'amb') warn = 'bakiye zinciriyle doğrulanamadı';
+    else if (r.dateGuess) warn = 'tarih tahmini';
+    if (!warn) clean++;
+    raw.push({ date: r.date, title: stmtCleanTitle(r.desc), signed: (r.s || 1) * r.A, ref: r.fis || '', warn: warn });
+  });
+  if (!raw.length) { showToast('Ekstrede işlem satırı bulunamadı'); return; }
+  raw.meta = { skipped: [], expected: null, ocr: !!ocr, totals: merged.totals || {}, verified: clean };
+  openStatementImport('', raw);
+}
+
+
+/* OCR (Tesseract.js) arka plan işçisi (Web Worker) ister. Bazı önizleme ekranları bunu engeller; önce denenir. */
+function stmtCheckWorkers() {
+  return new Promise(function (resolve) {
+    try {
+      var u = URL.createObjectURL(new Blob(['postMessage(1)'], { type: 'application/javascript' }));
+      var w = new Worker(u), done = false;
+      var t = setTimeout(function () { if (!done) { done = true; try { w.terminate(); } catch (e) {} resolve(false); } }, 3000);
+      w.onmessage = function () { if (!done) { done = true; clearTimeout(t); w.terminate(); URL.revokeObjectURL(u); resolve(true); } };
+      w.onerror = function () { if (!done) { done = true; clearTimeout(t); resolve(false); } };
+    } catch (e) { resolve(false); }
+  });
+}
+function stmtErrText(err) {
+  if (!err) return 'bilinmeyen hata';
+  return String(err.message || err.type || (typeof err === 'string' ? err : '') || 'bilinmeyen hata');
+}
+function stmtNoWorkerNotice() {
+  openSheet({
+    title: 'Bu ekranda OCR çalışmıyor',
+    bodyHTML: '<p>Bu dosya metin içermiyor (görüntü), bu yüzden görüntüden okuma (OCR) gerekiyor. Şu an açık olan ekran, OCR için gereken arka plan işçisine (Web Worker) izin vermiyor.</p>' +
+      '<p>Sayfayı Safari veya Chrome\'da, normal bir adresten aç (örneğin GitHub Pages) ve aynı dosyayı orada yükle. Metin içeren PDF, CSV ve Excel dosyaları bu ekranda da çalışır.</p>' +
+      '<button class="btn btn-primary btn-block" id="stmt-notice-ok">Tamam</button>',
+    onOpen: function () { document.getElementById('stmt-notice-ok').addEventListener('click', closeSheet); }
+  });
+}
+
+function importStatementOcrPdf(pdf) {
+  return stmtCheckWorkers().then(function (ok) {
+    if (!ok) { stmtNoWorkerNotice(); return; }
+    return importStatementOcrPdfRun(pdf);
+  });
+}
+function importStatementOcrPdfRun(pdf) {
+  var pn = 0, maxP = Math.min(pdf.numPages, 40);
+  function nextSegment() {
+    if (pn >= maxP) return Promise.resolve(null);
+    pn++;
+    stmtProgress('Sayfa ' + pn + '/' + maxP + ' hazırlanıyor…');
+    return pdf.getPage(pn).then(function (pg) {
+      var vp = pg.getViewport({ scale: 3 }), cv = stmtNewCanvas(Math.round(vp.width), Math.round(vp.height));
+      var g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+      return pg.render({ canvasContext: g, viewport: vp }).promise.then(function () {
+        var t = stmtTrimCanvas(cv);
+        return t || stmtNewCanvas(cv.width, 1);
+      });
+    });
+  }
+  return stmtOcrSegments(nextSegment, 'PDF (OCR)').then(function (slices) { stmtProgressEnd(); stmtFinishOcrSlices(slices); })
+    .catch(function (err) { stmtProgressEnd(); if (!err || err.message !== 'cancel') { console.warn('OCR hatası:', stmtErrText(err), err); showToast('OCR hatası: ' + stmtErrText(err)); } else showToast('İptal edildi'); });
+}
+
+function stmtFinishOcrSlices(slices) {
+  var pages = slices.map(function (sl, i) { return stmtTableFromWords(sl.words, sl.W, sl.H, i, slices.length); });
+  if (stmtLooksLikeTable(pages)) { finishStatementTable(pages, true); return; }
+  // tablo değil: satır bazlı okuma (dilimlerin üst üste binen kısmı atlanır)
+  var lines = [];
+  slices.forEach(function (sl, i) {
+    var k = sl.W / 1190, ws = sl.words.slice().sort(function (a, b) { return a.yc - b.yc || a.x0 - b.x0; }), L = null;
+    var rowsL = [];
+    ws.forEach(function (w) {
+      if (i > 0 && w.yc < 500) return;
+      if (L && Math.abs(w.yc - L.yc) <= 8 * k) L.ws.push(w); else { L = { yc: w.yc, ws: [w] }; rowsL.push(L); }
+    });
+    rowsL.forEach(function (r) { r.ws.sort(function (a, b) { return a.x0 - b.x0; }); lines.push(r.ws.map(function (w) { return w.s; }).join(' ')); });
+  });
+  finishStatementLines(lines, true);
+}
+
 /* ---- Banka ekstresi (CSV) içe aktarma -----------------------------------
    Ziraat Mobil / İnternet Şube'den indirilen hesap hareketi CSV'sini okur.
    - Ayraç (; , sekme) ve kodlama (UTF-8 / Windows-1254) otomatik algılanır.
@@ -4418,9 +4974,22 @@ function stmtOcrLines(text) {
 
 function importStatementImage(file) {
   if (typeof Tesseract === 'undefined') { showToast('OCR kütüphanesi yüklenemedi'); return; }
-  showToast('Görüntü okunuyor… (biraz sürebilir)');
-  Tesseract.recognize(file, 'tur+eng').then(function (r) { finishStatementLines(stmtOcrLines(r.data.text), true); })
-    .catch(function (err) { console.warn('OCR hatası:', err); showToast('Görüntü okunamadı'); });
+  stmtCheckWorkers().then(function (ok) { if (!ok) { stmtNoWorkerNotice(); return; } importStatementImageRun(file); });
+}
+function importStatementImageRun(file) {
+  var url = URL.createObjectURL(file), img = new Image();
+  img.onerror = function () { URL.revokeObjectURL(url); showToast('Görüntü açılamadı'); };
+  img.onload = function () {
+    URL.revokeObjectURL(url);
+    var sc = img.width < 1700 ? 1800 / img.width : 1, done = false;
+    var cv = stmtNewCanvas(Math.round(img.width * sc), Math.round(img.height * sc)), g = cv.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(img, 0, 0, cv.width, cv.height);
+    var seg = stmtTrimCanvas(cv) || cv;
+    stmtOcrSegments(function () { if (done) return Promise.resolve(null); done = true; return Promise.resolve(seg); }, 'Görüntü')
+      .then(function (slices) { stmtProgressEnd(); stmtFinishOcrSlices(slices); })
+      .catch(function (err) { stmtProgressEnd(); if (!err || err.message !== 'cancel') { console.warn('OCR hatası:', stmtErrText(err), err); showToast('OCR hatası: ' + stmtErrText(err)); } else showToast('İptal edildi'); });
+  };
+  img.src = url;
 }
 
 function importStatementExcel(file) {
@@ -4472,30 +5041,27 @@ function importStatementPdf(file) {
   fr.onload = function () {
     pdfjsLib.getDocument({ data: new Uint8Array(fr.result) }).promise.then(function (pdf) {
       var jobs = [];
-      for (var i = 1; i <= Math.min(pdf.numPages, 12); i++) {
-        jobs.push(pdf.getPage(i).then(function (pg) { return pg.getTextContent().then(function (tc) { return stmtLinesFromPdfItems(tc.items); }); }));
+      for (var i = 1; i <= Math.min(pdf.numPages, 40); i++) {
+        jobs.push(pdf.getPage(i).then(function (pg) {
+          var vp = pg.getViewport({ scale: 1 });
+          return pg.getTextContent().then(function (tc) {
+            var words = tc.items.filter(function (it) { return it.str && it.str.trim(); }).map(function (it) {
+              return { s: it.str, x0: it.transform[4], x1: it.transform[4] + (it.width || 0), yc: vp.height - it.transform[5] - (it.height || 8) / 2 };
+            });
+            return { lines: stmtLinesFromPdfItems(tc.items), words: words, W: vp.width, H: vp.height };
+          });
+        }));
       }
-      return Promise.all(jobs).then(function (pages) {
-        var lines = [].concat.apply([], pages);
-        if (lines.join(' ').length > 80) { finishStatementLines(lines, false); return; }
+      return Promise.all(jobs).then(function (pgs) {
+        var lines = [].concat.apply([], pgs.map(function (p) { return p.lines; }));
+        if (lines.join(' ').length > 80) {
+          var tp = pgs.map(function (p, i) { return stmtTableFromWords(p.words.slice(), p.W, p.H, i, pgs.length); });
+          if (stmtLooksLikeTable(tp)) { finishStatementTable(tp, false); return; }
+          finishStatementLines(lines, false); return;
+        }
         // Metin katmanı yok (taranmış PDF): sayfaları görüntüye çevirip OCR ile oku
         if (typeof Tesseract === 'undefined') { showToast('PDF içinde metin yok ve OCR yüklenemedi'); return; }
-        showToast('Taranmış PDF, OCR ile okunuyor… (biraz sürebilir)');
-        var ocrLines = [], chain = Promise.resolve();
-        for (var p = 1; p <= Math.min(pdf.numPages, 6); p++) {
-          (function (pn) {
-            chain = chain.then(function () {
-              return pdf.getPage(pn).then(function (pg) {
-                var vp = pg.getViewport({ scale: 2 }), cv = document.createElement('canvas');
-                cv.width = vp.width; cv.height = vp.height;
-                return pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise.then(function () {
-                  return Tesseract.recognize(cv, 'tur+eng');
-                }).then(function (r) { ocrLines = ocrLines.concat(stmtOcrLines(r.data.text)); });
-              });
-            });
-          })(p);
-        }
-        return chain.then(function () { finishStatementLines(ocrLines, true); });
+        return importStatementOcrPdf(pdf);
       });
     }).catch(function (err) { console.warn('PDF ekstre hatası:', err); showToast('PDF okunamadı'); });
   };
@@ -4552,11 +5118,31 @@ function stmtFindColumns(rows) {
 
 function stmtGuessCategory(title, isIncome) {
   var low = String(title || '').toLocaleLowerCase('tr');
+  var asc = low.replace(/ı/g, 'i').replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ö/g, 'o').replace(/ü/g, 'u');
   if (isIncome) {
-    if (/maaş|maas/.test(low)) return 'Maaş';
-    if (/iade/.test(low)) return 'İade';
-    return 'Diğer Gelir';
+    if (/maas/.test(asc)) return 'Maaş';
+    if (/ek odeme|nobet ucret|maas farki|tesvik|prim\b/.test(asc)) return 'Ek Gelir';
+    if (/iade|iptal/.test(asc)) return 'İade';
+    return 'Diğer';
   }
+  var RULES = [
+    ['Yemek', /trendyol yemek|uber ?eats|yemeksepeti|getir ?yemek|restoran|lokanta|kebap|kofte|doner|pide|pastane|kunefe|corba|tavuk|balik evi|burger|mcdonald|kafe|cafe|kahve|dondurma/],
+    ['Market', /migros|a101|\bbim\b|\bsok\b|sok-|market|tugmar|gross|carrefour|gida|bakkal|manav|kasap|ekmek/],
+    ['Akaryakıt', /akaryakit|petrol|shell|opet|\bbp\b|seva/],
+    ['Telefon', /vodafone|turkcell|turk telekom|telefon/],
+    ['Su', /gaski|su idaresi|\bsu\b/],
+    ['Doğalgaz', /gazdas|dogalgaz|igdas/],
+    ['Elektrik', /enejisa|elektrik|tedas/],
+    ['İnternet', /internet|superonline|ttnet/],
+    ['Kredi Kartı Ödemesi', /kk tahsilat|kart borc/],
+    ['Kira Aidatı', /aidat|asansor/],
+    ['Sigorta', /sigorta/],
+    ['Taksi', /taksi/],
+    ['Toplu Taşıma', /toplu tasima|otobus|metro|istanbulkart/],
+    ['Sağlık', /hastane|eczane|doktor|saglik|tibbi|cihaz/],
+    ['Giyim', /koton|jeans|ayakkabi|giyim|ykm |mavi|evidea|kokmen/]
+  ];
+  for (var i = 0; i < RULES.length; i++) if (RULES[i][1].test(asc)) return RULES[i][0];
   var found = '';
   Object.keys(FIN_CATEGORY_KEYWORDS).some(function (cat) {
     if (FIN_CATEGORY_KEYWORDS[cat].some(function (kw) { return low.indexOf(kw) !== -1; })) { found = cat; return true; }
@@ -4597,19 +5183,22 @@ function openStatementImport(text, preRaw, preRows) {
   var state = { invert: false, items: [] };
 
   function build() {
-    var existing = {};
+    var existing = {}, existingRef = {};
     getFinance().forEach(function (f) {
       var k = stmtKey(f.date, f.amount, f.type, f.title);
       existing[k] = (existing[k] || 0) + 1;
+      if (f.ref) { var rk = f.ref + '|' + f.date + '|' + (Math.round(Math.abs(Number(f.amount)) * 100) / 100).toFixed(2); existingRef[rk] = (existingRef[rk] || 0) + 1; }
     });
     state.items = raw.map(function (x) {
       var sg = state.invert ? -x.signed : x.signed;
       var type = sg > 0 ? 'income' : 'expense';
       var amount = Math.round(Math.abs(sg) * 100) / 100;
       var k = stmtKey(x.date, amount, type, x.title);
-      var dup = existing[k] > 0;
-      if (dup) existing[k]--;
-      return { date: x.date, title: x.title, type: type, amount: amount, dup: dup, on: !dup };
+      var rk = x.ref ? (x.ref + '|' + x.date + '|' + amount.toFixed(2)) : '';
+      var dup = false;
+      if (rk && existingRef[rk] > 0) { dup = true; existingRef[rk]--; if (existing[k] > 0) existing[k]--; }
+      else if (existing[k] > 0) { dup = true; existing[k]--; }
+      return { date: x.date, title: x.title, type: type, amount: amount, dup: dup, warn: x.warn || '', ref: x.ref || '', on: !dup && !(x.warn && /doğrulanamadı/.test(x.warn)) };
     });
   }
 
@@ -4623,6 +5212,17 @@ function openStatementImport(text, preRaw, preRows) {
       var diff = Math.round((parsedExp - meta.expected) * 100) / 100;
       metaHTML += '<p class="muted" style="color:' + (Math.abs(diff) < 0.02 ? 'var(--success)' : 'var(--danger)') + '">Kontrol: ekstredeki harcama ' + formatMoney(meta.expected) + ' · okunan ' + formatMoney(parsedExp) + (Math.abs(diff) < 0.02 ? ' ✓ eşleşiyor' : ' — fark ' + formatMoney(Math.abs(diff)) + ', eksik ya da fazla satır olabilir') + '</p>';
     }
+    if (meta && meta.totals && (meta.totals.borc != null || meta.totals.alacak != null)) {
+      var pb = 0, pa = 0;
+      raw.forEach(function (x) { if (x.signed < 0) pb += -x.signed; else pa += x.signed; });
+      pb = Math.round(pb * 100) / 100; pa = Math.round(pa * 100) / 100;
+      var okB = meta.totals.borc == null || Math.abs(pb - meta.totals.borc) < 0.02, okA = meta.totals.alacak == null || Math.abs(pa - meta.totals.alacak) < 0.02;
+      metaHTML += '<p class="muted" style="color:' + ((okB && okA) ? 'var(--success)' : 'var(--danger)') + '">Kontrol: ekstre toplamı Borç ' + (meta.totals.borc != null ? formatMoney(meta.totals.borc) : '–') + ' · Alacak ' + (meta.totals.alacak != null ? formatMoney(meta.totals.alacak) : '–') +
+        ' — okunan Borç ' + formatMoney(pb) + ' · Alacak ' + formatMoney(pa) + ((okB && okA) ? ' ✓ eşleşiyor' : ' — fark var, ⚠ işaretli satırları kontrol et') + '</p>';
+    }
+    if (meta && meta.verified != null) {
+      metaHTML += '<p class="muted">' + meta.verified + ' / ' + raw.length + ' satır bakiye zinciriyle doğrulandı' + (raw.length - meta.verified ? '; ⚠ işaretliler varsayılan olarak seçili değil.' : '.') + '</p>';
+    }
     if (meta && meta.skipped && meta.skipped.length) {
       metaHTML += '<details style="margin:.2rem 0 .6rem"><summary class="muted">Okunamayan ' + meta.skipped.length + ' satır (elle eklemen gerekebilir)</summary>' +
         meta.skipped.map(function (l) { return '<div class="row-sub" style="padding:.15rem 0">' + esc(l.slice(0, 140)) + '</div>'; }).join('') + '</details>';
@@ -4635,7 +5235,7 @@ function openStatementImport(text, preRaw, preRows) {
       state.items.map(function (x, i) {
         return '<label class="list-row" style="cursor:pointer;gap:.6rem"><input type="checkbox" data-si="' + i + '"' + (x.on ? ' checked' : '') + '>' +
           '<span class="row-main"><span class="row-title">' + esc(x.title.slice(0, 60)) + '</span>' +
-          '<span class="row-sub">' + esc(formatDateTR(x.date)) + (x.dup ? ' · zaten kayıtlı' : '') + '</span></span>' +
+          '<span class="row-sub">' + esc(formatDateTR(x.date)) + (x.dup ? ' · zaten kayıtlı' : '') + (x.warn ? ' · ⚠ ' + esc(x.warn) : '') + '</span></span>' +
           '<span class="mono" style="color:' + (x.type === 'income' ? 'var(--success)' : 'var(--danger)') + '">' + (x.type === 'income' ? '+' : '−') + formatMoney(x.amount) + '</span></label>';
       }).join('') + '</div>' +
       '<button class="btn btn-primary btn-block" id="si-go" style="margin-top:.9rem"></button>';
@@ -4670,7 +5270,7 @@ function openStatementImport(text, preRaw, preRows) {
             fin.push({
               id: uid(), title: x.title.slice(0, 80), amount: x.amount, type: x.type,
               category: stmtGuessCategory(x.title, x.type === 'income'), date: x.date,
-              accountId: accId, source: 'import', batch: batch
+              accountId: accId, source: 'import', batch: batch, ref: x.ref || undefined
             });
             added++;
           });
