@@ -4803,18 +4803,18 @@ function stmtTrimCanvas(cv) {
   if (bot <= top) return null;
   return stmtCropCanvas(cv, top, bot + 1 - top);
 }
-function stmtMakeWorker() {
+function stmtMakeWorker(psm) {
   function fallback() { return { rec: function (cv) { return Tesseract.recognize(cv, 'tur+eng'); }, end: function () { return Promise.resolve(); } }; }
   try {
     return Tesseract.createWorker('tur+eng').then(function (w) {
-      var p = w.setParameters ? Promise.resolve(w.setParameters({ tessedit_pageseg_mode: '11', preserve_interword_spaces: '1' })).catch(function () {}) : Promise.resolve();
+      var p = w.setParameters ? Promise.resolve(w.setParameters({ tessedit_pageseg_mode: String(psm || '11'), preserve_interword_spaces: '1' })).catch(function () {}) : Promise.resolve();
       return p.then(function () { return { rec: function (cv) { return w.recognize(cv); }, end: function () { return w.terminate(); } }; });
     }).catch(function () { return fallback(); });
   } catch (e) { return Promise.resolve(fallback()); }
 }
 
 /* nextSegment(): Promise<canvas|null>. Segmentler art arda birleştirilir, 2400px'lik üst üste binen dilimler OCR'lanır. */
-function stmtOcrSegments(nextSegment, label) {
+function stmtOcrSegments(nextSegment, label, psm) {
   STMT_CANCEL = false;
   var H = 2400, OVERLAP = 500, STEP = H - OVERLAP;
   var slices = [], cur = null, worker = null;
@@ -4847,7 +4847,7 @@ function stmtOcrSegments(nextSegment, label) {
       return drain().then(pump);
     });
   }
-  return stmtMakeWorker().then(function (w) { worker = w; return pump(); }).then(function () {
+  return stmtMakeWorker(psm).then(function (w) { worker = w; return pump(); }).then(function () {
     if (cur && (slices.length === 0 || cur.height > OVERLAP + 40)) return ocr(cur);
   }).then(function () { return worker.end(); }).then(function () { return slices; },
     function (err) { try { worker && worker.end(); } catch (e) {} throw err; });
@@ -4957,7 +4957,7 @@ function stmtNativeUsable(imgs, numPages) {
   // yalnız "aynı görüntü birden çok sayfada tekrar ediyor" durumu: benzersiz görüntü sayısı sayfadan az
   return imgs.length >= 1 && imgs.length < numPages && imgs.every(function (m) { return m.w >= 600 && m.h >= 600 && Math.abs(m.w - imgs[0].w) <= 2; });
 }
-function stmtNativeSegmenter(imgs) {
+function stmtNativeSegmenter(imgs, opts) {
   var idx = 0, y = 0, bmp = null, SRC_BAND = 1100;
   function decode(i) {
     var blob = new Blob([imgs[i].data], { type: 'image/jpeg' });
@@ -4973,17 +4973,61 @@ function stmtNativeSegmenter(imgs) {
     if (idx >= imgs.length) return Promise.resolve(null);
     var p = bmp ? Promise.resolve(bmp) : decode(idx).then(function (b) { bmp = b; y = 0; return b; });
     return p.then(function (b) {
-      var W = b.width, H = b.height, h = Math.min(SRC_BAND, H - y), sc = W < 1785 ? 1785 / W : 1;
+      var W = b.width, H = b.height, h = Math.min(SRC_BAND, H - y), TW = (opts && opts.width) || 1785, sc = W < TW ? TW / W : 1;
       var cv = stmtNewCanvas(Math.round(W * sc), Math.max(1, Math.round(h * sc))), g = cv.getContext('2d');
       g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
       g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
       g.drawImage(b, 0, y, W, h, 0, 0, cv.width, cv.height);
+      if (opts && opts.enhance) stmtEnhance(cv);
       y += h;
       if (y >= H) { if (b.close) b.close(); bmp = null; idx++; }
       return cv;
     });
   }
   return { next: next };
+}
+
+/* Gri tonlama + kontrast germe: JPEG sıkıştırmasıyla soluklaşmış rakamları OCR için belirginleştirir */
+function stmtEnhance(cv) {
+  if (!cv.width || !cv.height) return cv;
+  var g = cv.getContext('2d'), im = g.getImageData(0, 0, cv.width, cv.height), d = im.data;
+  for (var i = 0; i < d.length; i += 4) {
+    var v = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
+    v = (v - 60) * 255 / 150; v = v < 0 ? 0 : (v > 255 ? 255 : v);
+    d[i] = d[i + 1] = d[i + 2] = v;
+  }
+  g.putImageData(im, 0, 0);
+  return cv;
+}
+function stmtClonePages(pages) {
+  return pages.map(function (p) { var c = p.map(function (r) { return Object.assign({}, r); }); c.totals = p.totals; return c; });
+}
+/* Bir OCR geçişini ekstrenin kendi kanıtlarıyla puanlar: Borç/Alacak toplamı + bakiye zinciri.
+   perfect = toplamlar kuruşu kuruşuna tutuyor ve zinciri doğrulanamayan satır yok. */
+function stmtScoreSlices(slices) {
+  var pages = slices.map(function (sl, i) { return stmtTableFromWords(sl.words, sl.W, sl.H, i, slices.length); });
+  if (!stmtLooksLikeTable(pages)) return { pages: pages, table: false, perfect: false, score: -1e9 };
+  var merged = stmtMergePages(stmtClonePages(pages));
+  stmtChainRepair(merged); stmtFillDates(merged);
+  var tt = merged.totals || {}, sd = 0, sc = 0, n = 0, bad = 0, last = null;
+  merged.forEach(function (r) {
+    if (isNaN(r.A) || !(r.A > 0) || !r.date) return;
+    n++; last = r;
+    if (r.flag === 'bad' || r.flag === 'unk' || r.flag === 'amb') bad++;
+    if ((r.s || 1) < 0) sd += r.A; else sc += r.A;
+  });
+  var hasTot = tt.borc != null && tt.alacak != null;
+  var dB = hasTot ? Math.abs(sd - tt.borc) : 0, dA = hasTot ? Math.abs(sc - tt.alacak) : 0;
+  var totOk = hasTot && dB < 0.02 && dA < 0.02;
+  if (totOk && last && last.flag === 'unk') bad--; // zincir sonu satırı toplamlarla doğrulandı
+  var perfect = hasTot ? (totOk && bad <= 0) : bad === 0;
+  return { pages: pages, table: true, perfect: perfect, score: (perfect ? 1e6 : 0) - dB - dA - bad * 50 + n };
+}
+function stmtMissText(t, pb, pa) {
+  var mb = t.borc != null ? Math.round((t.borc - pb) * 100) / 100 : 0, ma = t.alacak != null ? Math.round((t.alacak - pa) * 100) / 100 : 0, m = [];
+  if (mb > 0.02) m.push('Borç ' + formatMoney(mb));
+  if (ma > 0.02) m.push('Alacak ' + formatMoney(ma));
+  return m.length ? ' (okunamayan satır olabilir — eksik: ' + m.join(' · ') + ')' : '';
 }
 
 function importStatementOcrPdf(pdf, bytes) {
@@ -4993,30 +5037,50 @@ function importStatementOcrPdf(pdf, bytes) {
   });
 }
 function importStatementOcrPdfRun(pdf, bytes) {
-  var pn = 0, maxP = Math.min(pdf.numPages, 40);
-  function pageNext() {
-    if (pn >= maxP) return Promise.resolve(null);
-    pn++;
-    stmtProgress('Sayfa ' + pn + '/' + maxP + ' hazırlanıyor…');
-    return pdf.getPage(pn).then(function (pg) {
-      var vp = pg.getViewport({ scale: 3 }), cv = stmtNewCanvas(Math.round(vp.width), Math.round(vp.height));
-      var g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
-      return pg.render({ canvasContext: g, viewport: vp }).promise.then(function () {
-        var t = stmtTrimCanvas(cv);
-        return t || stmtNewCanvas(cv.width, 1);
+  var maxP = Math.min(pdf.numPages, 40), imgs = [];
+  try { imgs = bytes ? stmtExtractPdfJpegs(bytes) : []; } catch (e) { imgs = []; }
+  var canNative = stmtNativeUsable(imgs, pdf.numPages);
+  // 1. geçiş her zamanki ayar. Ekstre toplamı/bakiye zinciri tutmazsa daha yüksek çözünürlük + kontrastla yeniden okunur.
+  var PASSES = [
+    { width: 1785, scale: 3, psm: '11', enhance: false },
+    { width: 2400, scale: 4, psm: '11', enhance: true },
+    { width: 1785, scale: 3, psm: '6', enhance: true }
+  ];
+  function makeNext(o) {
+    var pn = 0, native = canNative ? stmtNativeSegmenter(imgs, o) : null, started = false;
+    function pageNext() {
+      if (pn >= maxP) return Promise.resolve(null);
+      pn++;
+      stmtProgress('Sayfa ' + pn + '/' + maxP + ' hazırlanıyor…');
+      return pdf.getPage(pn).then(function (pg) {
+        var vp = pg.getViewport({ scale: o.scale }), cv = stmtNewCanvas(Math.round(vp.width), Math.round(vp.height));
+        var g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+        return pg.render({ canvasContext: g, viewport: vp }).promise.then(function () {
+          var t = stmtTrimCanvas(cv) || stmtNewCanvas(cv.width, 1);
+          return o.enhance ? stmtEnhance(t) : t;
+        });
       });
+    }
+    return function () {
+      if (!native) return pageNext();
+      return native.next().then(function (cv) { if (cv) { started = true; stmtProgress('Görüntü hazırlanıyor…'); } return cv; },
+        function (err) { if (started) throw err; console.warn('Gömülü görüntü okunamadı, sayfa görünümüne dönülüyor', err); native = null; return pageNext(); });
+    };
+  }
+  var results = [];
+  function pass(i) {
+    var o = PASSES[i], label = i ? 'PDF (OCR) · ekstre toplamı tutmadı, yeniden okunuyor ' + i + '/' + (PASSES.length - 1) : 'PDF (OCR)';
+    return stmtOcrSegments(makeNext(o), label, o.psm).then(function (slices) {
+      var res = stmtScoreSlices(slices); res.slices = slices; results.push(res);
+      if (!res.table || res.perfect || i === PASSES.length - 1) return null;
+      return pass(i + 1);
     });
   }
-  var imgs = [];
-  try { imgs = bytes ? stmtExtractPdfJpegs(bytes) : []; } catch (e) { imgs = []; }
-  var native = stmtNativeUsable(imgs, pdf.numPages) ? stmtNativeSegmenter(imgs) : null, started = false;
-  function nextSegment() {
-    if (!native) return pageNext();
-    return native.next().then(function (cv) { if (cv) { started = true; stmtProgress('Görüntü hazırlanıyor…'); } return cv; },
-      function (err) { if (started) throw err; console.warn('Gömülü görüntü okunamadı, sayfa görünümüne dönülüyor', err); native = null; return pageNext(); });
-  }
-  return stmtOcrSegments(nextSegment, 'PDF (OCR)').then(function (slices) { stmtProgressEnd(); stmtFinishOcrSlices(slices); })
-    .catch(function (err) { stmtProgressEnd(); if (!err || err.message !== 'cancel') { console.warn('OCR hatası:', stmtErrText(err), err); showToast('OCR hatası: ' + stmtErrText(err)); } else showToast('İptal edildi'); });
+  return pass(0).then(function () {
+    stmtProgressEnd();
+    var best = results.reduce(function (a, b) { return (!a || b.score > a.score) ? b : a; }, null);
+    if (best.table) finishStatementTable(best.pages, true); else stmtFinishOcrSlices(best.slices);
+  }).catch(function (err) { stmtProgressEnd(); if (!err || err.message !== 'cancel') { console.warn('OCR hatası:', stmtErrText(err), err); showToast('OCR hatası: ' + stmtErrText(err)); } else showToast('İptal edildi'); });
 }
 
 function stmtFinishOcrSlices(slices) {
@@ -5549,7 +5613,7 @@ function openStatementImport(text, preRaw, preRows) {
       var okB = meta.totals.borc == null || Math.abs(pb - meta.totals.borc) < 0.02, okA = meta.totals.alacak == null || Math.abs(pa - meta.totals.alacak) < 0.02;
       chk.style.color = (okB && okA) ? 'var(--success)' : 'var(--danger)';
       chk.textContent = 'Kontrol: ekstre toplamı Borç ' + (meta.totals.borc != null ? formatMoney(meta.totals.borc) : '–') + ' · Alacak ' + (meta.totals.alacak != null ? formatMoney(meta.totals.alacak) : '–') +
-        ' — okunan Borç ' + formatMoney(pb) + ' · Alacak ' + formatMoney(pa) + ((okB && okA) ? ' ✓ eşleşiyor' : ' — fark var; yönü yanlış satırları çevir ya da ⚠ satırlara bak');
+        ' — okunan Borç ' + formatMoney(pb) + ' · Alacak ' + formatMoney(pa) + ((okB && okA) ? ' ✓ eşleşiyor' : ' — fark var' + stmtMissText(meta.totals, pb, pa) + '; yönü yanlış satırları çevir ya da ⚠ satırlara bak');
     }
   }
 
