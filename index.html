@@ -907,11 +907,117 @@ function resolveStorageKey(key, userId) {
   return uid === DEFAULT_USER_ID ? base : base + '_u_' + uid;
 }
 
+/* ---- Depolama: localStorage + büyük listeler için IndexedDB taşması ------------------
+   finance listesi ~2,5 MB'ı (yaklaşık 10-11 bin işlem) geçince ya da localStorage dolunca IndexedDB'ye
+   taşınır (kota GB düzeyindedir). Bellekteki kopya get()/set() senkron kullanımını korur; yazma arka planda ve
+   birleştirilerek yapılır. Veriyi kaybetmemek için: işaret (marker) ancak IndexedDB yazımı BAŞARILI olunca
+   atılır, başarısız yazımda bellek son kalıcı sürüme döner. Kalıcılığı garanti etmesi gereken akışlar
+   (ekstre içe aktarma) finFlush() ile bekler. */
+var BIG_MARK_KEY = 'gunlukAjandam_bigkeys';
+var BIG_SPILL_KEYS = ['finance'];
+var BIG_SPILL_BYTES = 2500000;
+var FIN_BIG = {}, FIN_MEM = {}, FIN_PERSISTED = {}, FIN_PENDING = {}, FIN_INFLIGHT = {}, FIN_PARSE_MEMO = {}, FIN_WAITERS = [];
+var FIN_BIG_READY = true, FIN_DB = null, FIN_LAST_OK = true;
+(function () {
+  try { (JSON.parse(localStorage.getItem(BIG_MARK_KEY) || '[]') || []).forEach(function (k) { FIN_BIG[k] = true; FIN_BIG_READY = false; }); } catch (e) {}
+})();
+function bigSupported() { return typeof indexedDB !== 'undefined' && !!indexedDB; }
+function bigOpen() {
+  if (FIN_DB) return FIN_DB;
+  FIN_DB = new Promise(function (res, rej) {
+    var rq = indexedDB.open('gunlukAjandamDB', 1);
+    rq.onupgradeneeded = function () { rq.result.createObjectStore('kv'); };
+    rq.onsuccess = function () { res(rq.result); };
+    rq.onerror = function () { FIN_DB = null; rej(rq.error || new Error('idb')); };
+  });
+  return FIN_DB;
+}
+function bigReq(mode, fn) {
+  return bigOpen().then(function (db) {
+    return new Promise(function (res, rej) {
+      var tx = db.transaction('kv', mode), st = tx.objectStore('kv'), out;
+      var r = fn(st);
+      if (r) r.onsuccess = function () { out = r.result; };
+      tx.oncomplete = function () { res(out); };
+      tx.onerror = tx.onabort = function () { rej(tx.error || new Error('idb tx')); };
+    });
+  });
+}
+function bigMark() {
+  var ks = Object.keys(FIN_BIG).filter(function (k) { return FIN_BIG[k] && FIN_PERSISTED[k]; });
+  try { localStorage.setItem(BIG_MARK_KEY, JSON.stringify(ks)); return true; } catch (e) { return false; }
+}
+function bigBusy() { return Object.keys(FIN_INFLIGHT).some(function (k) { return FIN_INFLIGHT[k] || FIN_PENDING[k]; }); }
+function bigNotify() {
+  if (bigBusy()) return;
+  var ok = FIN_LAST_OK;
+  FIN_WAITERS.splice(0).forEach(function (f) { f(ok); });
+}
+function bigSchedule(sk) {
+  FIN_PENDING[sk] = true;
+  if (FIN_INFLIGHT[sk]) return;
+  FIN_INFLIGHT[sk] = true;
+  function run() {
+    if (!FIN_PENDING[sk]) { FIN_INFLIGHT[sk] = false; bigNotify(); return; }
+    FIN_PENDING[sk] = false;
+    var snap = FIN_MEM[sk];
+    bigReq('readwrite', function (st) { return st.put(snap, sk); }).then(function () {
+      FIN_PERSISTED[sk] = snap;
+      if (bigMark()) { try { localStorage.removeItem(sk); } catch (e) {} }
+      run();
+    }, function (err) {
+      console.warn('IndexedDB yazma hatası', err);
+      FIN_LAST_OK = false; FIN_PENDING[sk] = false; FIN_INFLIGHT[sk] = false;
+      if (FIN_PERSISTED[sk]) FIN_MEM[sk] = FIN_PERSISTED[sk]; else { delete FIN_BIG[sk]; delete FIN_MEM[sk]; }
+      showToast('Büyük veri kalıcı yazılamadı — son kayıt geri alındı');
+      bigNotify();
+    });
+  }
+  setTimeout(run, 120);
+}
+function finFlush() {
+  if (!bigBusy()) return Promise.resolve(FIN_LAST_OK);
+  return new Promise(function (res) { FIN_WAITERS.push(res); });
+}
+function bigSpill(sk, value) { FIN_LAST_OK = true; FIN_BIG[sk] = true; FIN_MEM[sk] = value; bigSchedule(sk); return true; }
+function bigLoadAll() {
+  var keys = Object.keys(FIN_BIG).filter(function (k) { return FIN_BIG[k]; });
+  if (!keys.length) return;
+  if (!bigSupported()) { showToast('Bu tarayıcı IndexedDB desteklemiyor — büyük veri açılamadı'); return; }
+  Promise.all(keys.map(function (k) { return bigReq('readonly', function (st) { return st.get(k); }).then(function (v) { return [k, v]; }); })).then(function (pairs) {
+    pairs.forEach(function (pr) {
+      if (Array.isArray(pr[1])) { FIN_MEM[pr[0]] = pr[1]; FIN_PERSISTED[pr[0]] = pr[1]; } else delete FIN_BIG[pr[0]]; // IDB'de yoksa localStorage kopyasına dön
+    });
+    FIN_BIG_READY = true; bigMark();
+    if (typeof navigateTo === 'function' && document.body) navigateTo(document.body.getAttribute('data-page') || 'today');
+  }, function (err) { console.warn('IndexedDB okuma hatası', err); showToast('Büyük veri yüklenemedi — sayfayı yenile'); });
+}
+function finBigReset(userId) {
+  BIG_SPILL_KEYS.forEach(function (k) {
+    var sk = resolveStorageKey(k, userId);
+    if (!FIN_BIG[sk]) return;
+    delete FIN_BIG[sk]; delete FIN_MEM[sk]; delete FIN_PERSISTED[sk];
+    if (bigSupported()) bigReq('readwrite', function (st) { return st.delete(sk); }).catch(function () {});
+  });
+  bigMark();
+}
+
 function get(key, def, userId) {
   var storageKey = resolveStorageKey(key, userId);
+  if (FIN_BIG[storageKey]) {
+    if (!FIN_BIG_READY || !FIN_MEM[storageKey]) return def;
+    return FIN_MEM[storageKey].slice();
+  }
   try {
     var raw = localStorage.getItem(storageKey);
     if (raw === null || raw === undefined) return def;
+    if (raw.length > 300000 && BIG_SPILL_KEYS.indexOf(key) !== -1) { // büyük liste: aynı ham metin için tekrar ayrıştırma
+      var m = FIN_PARSE_MEMO[storageKey];
+      if (m && m.raw === raw) return m.val.slice();
+      var v = JSON.parse(raw);
+      if (Array.isArray(v)) { FIN_PARSE_MEMO[storageKey] = { raw: raw, val: v }; return v.slice(); }
+      return v;
+    }
     return JSON.parse(raw);
   } catch (e) {
     console.warn('get() okuma hatası:', storageKey, e);
@@ -921,10 +1027,19 @@ function get(key, def, userId) {
 
 function set(key, value, userId) {
   var storageKey = resolveStorageKey(key, userId);
+  var spillable = BIG_SPILL_KEYS.indexOf(key) !== -1 && Array.isArray(value) && bigSupported();
+  if (FIN_BIG[storageKey]) {
+    if (!FIN_BIG_READY) { showToast('Veriler yükleniyor, birkaç saniye bekle'); return false; }
+    FIN_LAST_OK = true; FIN_MEM[storageKey] = value; bigSchedule(storageKey);
+    return true;
+  }
   try {
-    localStorage.setItem(storageKey, JSON.stringify(value));
+    var json = JSON.stringify(value);
+    if (spillable && json.length > BIG_SPILL_BYTES) return bigSpill(storageKey, value);
+    localStorage.setItem(storageKey, json);
     return true;
   } catch (e) {
+    if (spillable && bigSpill(storageKey, value)) return true; // localStorage kotası doldu: IndexedDB'ye taşı
     console.warn('set() yazma hatası:', storageKey, e);
     showToast('Kaydedilemedi — depolama alanı dolu olabilir');
     return false;
@@ -1800,11 +1915,13 @@ function importDataFile(file, userId) {
 function resetAllData(userId) {
   if (userId) {
     USER_SCOPED_KEYS.forEach(function (k) { localStorage.removeItem(resolveStorageKey(k, userId)); });
+    finBigReset(userId);
     showToast('Kullanıcı verileri sıfırlandı');
     setTimeout(function () { window.location.reload(); }, 600);
     return;
   }
   Object.keys(STORAGE_KEYS).forEach(function (k) { localStorage.removeItem(STORAGE_KEYS[k]); });
+  finBigReset(DEFAULT_USER_ID);
   showToast('Veriler sıfırlandı');
   setTimeout(function () { window.location.reload(); }, 600);
 }
@@ -1914,7 +2031,7 @@ function renderDonut(el, slices, opts) {
       '<span class="donut-legend-pct">%' + pct + '</span>' +
       '</div>';
   }).join('') + '</div>';
-  el.innerHTML = '<div class="chart-wrap center">' + svg + '</div>' + legend;
+  el.innerHTML = '<div class="chart-wrap center">' + svg + '</div>' + (opts.noLegend ? '' : legend);
 }
 
 var CHART_PALETTE = ['#0570E8', '#008055', '#E0245E', '#8B5CF6', '#A66300', '#4A4A4A', '#17B0C9', '#FF7A45'];
@@ -4159,7 +4276,7 @@ var historyFilter = { type: 'all', category: null, start: '', end: '' };
 var finSelectedMonth = todayISO().slice(0, 7); // "YYYY-MM" — Finans sayfasında gezinilen ay
 
 function getFinance() { return get('finance', []); }
-function saveFinance(list) { set('finance', list); }
+function saveFinance(list) { return set('finance', list); }
 
 /* ---- Hesap / Kart yönetimi -----------------------------------------------
    type: 'bank' | 'cash' | 'credit_card'
@@ -4212,7 +4329,7 @@ function accountBalance(accountId) {
   var b = getFinance().filter(function (f) { return f.accountId === accountId; })
     .reduce(function (s, f) { return s + (f.type === 'income' ? 1 : -1) * (Number(f.amount) || 0); }, 0);
   getTransfers().forEach(function (t) { var n = Number(t.amount) || 0; if (t.to === accountId) b += n; if (t.from === accountId) b -= n; });
-  return b;
+  return round2(b);
 }
 
 /* ---- Taksitli ödemeler --------------------------------------------------
@@ -4781,15 +4898,77 @@ function stmtNoWorkerNotice() {
   });
 }
 
-function importStatementOcrPdf(pdf) {
+/* Ekran görüntüsünden üretilmiş PDF'lerde tek uzun görüntü birden çok sayfada kesit olarak tekrar eder; sayfaları
+   çizip birleştirmek satırları sayfa sınırında böler. Burada PDF'in içindeki JPEG akışları (DCTDecode) doğrudan,
+   her görüntü bir kez ve dosyadaki sırayla çıkarılır. Çıkarılamazsa/şüpheliyse eski sayfa-çizme yoluna dönülür. */
+function stmtExtractPdfJpegs(bytes) {
+  var txt = new TextDecoder('latin1').decode(bytes), found = {}, pos = 0;
+  while (true) {
+    var f = txt.indexOf('/DCTDecode', pos);
+    if (f < 0) break;
+    pos = f + 10;
+    var ob = txt.lastIndexOf(' obj', f), st = txt.indexOf('stream', f);
+    if (ob < 0 || st < 0) continue;
+    var dict = txt.slice(ob, st);
+    if (dict.indexOf('/Image') < 0 || dict.indexOf('endobj') >= 0) continue;
+    var numM = txt.slice(Math.max(0, ob - 16), ob).match(/(\d+)\s+(\d+)\s*$/), num = numM ? numM[1] : String(ob);
+    var wM = dict.match(/\/Width\s+(\d+)/), hM = dict.match(/\/Height\s+(\d+)/);
+    var ds = st + 6;
+    if (txt.charCodeAt(ds) === 13) ds++;
+    if (txt.charCodeAt(ds) === 10) ds++;
+    var lenM = dict.match(/\/Length\s+(\d+)(?!\d|\s+\d+\s+R)/);
+    var de = lenM ? ds + parseInt(lenM[1], 10) : txt.indexOf('endstream', ds);
+    if (de < 0 || de > bytes.length) continue;
+    var e = de;
+    while (e > ds + 2 && de - e < 8 && !(bytes[e - 2] === 0xFF && bytes[e - 1] === 0xD9)) e--;
+    if (!(bytes[ds] === 0xFF && bytes[ds + 1] === 0xD8 && bytes[e - 2] === 0xFF && bytes[e - 1] === 0xD9)) continue; // geçerli JPEG değil
+    found[num] = { w: wM ? +wM[1] : 0, h: hM ? +hM[1] : 0, off: ob, data: bytes.subarray(ds, e) };
+    pos = e;
+  }
+  return Object.keys(found).map(function (k) { return found[k]; }).sort(function (a, b) { return a.off - b.off; });
+}
+function stmtNativeUsable(imgs, numPages) {
+  // yalnız "aynı görüntü birden çok sayfada tekrar ediyor" durumu: benzersiz görüntü sayısı sayfadan az
+  return imgs.length >= 1 && imgs.length < numPages && imgs.every(function (m) { return m.w >= 600 && m.h >= 600 && Math.abs(m.w - imgs[0].w) <= 2; });
+}
+function stmtNativeSegmenter(imgs) {
+  var idx = 0, y = 0, bmp = null, SRC_BAND = 1100;
+  function decode(i) {
+    var blob = new Blob([imgs[i].data], { type: 'image/jpeg' });
+    if (typeof createImageBitmap === 'function') return createImageBitmap(blob);
+    return new Promise(function (res, rej) {
+      var im = new Image(), url = URL.createObjectURL(blob);
+      im.onload = function () { URL.revokeObjectURL(url); res(im); };
+      im.onerror = function () { rej(new Error('jpeg çözülemedi')); };
+      im.src = url;
+    });
+  }
+  function next() {
+    if (idx >= imgs.length) return Promise.resolve(null);
+    var p = bmp ? Promise.resolve(bmp) : decode(idx).then(function (b) { bmp = b; y = 0; return b; });
+    return p.then(function (b) {
+      var W = b.width, H = b.height, h = Math.min(SRC_BAND, H - y), sc = W < 1785 ? 1785 / W : 1;
+      var cv = stmtNewCanvas(Math.round(W * sc), Math.max(1, Math.round(h * sc))), g = cv.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+      g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+      g.drawImage(b, 0, y, W, h, 0, 0, cv.width, cv.height);
+      y += h;
+      if (y >= H) { if (b.close) b.close(); bmp = null; idx++; }
+      return cv;
+    });
+  }
+  return { next: next };
+}
+
+function importStatementOcrPdf(pdf, bytes) {
   return stmtCheckWorkers().then(function (ok) {
     if (!ok) { stmtNoWorkerNotice(); return; }
-    return importStatementOcrPdfRun(pdf);
+    return importStatementOcrPdfRun(pdf, bytes);
   });
 }
-function importStatementOcrPdfRun(pdf) {
+function importStatementOcrPdfRun(pdf, bytes) {
   var pn = 0, maxP = Math.min(pdf.numPages, 40);
-  function nextSegment() {
+  function pageNext() {
     if (pn >= maxP) return Promise.resolve(null);
     pn++;
     stmtProgress('Sayfa ' + pn + '/' + maxP + ' hazırlanıyor…');
@@ -4801,6 +4980,14 @@ function importStatementOcrPdfRun(pdf) {
         return t || stmtNewCanvas(cv.width, 1);
       });
     });
+  }
+  var imgs = [];
+  try { imgs = bytes ? stmtExtractPdfJpegs(bytes) : []; } catch (e) { imgs = []; }
+  var native = stmtNativeUsable(imgs, pdf.numPages) ? stmtNativeSegmenter(imgs) : null, started = false;
+  function nextSegment() {
+    if (!native) return pageNext();
+    return native.next().then(function (cv) { if (cv) { started = true; stmtProgress('Görüntü hazırlanıyor…'); } return cv; },
+      function (err) { if (started) throw err; console.warn('Gömülü görüntü okunamadı, sayfa görünümüne dönülüyor', err); native = null; return pageNext(); });
   }
   return stmtOcrSegments(nextSegment, 'PDF (OCR)').then(function (slices) { stmtProgressEnd(); stmtFinishOcrSlices(slices); })
     .catch(function (err) { stmtProgressEnd(); if (!err || err.message !== 'cancel') { console.warn('OCR hatası:', stmtErrText(err), err); showToast('OCR hatası: ' + stmtErrText(err)); } else showToast('İptal edildi'); });
@@ -5039,6 +5226,7 @@ function importStatementPdf(file) {
   var fr = new FileReader();
   fr.onerror = function () { showToast('Dosya okunamadı'); };
   fr.onload = function () {
+    var pdfBytes = new Uint8Array(fr.result.slice(0)); // pdf.js ham veriyi tüketebilir; gömülü görüntüler için kopya
     pdfjsLib.getDocument({ data: new Uint8Array(fr.result) }).promise.then(function (pdf) {
       var jobs = [];
       for (var i = 1; i <= Math.min(pdf.numPages, 40); i++) {
@@ -5061,7 +5249,7 @@ function importStatementPdf(file) {
         }
         // Metin katmanı yok (taranmış PDF): sayfaları görüntüye çevirip OCR ile oku
         if (typeof Tesseract === 'undefined') { showToast('PDF içinde metin yok ve OCR yüklenemedi'); return; }
-        return importStatementOcrPdf(pdf);
+        return importStatementOcrPdf(pdf, pdfBytes);
       });
     }).catch(function (err) { console.warn('PDF ekstre hatası:', err); showToast('PDF okunamadı'); });
   };
@@ -5116,31 +5304,63 @@ function stmtFindColumns(rows) {
   return null;
 }
 
+function stmtIsOwnTransfer(asc) {
+  // FAST açıklaması: "...-<alıcı adı>/<gönderen adı>FAST işlemi". Alıcı = gönderen ise kendi hesabıma gönderilmiştir.
+  var m = asc.match(/-([a-z][a-z ]{2,38}[a-z])\/([a-z][a-z ]{2,38}?)\s*fast ?islem/);
+  if (!m) return false;
+  var a = m[1].replace(/ /g, ''), b = m[2].replace(/ /g, '');
+  return a.length >= 6 && b.length >= 6 && (a === b || a.indexOf(b) === 0 || b.indexOf(a) === 0);
+}
+
 function stmtGuessCategory(title, isIncome) {
   var low = String(title || '').toLocaleLowerCase('tr');
   var asc = low.replace(/ı/g, 'i').replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ö/g, 'o').replace(/ü/g, 'u');
+  if (/virman/.test(asc) || stmtIsOwnTransfer(asc)) return FIN_TRANSFER_CAT; // kendi hesaplarım arası: gelir/gider değil
   if (isIncome) {
-    if (/maas/.test(asc)) return 'Maaş';
-    if (/ek odeme|nobet ucret|maas farki|tesvik|prim\b/.test(asc)) return 'Ek Gelir';
-    if (/iade|iptal/.test(asc)) return 'İade';
+    // Özelden genele: "Maaş Farkı", "Maaş"tan önce kontrol edilmeli
+    var INCOME_RULES = [
+      ['Maaş Farkı', /maas farki/],
+      ['Maaş', /maas/],
+      ['Nöbet Ücreti', /nobet ucret/],
+      ['Ek Ödeme', /ek odeme|tesvik|doner sermaye/],
+      ['İade', /iade|iptal/],
+      ['Nakit Yatırma', /atm p\.?y|nakit yat/],
+      ['Ek Gelir', /prim\b/],
+      ['Gelen Havale/FAST', /havale|fast ?islem|\bfast\b|\bgond\b|eft\b/]
+    ];
+    for (var k = 0; k < INCOME_RULES.length; k++) if (INCOME_RULES[k][1].test(asc)) return INCOME_RULES[k][0];
     return 'Diğer';
   }
+  // Sıra önemli: özel kurallar önce, "Havale/FAST" en sona (açıklamada "FAST işlemi" geçen aidat, yapı vb. kendi kategorisine düşsün)
   var RULES = [
-    ['Yemek', /trendyol yemek|uber ?eats|yemeksepeti|getir ?yemek|restoran|lokanta|kebap|kofte|doner|pide|pastane|kunefe|corba|tavuk|balik evi|burger|mcdonald|kafe|cafe|kahve|dondurma/],
-    ['Market', /migros|a101|\bbim\b|\bsok\b|sok-|market|tugmar|gross|carrefour|gida|bakkal|manav|kasap|ekmek/],
-    ['Akaryakıt', /akaryakit|petrol|shell|opet|\bbp\b|seva/],
+    ['Nakit Çekim', /\batm\b|para cekme/],
+    ['Kurban', /kurban/],
+    ['Zekât', /zekat/],
+    ['Fitre', /fitre/],
+    ['Sadaka', /sadaka/],
+    ['Bağış', /bagis/],
+    ['Banka Masrafı/Faiz', /kmh|islem toplam masraf|komisyon|hesap isletim|faiz/],
+    ['Kredi Kartı Ödemesi', /kk tahsilat|kart borc/],
+    ['Yemek', /trendyol yemek|trendyolgo|ubertrendyol|uber ?eats|yemeksepeti|getir ?yemek|restoran|restauran|lokanta|kebap|kofte|doner|pide|pastane|kunefe|kadayif|corba|tavuk|balik evi|midye|burger|mcdonald|kafe|cafe|kahve|dondurma|kantin|otomat/],
+    ['Market', /sembol senter|migros|a101|\bbim\b|\bsok\b|sok-|market|tugmar|gross|carrefour|gida|bakkal|manav|kasap|ekmek|kuruyemis|kuryemis|icecek/],
+    ['Akaryakıt', /akaryakit|petrol|shell|opet|\bbp\b|seva|canpet|aytemiz|kadoil|lukoil/],
     ['Telefon', /vodafone|turkcell|turk telekom|telefon/],
     ['Su', /gaski|su idaresi|\bsu\b/],
     ['Doğalgaz', /gazdas|dogalgaz|igdas/],
-    ['Elektrik', /enejisa|elektrik|tedas/],
+    ['Elektrik', /enejisa|enerjisa|elektrik|tedas/],
     ['İnternet', /internet|superonline|ttnet/],
-    ['Kredi Kartı Ödemesi', /kk tahsilat|kart borc/],
     ['Kira Aidatı', /aidat|asansor/],
     ['Sigorta', /sigorta/],
     ['Taksi', /taksi/],
     ['Toplu Taşıma', /toplu tasima|otobus|metro|istanbulkart/],
-    ['Sağlık', /hastane|eczane|doktor|saglik|tibbi|cihaz/],
-    ['Giyim', /koton|jeans|ayakkabi|giyim|ykm |mavi|evidea|kokmen/]
+    ['Sağlık', /hastane|eczane|doktor|saglik|tibbi|cihaz|viyomed|klinik|optik|laboratuvar|medikal/],
+    ['Yapı/Tadilat', /cimento|\bkum\b|insaat|nalbur|hirdavat|tadilat|koctas|bauhaus|tekzen/],
+    ['Ev Eşyası', /evidea|mrdiy|mr\.? ?diy|ikea|bellona|istikbal|karaca|english home|arzum|porland|zuccac|kayra kasik/],
+    ['Giyim', /koton|jeans|ayakkabi|giyim|ykm |mavi|kokmen|boyner|lc ?waikiki|\blcw\b|defacto|penti|\bzara\b/],
+    ['Kozmetik', /gratis|watsons|rossmann|sephora/],
+    ['Tatil/Seyahat', /turizm|\botel\b|obilet|enuygun|pegasus|\bthy\b/],
+    ['AVM/Alışveriş', /sanko ?park|sankopar|prime ?mall|primemall|\bavm\b|\bmall\b/],
+    ['Havale/FAST Gönderim', /havale|fast ?islem|\bfast\b|\beft\b/]
   ];
   for (var i = 0; i < RULES.length; i++) if (RULES[i][1].test(asc)) return RULES[i][0];
   var found = '';
@@ -5180,7 +5400,7 @@ function openStatementImport(text, preRaw, preRows) {
   if (!raw.length) { showToast('Dosyada içe aktarılacak işlem bulunamadı'); return; }
 
   var accounts = getAccounts();
-  var state = { invert: false, onlyWarn: false, flips: {}, items: [] };
+  var state = { invert: false, onlyWarn: false, flips: {}, items: [], limit: 300 };
 
   function build() {
     var existing = {}, existingRef = {};
@@ -5202,6 +5422,23 @@ function openStatementImport(text, preRaw, preRows) {
       else if (existing[k] > 0) { dup = true; existing[k]--; }
       return { date: x.date, title: x.title, type: type, amount: amount, dup: dup, warn: x.warn || '', ref: x.ref || '', on: prevOn ? prevOn[idx] : (!dup && !(x.warn && /doğrulanamadı/.test(x.warn))) };
     });
+  }
+
+  function rowHTML(i) {
+    var x = state.items[i];
+        return '<label class="list-row" data-row="' + i + '" style="cursor:pointer;gap:.6rem' + ((state.onlyWarn && !x.warn) ? ';display:none' : '') + '"><input type="checkbox" data-si="' + i + '"' + (x.on ? ' checked' : '') + '>' +
+          '<span class="row-main"><span class="row-title">' + esc(x.title.slice(0, 60)) + '</span>' +
+          '<span class="row-sub">' + esc(formatDateTR(x.date)) + (x.dup ? ' · zaten kayıtlı' : '') + (x.warn ? ' · ⚠ ' + esc(x.warn) : '') + (state.flips[i] ? ' · yön elle değiştirildi' : '') + '</span></span>' +
+          '<button type="button" class="mono" data-flip="' + i + '" title="Gelir/gider yönünü çevir" style="color:' + (x.type === 'income' ? 'var(--success)' : 'var(--danger)') + ';background:transparent;border:1px solid var(--rule-strong);border-radius:6px;padding:.25rem .45rem;white-space:nowrap">' + (x.type === 'income' ? '+' : '−') + formatMoney(x.amount) + ' ⇄</button></label>';
+  }
+  function visibleIdx() {
+    var v = [];
+    for (var i = 0; i < state.items.length; i++) if (!(state.onlyWarn && !state.items[i].warn)) v.push(i);
+    return v;
+  }
+  function listHTML() {
+    var v = visibleIdx(), shown = v.slice(0, state.limit);
+    return shown.map(rowHTML).join('') + (v.length > shown.length ? '<button type="button" class="btn btn-secondary btn-block" id="si-more" style="margin:.5rem 0">Daha fazla göster (' + (v.length - shown.length) + ' satır daha)</button>' : '');
   }
 
   function bodyHTML() {
@@ -5233,13 +5470,7 @@ function openStatementImport(text, preRaw, preRows) {
       '<button type="button" class="btn btn-secondary" id="si-only-warn" style="padding:.35rem .6rem">' + (state.onlyWarn ? 'Tümünü göster' : '⚠ olanları göster') + '</button></div>' +
       '<p class="muted" style="margin:0 0 .4rem;font-size:.82rem">Tutarın üstüne dokunarak o satırın gelir/gider (alacak/borç) yönünü çevirebilirsin.</p>' +
       '<p id="si-live" class="muted" style="margin:0 0 .4rem"></p>' +
-      '<div style="max-height:42vh;overflow:auto;border:1px solid var(--rule);border-radius:var(--radius-m);padding:0 .6rem">' +
-      state.items.map(function (x, i) {
-        return '<label class="list-row" data-row="' + i + '" style="cursor:pointer;gap:.6rem' + ((state.onlyWarn && !x.warn) ? ';display:none' : '') + '"><input type="checkbox" data-si="' + i + '"' + (x.on ? ' checked' : '') + '>' +
-          '<span class="row-main"><span class="row-title">' + esc(x.title.slice(0, 60)) + '</span>' +
-          '<span class="row-sub">' + esc(formatDateTR(x.date)) + (x.dup ? ' · zaten kayıtlı' : '') + (x.warn ? ' · ⚠ ' + esc(x.warn) : '') + (state.flips[i] ? ' · yön elle değiştirildi' : '') + '</span></span>' +
-          '<button type="button" class="mono" data-flip="' + i + '" title="Gelir/gider yönünü çevir" style="color:' + (x.type === 'income' ? 'var(--success)' : 'var(--danger)') + ';background:transparent;border:1px solid var(--rule-strong);border-radius:6px;padding:.25rem .45rem;white-space:nowrap">' + (x.type === 'income' ? '+' : '−') + formatMoney(x.amount) + ' ⇄</button></label>';
-      }).join('') + '</div>' +
+      '<div id="si-list" style="max-height:42vh;overflow:auto;border:1px solid var(--rule);border-radius:var(--radius-m);padding:0 .6rem">' + listHTML() + '</div>' +
       '<button class="btn btn-primary btn-block" id="si-go" style="margin-top:.9rem"></button>';
     return h;
   }
@@ -5289,11 +5520,16 @@ function openStatementImport(text, preRaw, preRows) {
       title: 'Ekstre içe aktar', bodyHTML: bodyHTML(), onOpen: function (body) {
         if (accountId) document.getElementById('si-account').value = accountId;
         updateGo();
-        body.querySelectorAll('[data-si]').forEach(function (cb) {
-          cb.addEventListener('change', function () { state.items[+cb.dataset.si].on = cb.checked; updateGo(); });
+        var listEl = document.getElementById('si-list');
+        function renderList() { listEl.innerHTML = listHTML(); }
+        listEl.addEventListener('change', function (e) {
+          var cb = e.target.closest ? e.target.closest('[data-si]') : null;
+          if (cb) { state.items[+cb.dataset.si].on = cb.checked; updateGo(); }
         });
-        body.querySelectorAll('[data-flip]').forEach(function (btn) {
-          btn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); flipItem(body, +btn.dataset.flip); refreshSummary(); });
+        listEl.addEventListener('click', function (e) {
+          var btn = e.target.closest ? e.target.closest('[data-flip]') : null;
+          if (btn) { e.preventDefault(); e.stopPropagation(); flipItem(body, +btn.dataset.flip); refreshSummary(); return; }
+          if (e.target.closest && e.target.closest('#si-more')) { state.limit += 500; renderList(); }
         });
         function syncChecks() { body.querySelectorAll('[data-si]').forEach(function (cb) { cb.checked = state.items[+cb.dataset.si].on; }); updateGo(); }
         document.getElementById('si-sel-all').addEventListener('click', function () { state.items.forEach(function (x) { x.on = !x.dup; }); syncChecks(); });
@@ -5306,7 +5542,7 @@ function openStatementImport(text, preRaw, preRows) {
         });
         document.getElementById('si-only-warn').addEventListener('click', function () {
           state.onlyWarn = !state.onlyWarn;
-          body.querySelectorAll('[data-row]').forEach(function (row) { row.style.display = (state.onlyWarn && !state.items[+row.dataset.row].warn) ? 'none' : ''; });
+          renderList();
           this.textContent = state.onlyWarn ? 'Tümünü göster' : '⚠ olanları göster';
         });
         document.getElementById('si-invert').addEventListener('change', function (e) {
@@ -5315,23 +5551,39 @@ function openStatementImport(text, preRaw, preRows) {
           show(document.getElementById('si-account').value);
         });
         document.getElementById('si-go').addEventListener('click', function () {
-          var accId = document.getElementById('si-account').value;
-          var fin = getFinance(), added = 0, batch = uid();
-          state.items.forEach(function (x) {
-            if (!x.on) return;
-            fin.push({
-              id: uid(), title: x.title.slice(0, 80), amount: x.amount, type: x.type,
-              category: stmtGuessCategory(x.title, x.type === 'income'), date: x.date,
-              accountId: accId, source: 'import', batch: batch, ref: x.ref || undefined
-            });
-            added++;
+          var btn = this, accId = document.getElementById('si-account').value;
+          var picked = state.items.filter(function (x) { return x.on; });
+          if (!picked.length) return;
+          btn.disabled = true;
+          var fin = getFinance(), batch = uid(), pos = 0, CHUNK = 2000;
+          function step() {
+            var end = Math.min(pos + CHUNK, picked.length);
+            for (; pos < end; pos++) {
+              var x = picked[pos];
+              fin.push({
+                id: uid(), title: x.title.slice(0, 80), amount: x.amount, type: x.type,
+                category: stmtGuessCategory(x.title, x.type === 'income'), date: x.date,
+                accountId: accId, source: 'import', batch: batch, ref: x.ref || undefined
+              });
+            }
+            btn.textContent = 'Kaydediliyor… ' + pos + ' / ' + picked.length;
+            if (pos < picked.length) return new Promise(function (r) { setTimeout(r, 0); }).then(step);
+          }
+          Promise.resolve().then(step).then(function () {
+            if (!saveFinance(fin)) throw new Error('kayıt başarısız');
+            return finFlush();
+          }).then(function (ok) {
+            if (ok === false) throw new Error('kalıcı yazma başarısız');
+            set('lastImport', { id: batch, count: picked.length, at: todayISO() });
+            closeSheet();
+            renderAll();
+            refreshUndoLink();
+            showToast(picked.length + ' işlem içe aktarıldı');
+          }).catch(function (err) {
+            console.warn('İçe aktarma kaydı başarısız:', err);
+            btn.disabled = false; btn.textContent = 'Tekrar dene';
+            showToast('Kayıt yazılamadı — hiçbir işlem eklenmedi. Tekrar dene.');
           });
-          saveFinance(fin);
-          set('lastImport', { id: batch, count: added, at: todayISO() });
-          closeSheet();
-          renderAll();
-          refreshUndoLink();
-          showToast(added + ' işlem içe aktarıldı');
         });
       }
     });
@@ -5426,7 +5678,7 @@ var DEFAULT_EXPENSE_CATEGORIES = [
   'Kredi Taksiti', 'Akaryakıt', 'Araç Bakım', 'Toplu Taşıma', 'Taksi', 'Kafe', 'Restoran', 'Sinema/Tiyatro',
   'Abonelikler', 'Spor Salonu', 'Kozmetik', 'Kuaför/Berber', 'İlaç', 'Doktor/Muayene', 'Diş Sağlığı',
   'Evcil Hayvan', 'Ev Eşyası', 'Elektronik', 'Kitap/Kırtasiye', 'Kurs/Sertifika', 'Tatil/Seyahat',
-  'Hediye'
+  'Hediye', 'Nakit Çekim', 'Havale/FAST Gönderim', 'Banka Masrafı/Faiz', 'Yapı/Tadilat', 'AVM/Alışveriş', 'Hesaplar Arası Transfer'
 ];
 
 var DEFAULT_INCOME_CATEGORIES = [
@@ -5436,8 +5688,58 @@ var DEFAULT_INCOME_CATEGORIES = [
   'Doğum Günü Hediyesi', 'Satış Geliri', 'İkinci El Satış', 'Nakit İade', 'Vergi İadesi', 'Sigorta Tazminatı',
   'Kira Depozito İadesi', 'Ortaklık Geliri', 'Danışmanlık Geliri', 'Telif Geliri', 'Reklam Geliri',
   'Devlet Desteği', 'Nafaka', 'Miras', 'Yarışma/Ödül', 'Kumarbahis Kazancı', 'Nakit Bulundu', 'Borç Tahsilatı',
-  'Kredi Kullanımı', 'Devir Bakiye', 'Diğer Gelir'
+  'Kredi Kullanımı', 'Devir Bakiye', 'Diğer Gelir',
+  'Nöbet Ücreti', 'Ek Ödeme', 'Maaş Farkı', 'Gelen Havale/FAST', 'Nakit Yatırma', 'Hesaplar Arası Transfer'
 ];
+
+/* ---- Kategori grupları: ana kategori -> kalemler (bütçe şablonuna göre) ----------
+   Gruplar seçicide başlık olarak görünür ve kalemler varsayılan listeye eklenir.
+   "Hesaplar Arası Transfer" ve "Birikim & Yatırım" kalemleri harcama sayılmaz:
+   gelir/gider toplamı, kategori grafiği ve yıllık rapordan çıkarılır (bakiyeyi etkiler). */
+var FIN_TRANSFER_CAT = 'Hesaplar Arası Transfer';
+var FIN_SAVINGS_GROUP = 'Birikim & Yatırım';
+var FIN_GROUPS = {
+  expense: [
+    ['Konut', ['Kira', 'Konut Kredisi', 'Kira Aidatı', 'Elektrik', 'Su', 'Doğalgaz', 'İnternet', 'Ev Telefonu', 'Telefon', 'Site/Apartman Gideri', 'Ev Sigortası', 'DASK', 'Ev Bakım-Onarım', 'Yapı/Tadilat', 'Mobilya Taksiti', 'Beyaz Eşya Taksiti', 'Ev Eşyası', 'Fatura']],
+    ['Mutfak & Market', ['Market', 'Temel Gıda', 'Et', 'Tavuk', 'Balık', 'Sebze', 'Meyve', 'Süt/Yoğurt/Peynir', 'Kahvaltılık', 'Ekmek/Unlu Mamuller', 'Bakliyat', 'Atıştırmalık', 'İçecek', 'Kahve/Çay', 'İçme Suyu', 'Temizlik Malzemeleri', 'Kağıt Ürünleri']],
+    ['Dışarıda Yeme & Sosyal', ['Yemek', 'Restoran', 'Fast Food', 'Kafe', 'Tatlı', 'Yemek Siparişi', 'İş Yemeği', 'Arkadaşlarla Yemek', 'Sosyal Aktiviteler', 'Eğlence', 'Sinema/Tiyatro', 'Konser', 'Etkinlik']],
+    ['Ulaşım', ['Ulaşım', 'Akaryakıt', 'Toplu Taşıma', 'Taksi', 'Otopark', 'HGS/OGS', 'Araç Yıkama', 'Araç Bakım', 'Lastik', 'Motor Yağı', 'Araç Muayenesi', 'Trafik Sigortası', 'Kasko', 'Araç Vergisi', 'Araç Taksiti']],
+    ['Borç & Kredi', ['Kredi Taksiti', 'Kredi Kartı Ödemesi', 'KMH Ödemesi', 'Tatil Taksiti', 'Diğer Taksit', 'Banka Masrafı/Faiz']],
+    ['Bebek & Çocuk', ['Bebek Bezi', 'Islak Mendil', 'Bebek Maması', 'Bebek Bakım Ürünleri', 'Bebek Kıyafeti', 'Vitamin/Takviye', 'Oyuncak', 'Bebek Ekipmanı', 'Kreş/Bakıcı', 'Çocuk Eğitimi']],
+    ['Kişisel Bakım', ['Kuaför/Berber', 'Saç Bakımı', 'Cilt Bakımı', 'Parfüm', 'Kozmetik', 'Diş Bakımı', 'Tıraş', 'Kişisel Hijyen', 'Kişisel Bakım Ürünleri']],
+    ['Giyim', ['Giyim', 'Günlük Kıyafet', 'İş Kıyafeti', 'Ayakkabı', 'İç Giyim', 'Mont/Kaban', 'Spor Kıyafeti', 'Aksesuar', 'Çanta', 'Eş Giyim', 'Çocuk Giyim']],
+    ['Sağlık', ['Sağlık', 'Doktor/Muayene', 'Hastane', 'İlaç', 'Tahlil', 'Diş Sağlığı', 'Göz', 'Fizik Tedavi', 'Özel Sağlık Sigortası', 'Tamamlayıcı Sağlık Sigortası', 'Spor Salonu']],
+    ['Teknoloji & Abonelik', ['Abonelikler', 'Netflix', 'YouTube Premium', 'Spotify', 'ChatGPT', 'iCloud', 'Google One', 'Microsoft 365', 'Adobe', 'İnternet Servisleri', 'Uygulama Abonelikleri', 'Telefon Taksiti', 'Bilgisayar Taksiti', 'Elektronik']],
+    ['İbadet & Hayır', ['Zekât', 'Sadaka', 'Fitre', 'Kurban', 'Bağış', 'Cami/Dernek', 'Dini Kitap']],
+    ['Eğitim & Gelişim', ['Eğitim', 'Kurs/Sertifika', 'Online Eğitim', 'Kitap/Kırtasiye', 'E-Kitap', 'Dil Eğitimi', 'Üniversite', 'Eğitim Materyali']],
+    ['Tatil & Seyahat', ['Tatil/Seyahat', 'Uçak', 'Otobüs', 'Otel', 'Araç Kiralama', 'Yurt Dışı Seyahat', 'Yurt İçi Seyahat', 'Gezi', 'Valiz/Seyahat Ekipmanı']],
+    ['Aile & Yakınlar', ['Eşe Harcama', 'Anne-Baba Desteği', 'Aile Desteği', 'Çocuk Harçlığı', 'Doğum Günü', 'Bayram Hediyesi', 'Düğün', 'Nişan', 'Cenaze', 'Hediye']],
+    ['Evcil Hayvan', ['Evcil Hayvan', 'Evcil Hayvan Maması', 'Veteriner', 'Evcil Hayvan Kumu', 'Evcil Hayvan Bakımı']],
+    [FIN_SAVINGS_GROUP, ['Acil Durum Fonu', 'Vadeli Mevduat', 'Altın', 'Gümüş', 'Hisse Senedi', 'TEFAS Fonları', 'BES', 'OKS', 'Döviz', 'Kripto', 'Ev Peşinatı', 'Araba Fonu', 'Bebek Fonu', 'Tatil Fonu', 'Hedef Fonu']],
+    ['Diğer / Beklenmeyen', ['Diğer', 'Acil Tamir', 'Ani Sağlık Gideri', 'Beklenmeyen Alışveriş', 'Ceza', 'Kaybolan/Kırılan Eşya', 'Nakit Çekim', 'Havale/FAST Gönderim', 'AVM/Alışveriş', 'Sigorta', FIN_TRANSFER_CAT]]
+  ],
+  income: [
+    ['Maaş', ['Maaş', 'Ek Ödeme', 'Mesai', 'Nöbet Ücreti', 'Prim', 'Maaş Farkı', 'İkramiye', 'Emeklilik Maaşı']],
+    ['Ek Gelir', ['Ek Gelir', 'Serbest Çalışma', 'Freelance Proje', 'Danışmanlık Geliri', 'Online Gelir', 'Komisyon', 'Satış Geliri', 'İkinci El Satış']],
+    ['Yatırım Geliri', ['Yatırım', 'Mevduat Faizi', 'Faiz Geliri', 'Fon Getirisi', 'Temettü', 'Kira Geliri', 'Altın Satış Geliri', 'Hisse Senedi Satışı', 'Kripto Para']],
+    ['Diğer', ['Eş Geliri', 'Aile Desteği', 'İade', 'Hediye', 'Gelen Havale/FAST', 'Nakit Yatırma', 'Diğer', FIN_TRANSFER_CAT]]
+  ]
+};
+var FIN_GROUP_INDEX = {};
+['expense', 'income'].forEach(function (t) {
+  var defaults = t === 'income' ? DEFAULT_INCOME_CATEGORIES : DEFAULT_EXPENSE_CATEGORIES;
+  FIN_GROUPS[t].forEach(function (g) {
+    g[1].forEach(function (c) {
+      if (defaults.indexOf(c) === -1) defaults.push(c);
+      if (!FIN_GROUP_INDEX[t + '|' + c]) FIN_GROUP_INDEX[t + '|' + c] = g[0];
+    });
+  });
+});
+function finGroupOf(cat, type) { return FIN_GROUP_INDEX[(type || 'expense') + '|' + cat] || ''; }
+function finGroupOrder(type) { return (FIN_GROUPS[type === 'income' ? 'income' : 'expense']).map(function (g) { return g[0]; }); }
+function isInternalTransfer(f) { return f.category === FIN_TRANSFER_CAT; }
+function isSavingsRecord(f) { return f.type === 'expense' && finGroupOf(f.category, 'expense') === FIN_SAVINGS_GROUP; }
+function isSpend(f) { return f.type === 'expense' && !isInternalTransfer(f) && !isSavingsRecord(f); }
 
 function financeCategoriesForType(type) {
   var defaults = type === 'income' ? DEFAULT_INCOME_CATEGORIES : DEFAULT_EXPENSE_CATEGORIES;
@@ -5454,14 +5756,16 @@ function categoryPillsHTML(type, selected) {
   }).join('');
 }
 
+function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
 function currentBalance() {
-  return getFinance().reduce(function (s, f) { return s + (f.type === 'income' ? 1 : -1) * (Number(f.amount) || 0); }, 0);
+  return round2(getFinance().reduce(function (s, f) { return s + (f.type === 'income' ? 1 : -1) * (Number(f.amount) || 0); }, 0));
 }
 function monthTotals(monthPrefix) {
   var list = getFinance().filter(function (f) { return f.date && f.date.slice(0, 7) === monthPrefix; });
-  var income = list.filter(function (f) { return f.type === 'income'; }).reduce(function (s, f) { return s + Number(f.amount); }, 0);
-  var expense = list.filter(function (f) { return f.type === 'expense'; }).reduce(function (s, f) { return s + Number(f.amount); }, 0);
-  return { income: income, expense: expense, net: income - expense };
+  var income = list.filter(function (f) { return f.type === 'income' && !isInternalTransfer(f); }).reduce(function (s, f) { return s + Number(f.amount); }, 0);
+  var expense = list.filter(isSpend).reduce(function (s, f) { return s + Number(f.amount); }, 0);
+  var saved = list.filter(isSavingsRecord).reduce(function (s, f) { return s + Number(f.amount); }, 0);
+  return { income: round2(income), expense: round2(expense), net: round2(income - expense), saved: round2(saved) };
 }
 
 function renderMonthNav() {
@@ -5516,7 +5820,7 @@ function renderOverview() {
   document.getElementById('fin-overview').innerHTML =
     '<div class="lbl"><span>Toplam bakiye</span><button class="eye" id="fin-eye" aria-label="' + (finHide ? 'Bakiyeyi göster' : 'Bakiyeyi gizle') + '">' + icon(finHide ? 'eyeOff' : 'eye') + '</button></div>' +
     '<div class="big">' + finMask(formatMoney(currentBalance())) + '</div>' +
-    '<div class="sub">Hesaplar ' + finMask(formatMoney(assets)) + (debt ? ' \u00b7 Kart borcu ' + finMask(formatMoney(debt)) : '') + '</div>' +
+    '<div class="sub">Hesaplar ' + finMask(formatMoney(assets)) + (debt ? ' \u00b7 Kart borcu ' + finMask(formatMoney(debt)) : '') + (mt.saved ? ' \u00b7 Birikim ' + finMask(formatMoney(mt.saved)) : '') + '</div>' +
     '<div class="fin-flow"><div><span>Gelir</span><b>' + finMask(formatMoney(mt.income)) + '</b><i>' + finDelta(mt.income, pm.income) + '</i></div>' +
     '<div><span>Gider</span><b>' + finMask(formatMoney(mt.expense)) + '</b><i>' + finDelta(mt.expense, pm.expense) + '</i></div></div>';
   document.getElementById('fin-eye').onclick = function () {
@@ -5528,7 +5832,7 @@ function renderOverview() {
 function renderInsights() {
   var mt = monthTotals(finSelectedMonth), cur = finSelectedMonth === todayISO().slice(0, 7), nd = daysInMonth(finSelectedMonth + '-01');
   var elapsed = cur ? Number(todayISO().slice(8, 10)) : nd;
-  var ex = getFinance().filter(function (f) { return f.type === 'expense' && f.date && f.date.slice(0, 7) === finSelectedMonth; });
+  var ex = getFinance().filter(function (f) { return isSpend(f) && f.date && f.date.slice(0, 7) === finSelectedMonth; });
   var big = ex.slice().sort(function (a, b) { return Number(b.amount) - Number(a.amount); })[0];
   var rate = mt.income > 0 ? Math.round(mt.net / mt.income * 100) : null;
   var tiles = [
@@ -5592,7 +5896,7 @@ function renderTrendChart() {
 }
 
 function categoryBreakdown(monthPrefix) {
-  var list = getFinance().filter(function (f) { return f.type === 'expense' && f.date && f.date.slice(0, 7) === monthPrefix; });
+  var list = getFinance().filter(function (f) { return isSpend(f) && f.date && f.date.slice(0, 7) === monthPrefix; });
   var byCat = {};
   list.forEach(function (f) { var c = f.category || 'Diğer'; byCat[c] = (byCat[c] || 0) + Number(f.amount); });
   var cats = Object.keys(byCat).sort(function (a, b) { return byCat[b] - byCat[a]; });
@@ -5610,7 +5914,7 @@ function renderCategoryChart() {
   var headEl = document.querySelector('#fin-category-chart').closest('.card').querySelector('.card-head h3');
   if (headEl) headEl.textContent = label + ' · kategoriler';
   var sl = categoryBreakdown(finSelectedMonth), tot = sl.reduce(function (a, x) { return a + x.value; }, 0);
-  renderDonut(document.getElementById('fin-category-chart'), sl, { size: 130 });
+  renderDonut(document.getElementById('fin-category-chart'), sl, { size: 130, noLegend: true });
   var leg = document.getElementById('fin-category-legend');
   leg.innerHTML = sl.map(function (x, i) {
     var rest = x.label === 'Diğer kategoriler';
@@ -5755,7 +6059,7 @@ function openInstallmentSheet() {
 
   openSheet({
     title: 'Yeni taksitli ödeme', bodyHTML: bodyHTML(), onOpen: function () {
-      wireCategoryPicker('if-category', 'if-cat-dropdown', function () { return financeCategoriesForType('expense'); });
+      wireCategoryPicker('if-category', 'if-cat-dropdown', function () { return financeCategoriesForType('expense'); }, function () { return 'expense'; });
       function updatePreview() {
         var total = parseFloat(document.getElementById('if-total').value) || 0;
         var count = parseInt(document.getElementById('if-count').value, 10) || 1;
@@ -5910,19 +6214,47 @@ function openBudgetSheet() {
 /* ---- OCR / PDF ayrıştırma ---------------------------------------------- */
 function parseTRAmount(s) {
   if (!s) return NaN;
-  s = s.replace(/[^\d.,]/g, '');
+  s = s.replace(/[^\d.,]/g, ''); // boşluk/TL/* gibi karakterler atılır ("1 250,00" -> "1250,00")
   if (s.indexOf(',') !== -1 && s.indexOf('.') !== -1) s = s.replace(/\./g, '').replace(',', '.');
   else if (s.indexOf(',') !== -1) s = s.replace(',', '.');
   return parseFloat(s);
 }
 
 var FIN_CATEGORY_KEYWORDS = {
-  'Market': ['market', 'migros', 'carrefour', 'a101', 'bim', 'şok'],
-  'Fatura': ['fatura', 'elektrik', 'doğalgaz', 'su idaresi', 'internet', 'telekom'],
-  'Ulaşım': ['taksi', 'otobüs', 'metro', 'akbil', 'istanbulkart', 'benzin', 'yakıt'],
-  'Yemek': ['restoran', 'restaurant', 'cafe', 'kahve', 'yemek'],
-  'Sağlık': ['eczane', 'hastane', 'doktor']
+  'Market': ['market', 'migros', 'carrefour', 'a101', 'bim', 'şok', 'sok', 'file', 'macro', 'getir', 'bakkal', 'manav', 'kasap', 'tekel'],
+  'Fatura': ['fatura', 'elektrik', 'doğalgaz', 'dogalgaz', 'su idaresi', 'internet', 'telekom', 'turkcell', 'vodafone', 'enerjisa', 'iski', 'igdaş'],
+  'Ulaşım': ['taksi', 'otobüs', 'metro', 'akbil', 'istanbulkart', 'benzin', 'yakıt', 'akaryakıt', 'opet', 'shell', 'petrol', 'otopark', 'otoyol', 'hgs', 'ogs', 'bitaksi', 'uber'],
+  'Yemek': ['restoran', 'restaurant', 'cafe', 'kafe', 'kahve', 'yemek', 'lokanta', 'döner', 'pizza', 'burger', 'pastane', 'fırın', 'starbucks', 'yemeksepeti'],
+  'Sağlık': ['eczane', 'ecza', 'hastane', 'doktor', 'klinik', 'optik', 'laboratuvar', 'diş'],
+  'Giyim': ['koton', 'mavi', 'lcw', 'waikiki', 'defacto', 'boyner', 'penti', 'ayakkabı', 'zara'],
+  'Ev Eşyası': ['evidea', 'ikea', 'karaca', 'porland', 'arzum', 'zücaciye', 'zuccaciye'],
+  'Kozmetik': ['gratis', 'watsons', 'rossmann', 'sephora'],
+  'Yapı/Tadilat': ['nalbur', 'hırdavat', 'hirdavat', 'çimento', 'cimento', 'inşaat', 'insaat', 'koçtaş', 'koctas']
 };
+var txOcrPending = false; // true: açık işlem formu OCR'dan dolduruldu (kayda source:'ocr' yazılır)
+
+/* Kategori tahmini: ilk eşleşen yerine SKORLU. Fişin üst satırlarındaki (işletme adı)
+   eşleşme 3 puan, metnin geri kalanı 1 puan. Kısa anahtar kelimeler (<=4 harf)
+   tam kelime olarak aranır ("bim", "şok" başka kelimelerin içinde eşleşmesin).
+   TR/EN küçük harf farkı (İ/I) için iki biçim de denenir. */
+function guessReceiptCategory(lines, text) {
+  function lowers(x) { return [x.toLowerCase(), x.toLocaleLowerCase('tr-TR')]; }
+  var head = lowers(lines.slice(0, 6).join(' ')), full = lowers(text);
+  function has(hays, kw) {
+    var re = kw.length <= 4 ? new RegExp('(^|[^a-zçğıöşü0-9])' + kw + '($|[^a-zçğıöşü0-9])') : null;
+    return hays.some(function (h) { return re ? re.test(h) : h.indexOf(kw) !== -1; });
+  }
+  var best = '', bestScore = 0;
+  Object.keys(FIN_CATEGORY_KEYWORDS).forEach(function (cat) {
+    var score = 0;
+    FIN_CATEGORY_KEYWORDS[cat].forEach(function (kw) {
+      if (has(head, kw)) score += 3;
+      else if (has(full, kw)) score += 1;
+    });
+    if (score > bestScore) { best = cat; bestScore = score; }
+  });
+  return best;
+}
 
 /* Fiş/makbuz OCR metninden en olası "işletme adı / açıklama" satırını seçer.
    Barkod, referans/sıra/kod numaraları, tarih-saat, vergi dairesi gibi meta
@@ -5982,8 +6314,9 @@ function looseLabelTest(line, patterns) {
   return false;
 }
 
-function extractReceiptAmount(lines, fullText) {
-  var moneyPattern = /\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}|\d+\.\d{2}/;
+function extractReceiptAmount(lines, fullText, meta) {
+  meta = meta || {};
+  var moneyG = /\d{1,3}(?:[. ]\d{3})*,\d{2}|\d+,\d{2}|\d+\.\d{2}(?![\d.])/g;
   var labelGroups = [
     [/genel\s*toplam/i, /GENEL\s*TOPLAM/],
     [/\btoplam\b/i, /\bTOPLAM\b/],
@@ -5991,40 +6324,42 @@ function extractReceiptAmount(lines, fullText) {
     [/ödenen/i, /ODENEN/],
     [/nakit|kredi\s*kart/i, /NAKIT|KREDI\s*KART/]
   ];
-
+  // Toplam DEĞİL: KDV satırları, ara toplam, indirim, para üstü, puan
+  var excluded = [/kdv|k\.d\.v|ara\s*toplam|indirim|iskonto|para\s*üstü|puan/i, /KDV|ARA\s*TOPLAM|INDIRIM|ISKONTO|PARA\s*[UÜ]ST[UÜ]|PUAN/];
+  function lastMoney(line) {
+    var m = line.match(moneyG);
+    if (!m) return NaN;
+    return parseTRAmount(m[m.length - 1]); // toplam fişte sağa hizalı: satırdaki son değer
+  }
   for (var p = 0; p < labelGroups.length; p++) {
     for (var i = 0; i < lines.length; i++) {
       if (!looseLabelTest(lines[i], labelGroups[p])) continue;
-      var sameLineMatch = lines[i].match(moneyPattern);
-      if (sameLineMatch) { var v = parseTRAmount(sameLineMatch[0]); if (!isNaN(v) && v > 0) return v; }
-      // Etiket ayrı satırda, tutar bir sonraki satırda olabilir (iki sütunlu fiş düzeni)
-      if (lines[i + 1]) {
-        var nextLineMatch = lines[i + 1].match(moneyPattern);
-        if (nextLineMatch) { var v2 = parseTRAmount(nextLineMatch[0]); if (!isNaN(v2) && v2 > 0) return v2; }
+      if (looseLabelTest(lines[i], excluded)) continue;
+      var v = lastMoney(lines[i]);
+      if (!isNaN(v) && v > 0) { meta.viaLabel = true; return v; }
+      // Etiket ayrı satırda, tutar bir sonraki satırda (iki sütunlu fiş düzeni)
+      if (lines[i + 1] && !looseLabelTest(lines[i + 1], excluded)) {
+        var v2 = lastMoney(lines[i + 1]);
+        if (!isNaN(v2) && v2 > 0) { meta.viaLabel = true; return v2; }
       }
     }
   }
-
-  // Hiçbir etiket eşleşmediyse: metindeki TÜM parasal değerleri topla.
-  // En büyüğünü kör kör almak OCR gürültüsünden (satır birleşmesi, yanlış
-  // karakter okuma) doğan absürt büyük sayıları seçme riski taşır. Bunun
-  // yerine ORTANCA (medyan) değere yakın olanı tercih ederiz: bir fişte
-  // tek tük ürün fiyatları ve bir toplam olur, toplam genelde en büyük
-  // birkaç değerden biridir ama uç (aşırı büyük/küçük) bir OCR hatası
-  // değildir — medyan bu gürültüye karşı çok daha dayanıklıdır.
-  var all = fullText.match(/\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}/g);
-  if (all && all.length) {
-    var parsed = all.map(parseTRAmount).filter(function (n) { return !isNaN(n) && n > 0; }).sort(function (a, b) { return a - b; });
-    if (parsed.length === 1) return parsed[0];
-    if (parsed.length > 1) {
-      // En büyük değer, ikinci en büyük değerin 3 katından fazlaysa
-      // muhtemelen OCR gürültüsüdür (satır birleşmesi vb.) — atla, bir
-      // alttakini dene. Değilse en büyüğü al (genelde TOPLAM budur).
-      var largest = parsed[parsed.length - 1];
-      var secondLargest = parsed[parsed.length - 2];
-      if (secondLargest > 0 && largest > secondLargest * 3) return secondLargest;
-      return largest;
-    }
+  // Etiket yok: KDV/indirim satırları hariç tüm tutarlar; aşırı büyük tek uç değer OCR gürültüsü sayılır
+  meta.viaLabel = false;
+  var parsed = [];
+  lines.forEach(function (l) {
+    if (looseLabelTest(l, excluded)) return;
+    (l.match(/\d{1,3}(?:[. ]\d{3})*,\d{2}|\d+,\d{2}/g) || []).forEach(function (t) {
+      var n = parseTRAmount(t);
+      if (!isNaN(n) && n > 0) parsed.push(n);
+    });
+  });
+  parsed.sort(function (a, b) { return a - b; });
+  if (parsed.length === 1) return parsed[0];
+  if (parsed.length > 1) {
+    var largest = parsed[parsed.length - 1], second = parsed[parsed.length - 2];
+    if (second > 0 && largest > second * 3) return second;
+    return largest;
   }
   return null;
 }
@@ -6041,30 +6376,25 @@ function isPlausibleReceiptYear(y) {
 }
 
 function extractReceiptDate(lines, fullText) {
-  var dPattern = /(\d{2})[.\/](\d{2})[.\/](\d{4})/g;
-  var dPattern2 = /(\d{4})-(\d{2})-(\d{2})/g;
-
+  // "45.13.2026" gibi geçersiz tarihleri ve gün/ay karışıklığını eler; 2 haneli yıl 20xx sayılır
+  function build(d, m, y) {
+    if (y < 100) y += 2000;
+    if (!isPlausibleReceiptYear(y) || m < 1 || m > 12 || d < 1) return null;
+    if (d > new Date(y, m, 0).getDate()) return null;
+    return y + '-' + pad2(m) + '-' + pad2(d);
+  }
   function tryLine(line) {
-    var m;
-    dPattern.lastIndex = 0;
-    while ((m = dPattern.exec(line)) !== null) {
-      var y = parseInt(m[3], 10);
-      if (isPlausibleReceiptYear(y)) return m[3] + '-' + m[2] + '-' + m[1];
-    }
-    dPattern2.lastIndex = 0;
-    while ((m = dPattern2.exec(line)) !== null) {
-      var y2 = parseInt(m[1], 10);
-      if (isPlausibleReceiptYear(y2)) return m[1] + '-' + m[2] + '-' + m[3];
-    }
+    var m, re = /(^|\D)(\d{4})-(\d{2})-(\d{2})(?!\d)/g; // ISO önce: "2026-03-27", GG-AA-YY ile karışmasın
+    while ((m = re.exec(line)) !== null) { var a = build(+m[4], +m[3], +m[2]); if (a) return a; }
+    re = /(^|\D)(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4}|\d{2})(?!\d)/g;
+    while ((m = re.exec(line)) !== null) { var b = build(+m[2], +m[3], +m[4]); if (b) return b; }
     return null;
   }
-
   for (var i = 0; i < lines.length; i++) {
     if (!/tarih/i.test(lines[i])) continue;
     var found = tryLine(lines[i]);
     if (found) return found;
   }
-
   for (var j = 0; j < lines.length; j++) {
     var found2 = tryLine(lines[j]);
     if (found2) return found2;
@@ -6074,24 +6404,20 @@ function extractReceiptDate(lines, fullText) {
 
 function applyExtractedText(text) {
   var lines = text.split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
-  var amount = extractReceiptAmount(lines, text);
+  var meta = {};
+  var amount = extractReceiptAmount(lines, text, meta);
   var dateISO = extractReceiptDate(lines, text);
-  // Hata ayıklama için OCR'ın ham çıktısını konsola yazıyoruz; yanlış
-  // okuma şikayetlerinde tarayıcı konsolundan gerçek OCR metni görülebilir.
+  // Hata ayıklama: yanlış okuma şikayetlerinde tarayıcı konsolundan ham OCR metni görülebilir.
   console.log('[OCR ham metin]', text);
-  console.log('[OCR bulunan tutar]', amount, '| tarih:', dateISO);
+  console.log('[OCR bulunan tutar]', amount, '| etiketli:', meta.viaLabel, '| tarih:', dateISO);
   var amountLooksOff = amount !== null && amount > 100000;
 
   var title = pickReceiptTitle(lines);
-  var lowerText = text.toLowerCase();
-  var category = '';
-  Object.keys(FIN_CATEGORY_KEYWORDS).some(function (cat) {
-    if (FIN_CATEGORY_KEYWORDS[cat].some(function (kw) { return lowerText.indexOf(kw) !== -1; })) { category = cat; return true; }
-    return false;
-  });
-  var isIncome = /maaş|iade|gelir/i.test(text);
+  var category = guessReceiptCategory(lines, text);
+  // Yalnız satır başında "İADE FİŞİ" / "MAAŞ" gelir sayılır ("iade edilmez", "Gelir İdaresi" yanlış tetiklemesin)
+  var isIncome = /(^|\n)\s*(İADE\s*F[İI][ŞS][İI]|MAA[ŞS](?![A-ZÇĞİÖŞÜ0-9]))/.test(text.toLocaleUpperCase('tr-TR'));
 
-  if (amount && !isNaN(amount)) document.getElementById('txf-amount').value = amount;
+  if (amount && !isNaN(amount)) document.getElementById('txf-amount').value = round2(amount);
   if (dateISO) document.getElementById('txf-date').value = dateISO;
   if (title) document.getElementById('txf-title').value = title.slice(0, 80);
   if (category) {
@@ -6100,8 +6426,9 @@ function applyExtractedText(text) {
     catInput.dispatchEvent(new Event('input')); // tetikleyici çip metnini de güncelle
   }
   if (isIncome) document.querySelectorAll('#txf-type button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === 'income'); });
+  txOcrPending = true; // kayıt, kullanıcı formu onaylayınca source:'ocr' ile yazılır; form doldurma sessiz kayıt YAPMAZ
 
-  return { amountFound: amount !== null, dateFound: dateISO !== null, amountLooksOff: amountLooksOff };
+  return { amountFound: amount !== null, dateFound: dateISO !== null, amountLooksOff: amountLooksOff, amountGuessed: amount !== null && !meta.viaLabel };
 }
 
 /* Fiş fotoğrafını OCR'dan önce ölçülü biçimde iyileştirir: gri tonlama +
@@ -6224,6 +6551,8 @@ function scanReceiptImage(file) {
       status.textContent = 'Tutar ve tarih net okunamadı — lütfen elle kontrol et.';
     } else if (!outcome.amountFound) {
       status.textContent = 'Tutar net okunamadı — lütfen elle gir.';
+    } else if (outcome.amountGuessed) {
+      status.textContent = 'TOPLAM satırı bulunamadı, tutar tahmin edildi — lütfen kontrol et.';
     } else if (!outcome.dateFound) {
       status.textContent = 'Tarih net okunamadı — bugünün tarihi kullanıldı, gerekirse değiştir.';
     } else {
@@ -6274,6 +6603,7 @@ function scanPdfStatement(file) {
 
 /* ---- İşlem ekle/düzenle -------------------------------------------------- */
 function openTransactionSheet(id, presetType) {
+  txOcrPending = false;
   var list = getFinance();
   var f = id ? list.find(function (x) { return x.id === id; }) : null;
   var isNew = !f;
@@ -6315,7 +6645,7 @@ function openTransactionSheet(id, presetType) {
           refreshCatTrigger();
         });
       });
-      wireCategoryPicker('txf-category', 'txf-cat-dropdown', function () { return financeCategoriesForType(draft.type); });
+      wireCategoryPicker('txf-category', 'txf-cat-dropdown', function () { return financeCategoriesForType(draft.type); }, function () { return draft.type; });
       if (isNew) {
         document.getElementById('txf-scan-photo').addEventListener('click', function () { document.getElementById('txf-file-photo').click(); });
         document.getElementById('txf-scan-pdf').addEventListener('click', function () { document.getElementById('txf-file-pdf').click(); });
@@ -6326,19 +6656,29 @@ function openTransactionSheet(id, presetType) {
         var title = document.getElementById('txf-title').value.trim();
         var amount = parseFloat(document.getElementById('txf-amount').value);
         if (!title || !amount || amount <= 0) { showToast('Açıklama ve tutar gerekli'); return; }
-        draft.title = title; draft.amount = amount;
+        draft.title = title; draft.amount = round2(amount);
         draft.date = document.getElementById('txf-date').value || todayISO();
         draft.accountId = document.getElementById('txf-account').value;
         draft.category = document.getElementById('txf-category').value.trim() || 'Diğer';
-        var all = getFinance();
-        var idx = all.findIndex(function (x) { return x.id === draft.id; });
-        if (idx === -1) all.push(draft); else all[idx] = draft;
-        saveFinance(all);
-        closeSheet();
-        renderAll();
-        checkBudgetOverrunsAndNotify();
-        addXP(2, { silent: true });
-        showToast('Kaydedildi');
+        if (isNew) { draft.createdAt = new Date().toISOString(); if (txOcrPending) draft.source = 'ocr'; }
+        function commit() {
+          var all = getFinance();
+          var idx = all.findIndex(function (x) { return x.id === draft.id; });
+          if (idx === -1) all.push(draft); else all[idx] = draft;
+          saveFinance(all);
+          closeSheet();
+          renderAll();
+          checkBudgetOverrunsAndNotify();
+          addXP(2, { silent: true });
+          showToast('Kaydedildi');
+        }
+        // Firefly III / Actual Budget'taki yinelenen kayıt kontrolü: aynı fiş iki kez taranırsa kullanıcıya sorulur
+        var dup = isNew && getFinance().some(function (x) {
+          return x.type === draft.type && x.accountId === draft.accountId && x.date === draft.date && Math.abs(Number(x.amount) - draft.amount) < 0.005;
+        });
+        if (dup) {
+          confirmDialog({ title: 'Benzer kayıt var', message: 'Aynı gün, hesap ve tutarda bir kayıt zaten mevcut. Yine de eklensin mi?', confirmText: 'Yine de ekle' }).then(function (ok) { if (ok) commit(); });
+        } else commit();
       });
       if (!isNew) {
         document.getElementById('txf-delete').addEventListener('click', function () {
@@ -6395,7 +6735,7 @@ function openRecurringSheet(id) {
           refreshCatTrigger();
         });
       });
-      wireCategoryPicker('rcf-category', 'rcf-cat-dropdown', function () { return financeCategoriesForType(draft.type); });
+      wireCategoryPicker('rcf-category', 'rcf-cat-dropdown', function () { return financeCategoriesForType(draft.type); }, function () { return draft.type; });
       document.getElementById('rcf-save').addEventListener('click', function () {
         var title = document.getElementById('rcf-title').value.trim();
         var amount = parseFloat(document.getElementById('rcf-amount').value);
@@ -6477,7 +6817,7 @@ function renderHistory() {
       '<div class="card" style="padding:.2rem .8rem">' + g.items.map(function (f) {
         var pos = f.type === 'income', acc = f.accountId ? accountById(f.accountId) : null, col = catColor(f.category);
         return '<div class="list-row" data-id="' + f.id + '" data-open style="cursor:pointer"><span class="fin-cat" style="background:color-mix(in srgb,' + col + ' 16%,transparent);color:' + col + '">' + esc((f.category || '?').charAt(0).toLocaleUpperCase('tr')) + '</span>' +
-          '<div class="row-main"><div class="row-title">' + esc(f.title) + '</div><div class="row-sub">' + esc(f.category || '') + (acc ? ' \u00b7 ' + esc(acc.name) : '') + (f.source === 'recurring' ? ' \u00b7 sabit' : '') + '</div></div>' +
+          '<div class="row-main"><div class="row-title">' + esc(f.title) + '</div><div class="row-sub">' + esc(f.category || '') + (acc ? ' \u00b7 ' + esc(acc.name) : '') + (f.source === 'recurring' ? ' \u00b7 sabit' : '') + (f.source === 'ocr' ? ' \u00b7 fiş' : '') + '</div></div>' +
           '<span class="mono" style="' + (pos ? 'color:var(--success)' : '') + '">' + (pos ? '+' : '\u2212') + finMask(formatMoney(f.amount)) + '</span></div>';
       }).join('') + '</div>';
   }).join('') + (list.length > shown.length ? '<button class="btn btn-secondary btn-block" id="hist-more" style="margin-top:.8rem">Daha fazla göster (' + (list.length - shown.length) + ')</button>' : '');
@@ -6597,7 +6937,7 @@ function openContribSheet(id) {
 
 /* Dar açılır liste yerine, klavyeden etkilenmeyen geniş bir seçici açar.
    wireCategoryDropdown ile aynı imza; seçimde input'a 'change' olayı gönderir. */
-function wireCategoryPicker(inputId, ddId, getOptions) {
+function wireCategoryPicker(inputId, ddId, getOptions, getType) {
   var input = document.getElementById(inputId), dd = document.getElementById(ddId), root = null;
   if (!input) return;
   if (dd) dd.style.display = 'none';
@@ -6625,7 +6965,16 @@ function wireCategoryPicker(inputId, ddId, getOptions) {
         var fav = all.filter(function (c) { return u[c]; }).sort(function (a, b) { return u[b] - u[a]; }).slice(0, 6);
         if (fav.length) html += '<div class="catpick-sec">Sık kullanılan</div><div class="catpick-chips">' + fav.map(function (c) { return chip(c); }).join('') + '</div><div class="catpick-sec">Tüm kategoriler</div>';
       }
-      html += '<div class="catpick-chips">' + matches().map(function (c) { return chip(c); }).join('') + '</div>';
+      var ms = matches();
+      if (!tl && getType) {
+        var gt = getType(), byG = {};
+        ms.forEach(function (c) { var g = finGroupOf(c, gt) || 'Diğer / Özel'; (byG[g] = byG[g] || []).push(c); });
+        finGroupOrder(gt).concat(['Diğer / Özel']).forEach(function (g) {
+          if (byG[g]) html += '<div class="catpick-sec">' + esc(g) + '</div><div class="catpick-chips">' + byG[g].map(function (c) { return chip(c); }).join('') + '</div>';
+        });
+      } else {
+        html += '<div class="catpick-chips">' + ms.map(function (c) { return chip(c); }).join('') + '</div>';
+      }
       if (t && !all.some(function (c) { return c.toLocaleLowerCase('tr') === tl; })) html += '<div><button type="button" class="catpick-chip new" data-v="' + esc(t) + '">' + icon('plus') + ' "' + esc(t) + '" ekle</button></div>';
       list.innerHTML = html;
     }
@@ -6929,10 +7278,10 @@ function renderYearReport() {
 
   // ---- Finans ----
   var finance = getFinance().filter(function (f) { return f.date && f.date.slice(0, 4) === yPrefix; });
-  var income = finance.filter(function (f) { return f.type === 'income'; }).reduce(function (s, f) { return s + Number(f.amount); }, 0);
-  var expense = finance.filter(function (f) { return f.type === 'expense'; }).reduce(function (s, f) { return s + Number(f.amount); }, 0);
+  var income = finance.filter(function (f) { return f.type === 'income' && !isInternalTransfer(f); }).reduce(function (s, f) { return s + Number(f.amount); }, 0);
+  var expense = finance.filter(isSpend).reduce(function (s, f) { return s + Number(f.amount); }, 0);
   var byCat = {};
-  finance.filter(function (f) { return f.type === 'expense'; }).forEach(function (f) {
+  finance.filter(isSpend).forEach(function (f) {
     var c = f.category || 'Diğer';
     byCat[c] = (byCat[c] || 0) + Number(f.amount);
   });
@@ -7721,6 +8070,7 @@ loadAuthorizedUsersOverride();
 
 initCore();
 navigateTo('today');
+bigLoadAll();
 </script>
 </body>
 </html>
