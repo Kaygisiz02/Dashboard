@@ -761,7 +761,7 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
   <div class="section-title"><h2>Sabit gelir/gider</h2><button class="link-btn" id="fin-recurring-add-btn">Ekle</button></div>
   <div id="fin-recurring"></div>
 
-  <div class="section-title" id="fin-history-head"><h2>Geçmiş</h2><span><button class="link-btn" id="hist-import">İçe aktar (dosya)</button> <button class="link-btn" id="hist-export" style="margin-left:.6rem">Dışa aktar (CSV)</button></span></div>
+  <div class="section-title" id="fin-history-head"><h2>Geçmiş</h2><span><button class="link-btn" id="hist-import">İçe aktar (dosya)</button> <button class="link-btn" id="hist-fix" style="margin-left:.6rem">Kayıtları denetle</button> <button class="link-btn" id="hist-export" style="margin-left:.6rem">Dışa aktar (CSV)</button></span></div>
   <div id="hist-undo-wrap"></div>
   <div class="field" style="margin-bottom:.6rem"><input type="search" id="hist-q" placeholder="İşlemlerde ara" autocomplete="off" aria-label="İşlemlerde ara"></div>
   <div class="segmented" id="hist-type-filter">
@@ -4391,6 +4391,11 @@ function toggleInstallmentMonth(instId, monthKey) {
    olduğu için işaretler bakiye zincirinden çıkarılır:
    önceki bakiye = bakiye − tutar. Zincir tutmayan satırlar işaretlenir. */
 var STMT_AMT_RE = /^\d{1,3}(?:\.\d{3})*,\d{2}$/;
+function stmtFixFis(t) {
+  if (/^[A-Z]O\d{5}$/.test(t)) return t.charAt(0) + t.slice(2);
+  if (/^[A-Z][0-9OIl]{5}$/.test(t) && (t.match(/\d/g) || []).length >= 3) return t.charAt(0) + t.slice(1).replace(/[Oo]/g, '0').replace(/[Il]/g, '1');
+  return t;
+}
 function stmtFixNumTok(t) {
   t = String(t || '').trim().replace(/^[^\dOolIS|B]+/, '');
   function norm(x) {
@@ -4502,7 +4507,7 @@ function stmtTableFromWords(words, W, H, page, pageCount) {
       var piece = String(cand[c].s).trim();
       if (last && cand[c].x0 - last.x1 > 0.03 * W) break;
       txt += piece; last = cand[c];
-      if (fisRe.test(txt) && (txt.match(/\d/g) || []).length >= 2) { r.fis = txt; r.fisX1 = last.x1; fisX1.push(last.x1); break; }
+      if (fisRe.test(txt) && (txt.match(/\d/g) || []).length >= 2) { r.fis = stmtFixFis(txt); r.fisX1 = last.x1; fisX1.push(last.x1); break; }
     }
   });
   fisX1.sort(function (a, b) { return a - b; });
@@ -4748,7 +4753,8 @@ function stmtFillDates(rows) {
 
 function stmtCleanTitle(d) {
   var t = String(d || '');
-  if (/ATM\s+(QR\s+)?PARA\s+[ÇC]EKME|YURTI[ÇC]I\s+ATM/i.test(t)) return 'ATM para çekme';
+  if (/ATM\s+P\.?\s*Y\b|PARA\s+YAT[İI]R/i.test(t)) return 'ATM para yatırma';
+  if (/ATM\s+(QR\s+(ILE\s+)?)?PARA\s+[ÇC]EKME|YURTI[ÇC]I\s+ATM/i.test(t)) return 'ATM para çekme';
   var merchant = t.match(/[İIiıl]\S{0,2}YER\S{0,2}\s*:\s*(.+?)(?:\s+MUTABAKAT\b.*)?$/i);
   if (/POS\s+AL/i.test(t) && merchant) return merchant[1].replace(/\s+/g, ' ').trim().slice(0, 80);
   t = t.replace(/TR\d{2}[\s\d]{20,}/g, '').replace(/KART\s*NO\s*:\s*[\d*\s]+/gi, '').replace(/MUTABAKAT\s*:\s*\d+/gi, '')
@@ -4853,20 +4859,40 @@ function stmtLooksLikeTable(pages) {
   return total >= 8 && withB / total >= 0.6 && withA / total >= 0.8;
 }
 
+function stmtConsensusTitles(raw) {
+  var cnt = {};
+  raw.forEach(function (x) { cnt[x.title] = (cnt[x.title] || 0) + 1; });
+  var names = Object.keys(cnt).filter(function (t) { return t.length >= 8 && t.length <= 40 && !/\d{4,}|havale|fast|fatura|abone|tel no/i.test(t); }), map = {};
+  names.forEach(function (t) {
+    var best = null;
+    names.forEach(function (u) {
+      if (u === t || Math.abs(u.length - t.length) > 2 || stmtLev(t.toLowerCase(), u.toLowerCase()) > 2) return;
+      if (cnt[u] > cnt[t] || (cnt[u] === cnt[t] && u.length > t.length)) { if (!best || cnt[u] > cnt[best] || (cnt[u] === cnt[best] && u.length > best.length)) best = u; }
+    });
+    if (best) map[t] = best;
+  });
+  raw.forEach(function (x) { if (map[x.title]) x.title = map[x.title]; });
+}
 function finishStatementTable(pages, ocr) {
   var merged = stmtMergePages(pages);
   stmtChainRepair(merged);
   stmtFillDates(merged);
+  var tt = merged.totals || {}, sd = 0, sc = 0, last = null;
+  merged.forEach(function (r) { if (isNaN(r.A) || !(r.A > 0) || !r.date) return; last = r; if ((r.s || 1) < 0) sd += r.A; else sc += r.A; });
+  var totalsOk = tt.borc != null && tt.alacak != null && Math.abs(sd - tt.borc) < 0.02 && Math.abs(sc - tt.alacak) < 0.02;
   var raw = [], clean = 0;
   merged.forEach(function (r) {
     if (isNaN(r.A) || !(r.A > 0) || !r.date) return;
     var warn = '';
-    if (r.flag === 'bad' || r.flag === 'unk' || r.flag === 'amb') warn = 'bakiye zinciriyle doğrulanamadı';
+    if (r.flag === 'bad' || r.flag === 'unk' || r.flag === 'amb') warn = (totalsOk && r === last && r.flag === 'unk') ? '' : 'bakiye zinciriyle doğrulanamadı';
     else if (r.dateGuess) warn = 'tarih tahmini';
     if (!warn) clean++;
-    raw.push({ date: r.date, title: stmtCleanTitle(r.desc), signed: (r.s || 1) * r.A, ref: r.fis || '', warn: warn });
+    var ttl = stmtCleanTitle(r.desc), sg = (r.s || 1) * r.A;
+    if (sg > 0 && ttl === 'ATM para çekme') ttl = 'ATM para yatırma'; // ATM'den gelen (alacak) tutar para yatırmadır
+    raw.push({ date: r.date, title: ttl, signed: sg, ref: r.fis || '', warn: warn });
   });
   if (!raw.length) { showToast('Ekstrede işlem satırı bulunamadı'); return; }
+  stmtConsensusTitles(raw);
   raw.meta = { skipped: [], expected: null, ocr: !!ocr, totals: merged.totals || {}, verified: clean };
   openStatementImport('', raw);
 }
@@ -5199,6 +5225,29 @@ function importStatementExcel(file) {
   fr.readAsArrayBuffer(file);
 }
 
+/* İçe aktarılmış kayıtları yeniden denetler: kendi hesaplarım arası transferler, para yatırma ve kategoriler */
+function auditImportedRecords() {
+  var fin = getFinance(), fixes = [], auto = { 'Diğer': 1, 'Havale/FAST Gönderim': 1, 'Gelen Havale/FAST': 1, 'Nakit Çekim': 1 };
+  fin.forEach(function (f) {
+    if (f.source !== 'import') return;
+    var inc = f.type === 'income', title = (inc && f.title === 'ATM para çekme') ? 'ATM para yatırma' : f.title;
+    var g = stmtGuessCategory(title, inc);
+    if (title !== f.title || (g !== f.category && (auto[f.category] || g === FIN_TRANSFER_CAT))) fixes.push({ f: f, title: title, cat: (g !== f.category && (auto[f.category] || g === FIN_TRANSFER_CAT)) ? g : f.category });
+  });
+  if (!fixes.length) { showToast('İçe aktarılan kayıtlarda düzeltilecek hata bulunmadı'); return; }
+  var tr = fixes.filter(function (x) { return x.cat === FIN_TRANSFER_CAT && x.f.category !== FIN_TRANSFER_CAT; }), sum = tr.reduce(function (a, x) { return a + Number(x.f.amount); }, 0);
+  confirmDialog({
+    title: fixes.length + ' kayıt düzeltilsin mi?',
+    message: (tr.length ? tr.length + ' kayıt kendi hesaplarınız arası transfer olarak ayrılacak (toplam ' + formatMoney(sum) + '), gelir/gider hesabından çıkar. ' : '') + 'Kategori ve başlık hataları yeniden hesaplanıp düzeltilecek; elle değiştirdiğin kategoriler korunur.',
+    confirmText: 'Düzelt'
+  }).then(function (ok) {
+    if (!ok) return;
+    fixes.forEach(function (x) { x.f.title = x.title; x.f.category = x.cat; });
+    saveFinance(fin);
+    renderAll();
+    showToast(fixes.length + ' kayıt düzeltildi');
+  });
+}
 function refreshUndoLink() {
   var w = document.getElementById('hist-undo-wrap');
   if (!w) return;
@@ -5306,16 +5355,20 @@ function stmtFindColumns(rows) {
 
 function stmtIsOwnTransfer(asc) {
   // FAST açıklaması: "...-<alıcı adı>/<gönderen adı>FAST işlemi". Alıcı = gönderen ise kendi hesabıma gönderilmiştir.
-  var m = asc.match(/-([a-z][a-z ]{2,38}[a-z])\/([a-z][a-z ]{2,38}?)\s*fast ?islem/);
+  // OCR'da Ş → "$", "/" → "," olabilir ve bir-iki harf kayabilir: bu yüzden bulanık karşılaştırılır.
+  var t = asc.replace(/\$/g, 's').replace(/[,;|]/g, '/');
+  var m = t.match(/-\s*([a-z][a-z ]{2,38}[a-z])\s*\/\s*([a-z][a-z ]{2,38}?)\s*fast ?islem/);
   if (!m) return false;
   var a = m[1].replace(/ /g, ''), b = m[2].replace(/ /g, '');
-  return a.length >= 6 && b.length >= 6 && (a === b || a.indexOf(b) === 0 || b.indexOf(a) === 0);
+  if (a.length < 6 || b.length < 6) return false;
+  if (a === b || a.indexOf(b) === 0 || b.indexOf(a) === 0) return true;
+  return Math.abs(a.length - b.length) <= 2 && stmtLev(a, b) <= Math.max(1, Math.floor(Math.min(a.length, b.length) * 0.12));
 }
 
 function stmtGuessCategory(title, isIncome) {
   var low = String(title || '').toLocaleLowerCase('tr');
-  var asc = low.replace(/ı/g, 'i').replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ö/g, 'o').replace(/ü/g, 'u');
-  if (/virman/.test(asc) || stmtIsOwnTransfer(asc)) return FIN_TRANSFER_CAT; // kendi hesaplarım arası: gelir/gider değil
+  var asc = low.replace(/ı/g, 'i').replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/\$/g, 's');
+  if (/virman|devir|kapanan hesap|acilan hesap/.test(asc) || stmtIsOwnTransfer(asc)) return FIN_TRANSFER_CAT; // kendi hesaplarım arası: gelir/gider değil
   if (isIncome) {
     // Özelden genele: "Maaş Farkı", "Maaş"tan önce kontrol edilmeli
     var INCOME_RULES = [
@@ -5324,7 +5377,7 @@ function stmtGuessCategory(title, isIncome) {
       ['Nöbet Ücreti', /nobet ucret/],
       ['Ek Ödeme', /ek odeme|tesvik|doner sermaye/],
       ['İade', /iade|iptal/],
-      ['Nakit Yatırma', /atm p\.?y|nakit yat/],
+      ['Nakit Yatırma', /atm p\.?y|nakit yat|para yatir/],
       ['Ek Gelir', /prim\b/],
       ['Gelen Havale/FAST', /havale|fast ?islem|\bfast\b|\bgond\b|eft\b/]
     ];
@@ -5342,7 +5395,7 @@ function stmtGuessCategory(title, isIncome) {
     ['Banka Masrafı/Faiz', /kmh|islem toplam masraf|komisyon|hesap isletim|faiz/],
     ['Kredi Kartı Ödemesi', /kk tahsilat|kart borc/],
     ['Yemek', /trendyol yemek|trendyolgo|ubertrendyol|uber ?eats|yemeksepeti|getir ?yemek|restoran|restauran|lokanta|kebap|kofte|doner|pide|pastane|kunefe|kadayif|corba|tavuk|balik evi|midye|burger|mcdonald|kafe|cafe|kahve|dondurma|kantin|otomat/],
-    ['Market', /sembol senter|migros|a101|\bbim\b|\bsok\b|sok-|market|tugmar|gross|carrefour|gida|bakkal|manav|kasap|ekmek|kuruyemis|kuryemis|icecek/],
+    ['Market', /sembo+l|mjet|halkmar|dagcioglu|kaplanlar|migros|a101|\bbim\b|\bsok\b|sok-|market|tugmar|gross|carrefour|gida|bakkal|manav|kasap|ekmek|kuruyemis|kuryemis|icecek/],
     ['Akaryakıt', /akaryakit|petrol|shell|opet|\bbp\b|seva|canpet|aytemiz|kadoil|lukoil/],
     ['Telefon', /vodafone|turkcell|turk telekom|telefon/],
     ['Su', /gaski|su idaresi|\bsu\b/],
@@ -5844,7 +5897,7 @@ function renderInsights() {
   document.getElementById('fin-insights').innerHTML = tiles.map(function (t) { return '<div class="fin-tile"><span>' + t[0] + '</span><b>' + t[1] + '</b><i>' + t[2] + '</i></div>'; }).join('');
 }
 
-function renderUpcoming() {
+function renderFinUpcoming() {
   var items = [], curM = todayISO().slice(0, 7), nextM = (function () { var d = parseISO(curM + '-01'); d.setMonth(d.getMonth() + 1); return d.getFullYear() + '-' + pad2(d.getMonth() + 1); })();
   getRecurring().forEach(function (r) { items.push({ d: nextDayOfMonth(Number(r.dayOfMonth) || 1, true), t: r.title, amt: Number(r.amount), inc: r.type === 'income', ic: r.type === 'income' ? 'arrowUp' : 'arrowDown', sub: 'Sabit ' + (r.type === 'income' ? 'gelir' : 'gider') }); });
   getInstallments().forEach(function (it) {
@@ -7000,7 +7053,7 @@ function renderAll() {
   renderInsights();
   renderAccounts();
   renderTransfers();
-  renderUpcoming();
+  renderFinUpcoming();
   renderTrendChart();
   renderCategoryChart();
   renderBudgets();
@@ -7046,6 +7099,7 @@ function initFinance() {
   hq.oninput = function () { historyFilter.q = hq.value.trim(); historyLimit = 40; renderHistory(); };
   document.getElementById('hist-export').onclick = exportCSV;
   document.getElementById('hist-import').onclick = pickStatementFile;
+  document.getElementById('hist-fix').onclick = auditImportedRecords;
   refreshUndoLink();
   document.getElementById('fin-goal-add-btn').onclick = function () { openSavingsSheet(null); };
   renderAll();
