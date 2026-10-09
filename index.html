@@ -666,6 +666,62 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .fin-step b{font-size:.9rem}
 .fin-step i{font-style:normal;font-size:.76rem;color:var(--ink-soft)}
 #fin-recent{margin-bottom:1.2rem}
+
+/* ---- Bütçe: esnek plan + tahmin ---- */
+.plan-hero{background:var(--accent);color:var(--accent-ink);border-radius:var(--radius-l);padding:1.1rem;margin-bottom:.8rem}
+.plan-hero.over{background:var(--danger)}
+.plan-hero .lbl{display:flex;align-items:center;justify-content:space-between;font-size:.82rem;opacity:.92}
+.plan-hero .big{font-family:var(--font-mono);font-size:2rem;font-weight:700;letter-spacing:-.02em;margin:.25rem 0 .55rem;font-variant-numeric:tabular-nums}
+.plan-hero .big small{font-size:.85rem;font-weight:500;opacity:.85;letter-spacing:0;font-family:inherit}
+.plan-hero .sub{font-size:.8rem;opacity:.92;margin-top:.5rem}
+.plan-hero .pace{font-size:.8rem;margin-top:.55rem;background:rgba(255,255,255,.16);border-radius:var(--radius-m);padding:.5rem .65rem;line-height:1.4}
+.plan-set{background:rgba(255,255,255,.2);border:0;color:inherit;border-radius:99px;padding:.25rem .7rem;font:inherit;font-size:.76rem;font-weight:600;cursor:pointer}
+.plan-bar{position:relative;height:.55rem;border-radius:99px;background:rgba(255,255,255,.28);overflow:visible}
+.plan-bar i{display:block;height:100%;border-radius:99px;background:currentColor;max-width:100%}
+.plan-bar u{position:absolute;top:-.2rem;bottom:-.2rem;width:2px;background:currentColor;opacity:.75;text-decoration:none;border-radius:1px}
+.plan-bar.sm{height:.4rem;background:var(--rule);color:var(--accent);margin:.35rem 0 .25rem}
+.plan-bar.sm.over{color:var(--danger)}
+.plan-bar.sm u{background:var(--ink);opacity:.55}
+.plan-sum{padding:.3rem .9rem;margin-bottom:.9rem}
+.plan-sum>div{display:flex;justify-content:space-between;align-items:baseline;padding:.55rem 0;border-bottom:1px solid var(--rule);font-size:.9rem}
+.plan-sum>div:last-child{border-bottom:0;font-weight:700;font-size:.95rem}
+.plan-sum .mono{font-weight:600}
+.plan-sum .pos{color:var(--success)}
+.plan-sum .neg{color:var(--danger)}
+.plan-sum small{display:block;font-size:.72rem;color:var(--ink-soft);font-weight:400}
+.plan-h{display:flex;justify-content:space-between;align-items:baseline;margin:1.1rem 0 .4rem}
+.plan-h h3{margin:0;font-size:1rem}
+.plan-h span{font-size:.76rem;color:var(--ink-soft)}
+.plan-row{display:flex;align-items:center;gap:.7rem;padding:.6rem 0;border-bottom:1px solid var(--rule)}
+.plan-row:last-child{border-bottom:0}
+.plan-row .st{flex:none;width:1.7rem;height:1.7rem;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)}
+.plan-row .st svg{width:.95rem;height:.95rem}
+.plan-row.paid .st{background:var(--success);color:#fff}
+.plan-row .nm{flex:1;min-width:0;display:flex;flex-direction:column}
+.plan-row .nm b{font-size:.9rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plan-row .nm i{font-style:normal;font-size:.72rem;color:var(--ink-soft)}
+.plan-row .am{font-size:.88rem;font-weight:600;white-space:nowrap;text-align:right}
+.plan-row .am i{display:block;font-style:normal;font-size:.68rem;color:var(--ink-soft);font-weight:400;font-family:inherit}
+.plan-cat{padding:.6rem 0;border-bottom:1px solid var(--rule)}
+.plan-cat:last-child{border-bottom:0}
+.plan-cat .top{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem}
+.plan-cat .top b{font-size:.9rem;font-weight:600}
+.plan-cat .meta{display:flex;justify-content:space-between;align-items:center;gap:.5rem;font-size:.72rem;color:var(--ink-soft)}
+.plan-grp{background:var(--accent-soft);color:var(--accent);border:0;border-radius:99px;padding:.15rem .6rem;font:inherit;font-size:.7rem;font-weight:700;cursor:pointer}
+.plan-grp.fixed{background:rgba(120,120,140,.16);color:var(--ink)}
+.plan-grp.irreg{background:rgba(220,150,40,.18);color:var(--ink)}
+.fc-sum{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.9rem}
+.fc-row{display:grid;grid-template-columns:3.2rem 1fr auto;gap:.6rem;align-items:center;padding:.5rem 0;border-bottom:1px solid var(--rule);font-size:.82rem}
+.fc-row:last-child{border-bottom:0}
+.fc-row .mo{font-weight:600}
+.fc-row .bars{position:relative;height:1.1rem;display:flex;align-items:center}
+.fc-row .bars i{display:block;height:.7rem;border-radius:4px;background:var(--success);opacity:.85}
+.fc-row .bars i.neg{background:var(--danger)}
+.fc-row .bars span{position:absolute;right:0;font-size:.7rem;color:var(--ink-soft);font-family:var(--font-mono)}
+.fc-row .cum{text-align:right;font-weight:600;white-space:nowrap}
+.fc-row .cum.neg{color:var(--danger)}
+.fc-row .cum small{display:block;font-size:.66rem;font-weight:400;color:var(--ink-soft);font-family:inherit}
+.fc-note{font-size:.76rem;color:var(--ink-soft);margin:.6rem 0 0;line-height:1.45}
 </style>
 <script>
   (function () {
@@ -927,12 +983,19 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
   <section class="fin-sub" data-sub="budgets" hidden>
     <header class="fin-subhead">
       <button type="button" class="fin-back" data-fin-go="home" aria-label="Finans ana sayfasına dön"></button>
-      <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>Bütçeler</h1></div>
-      <div class="fin-subact"><button type="button" class="fin-pill" id="fin-budget-btn">Düzenle</button></div>
+      <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>Bütçe</h1></div>
+      <div class="fin-subact"><button type="button" class="fin-pill ghost" id="fin-budget-btn">Limitler</button><button type="button" class="fin-pill" id="plan-edit-btn">Planı ayarla</button></div>
     </header>
-    <p class="fin-lead">Kategori başına aylık limit belirle; ne kadar harcayabileceğini gör.</p>
+    <p class="fin-lead">Gelirini, sabit ödemelerini ve esnek harcama bütçeni tek ekranda gör; gelecek 12 ayı tahmin et.</p>
     <div data-monthslot></div>
-    <div id="fin-budgets"></div>
+    <div class="segmented" id="plan-tabs" style="margin-bottom:.9rem">
+      <button data-v="plan" class="active">Plan</button>
+      <button data-v="limits">Limitler</button>
+      <button data-v="forecast">Tahmin</button>
+    </div>
+    <div id="plan-view"></div>
+    <div id="plan-limits" hidden><div id="fin-budgets"></div></div>
+    <div id="plan-forecast" hidden></div>
   </section>
   <section class="fin-sub" data-sub="reports" hidden>
     <header class="fin-subhead">
@@ -1108,6 +1171,7 @@ var STORAGE_KEYS = {
   notifiedBudgetOverruns: 'gunlukAjandam_notifiedBudgetOverruns',
   budget: 'gunlukAjandam_budget',
   recurringFinance: 'gunlukAjandam_recurringFinance',
+  finPlan: 'gunlukAjandam_finPlan',
   transfers: 'gunlukAjandam_transfers',
   savingsGoals: 'gunlukAjandam_savingsGoals',
   lastImport: 'gunlukAjandam_lastImport',
@@ -1118,7 +1182,7 @@ var STORAGE_KEYS = {
   dashboardCards: 'gunlukAjandam_dashboardCards'
 };
 
-var USER_SCOPED_KEYS = ['user', 'xp', 'tasks', 'routines', 'events', 'goals', 'vocab', 'reading', 'prayers', 'finance', 'accounts', 'installments', 'notifiedBudgetOverruns', 'budget', 'recurringFinance', 'notes', 'transfers', 'savingsGoals', 'lastImport'];
+var USER_SCOPED_KEYS = ['user', 'xp', 'tasks', 'routines', 'events', 'goals', 'vocab', 'reading', 'prayers', 'finance', 'accounts', 'installments', 'notifiedBudgetOverruns', 'budget', 'recurringFinance', 'finPlan', 'notes', 'transfers', 'savingsGoals', 'lastImport'];
 
 var ACTIVE_USER_ID_KEY = 'gunlukAjandam_activeUserId';
 var DEFAULT_USER_ID = 'default';
@@ -7362,6 +7426,7 @@ function finShow(sub) {
   var mb = document.getElementById('fin-monthbar'), cur = root.querySelector('.fin-sub[data-sub="' + sub + '"]'), slot = cur && cur.querySelector('[data-monthslot]');
   if (mb) { if (slot) { slot.appendChild(mb); mb.hidden = false; } else mb.hidden = true; }
   if (sub === 'reports') { renderTrendChart(); renderFinReports(); }
+  if (sub === 'budgets') planSetTab(planTab);
   window.scrollTo(0, 0);
 }
 /* Kullanıcı gezintisi: telefonun geri hareketi/tuşu alt sayfadan Finans ana sayfasına döner (uygulamadan çıkmaz).
@@ -7400,6 +7465,9 @@ function finAttention() {
     var d0 = daysFromToday(near[0].d), tot = near.reduce(function (a, x) { return a + (Number(x.amt) || 0); }, 0);
     rows.push({ tone: d0 <= 1 ? 'warn' : 'info', ic: 'clock', go: 'upcoming', t: near.length === 1 ? esc(near[0].t) + ' \u00b7 ' + inDaysLabel(d0).toLowerCase() : near.length + ' ödeme 3 gün içinde', s: finMoney(tot) + (near.length > 1 ? ' toplam \u00b7 ilki ' + inDaysLabel(d0).toLowerCase() : '') });
   }
+  var PSa = planStats(todayISO().slice(0, 7)), ppa = planPace(PSa);
+  if (PSa.flexBudget > 0 && ppa.day >= 5 && ppa.proj > PSa.flexBudget * 1.05 && PSa.flexSpent < PSa.flexBudget * 1.3)
+    rows.push({ tone: ppa.proj > PSa.flexBudget * 1.15 ? 'warn' : 'info', ic: 'chart', go: 'budgets', t: 'Esnek harcama hızın bütçenin önünde', s: 'Bu hızla ay sonu \u2248 ' + finMoney(ppa.proj) + ' (bütçe ' + finMoney(PSa.flexBudget) + ')' });
   var ba = finBudgetAlerts();
   if (ba.length) {
     var w = ba[0];
@@ -7473,6 +7541,7 @@ function finInitNav() {
   }
   var tb = document.getElementById('fin-transfer-btn'); if (tb) tb.onclick = function () { openTransferSheet(); };
   finInitReports();
+  finInitPlan();
   var si = document.getElementById('fin-search');
   if (si) {
     var sic = document.getElementById('fin-search-ic'); if (sic) sic.innerHTML = icon('search');
@@ -7526,7 +7595,11 @@ function renderFinHub() {
   var cards = [
     { sub: 'history', ic: 'page', hue: 215, wide: true, t: 'İşlemler', v: monthCount + ' işlem', s: last ? esc(String(last.title || '').slice(0, 44)) : 'Henüz kayıt yok · içe aktar veya ekle' },
     { sub: 'accounts', ic: 'wallet', hue: 165, t: 'Hesaplar', v: finMoney(assets), s: accs.length + ' hesap' + (debt ? ' · kart borcu ' + finMoney(debt) : '') },
-    { sub: 'budgets', ic: 'target', hue: 28, t: 'Bütçeler', v: cats.length ? '%' + Math.round(bp) : '\u2014', s: !cats.length ? 'Limit belirle' : (over ? over + ' kategori aşıldı' : finMoney(Math.max(0, L - S)) + ' kaldı'), bar: cats.length ? Math.min(100, bp) : null, over: bp > 100 },
+    (function () {
+      var PS = planStats(todayISO().slice(0, 7)), pp = planPace(PS);
+      if (PS.flexBudget > 0) { var r = PS.flexBudget - PS.flexSpent; return { sub: 'budgets', ic: 'target', hue: 28, t: 'Bütçe & plan', v: finMoney(Math.abs(r)), s: r < 0 ? 'esnek bütçe aşıldı' : 'esnek kaldı \u00b7 günlük \u2248 ' + finMoney(r / pp.left), bar: Math.min(100, PS.flexSpent / PS.flexBudget * 100), over: r < 0 }; }
+      return { sub: 'budgets', ic: 'target', hue: 28, t: 'Bütçe & plan', v: cats.length ? '%' + Math.round(bp) : '\u2014', s: !cats.length ? 'Plan ve limit belirle' : (over ? over + ' kategori aşıldı' : finMoney(Math.max(0, L - S)) + ' kaldı'), bar: cats.length ? Math.min(100, bp) : null, over: bp > 100 };
+    })(),
     { sub: 'upcoming', ic: 'clock', hue: 340, t: 'Yaklaşan ödemeler', v: up.length + ' ödeme', s: nx ? esc(String(nx.t || '').slice(0, 22)) + ' · ' + inDaysLabel(daysFromToday(nx.d)).toLowerCase() : 'Önümüzdeki 30 gün boş' },
     { sub: 'installments', ic: 'card', hue: 265, t: 'Taksitler', v: act.length + ' aktif', s: act.length ? finMoney(instLeft) + ' kalan' : 'Taksit yok' },
     { sub: 'reports', ic: 'chart', hue: 190, wide: true, t: 'Raporlar', v: finMoney(mt.net), s: 'Net trend ve kategori dağılımı · bu ay gelir ' + finMoney(mt.income) },
@@ -7814,6 +7887,223 @@ function finInitReports() {
   });
 }
 
+/* ---- Esnek bütçe planı (Monarch tarzı) -----------------------------------------------------
+   Harcamalar 3 gruba ayrılır: SABİT (kira, fatura, düzenli ödemeler), ESNEK (market, yemek, ulaşım...),
+   DÜZENSİZ (havale, tatil, tadilat...). Esnek bütçe tek bir üst tutardır; önerisi son 6 ayın ortalamasından
+   gelir. Plan = gelir - sabit - taksit - düzensiz - esnek. Tahmin: 12 ay, şablonlardan + esnek bütçeden. */
+var FIN_FIXED_CATS = ['Kira', 'Kira Aidatı', 'Elektrik', 'Su', 'Doğalgaz', 'İnternet', 'Telefon', 'Fatura', 'Sigorta', 'Kredi Kartı Ödemesi', 'Kredi Taksiti', 'Abonelikler', 'Banka Masrafı/Faiz', 'Eğitim', 'Spor Salonu'];
+var FIN_IRREG_CATS = ['Havale/FAST Gönderim', 'Tatil/Seyahat', 'Yapı/Tadilat', 'Hediye', 'Elektronik', 'Ev Eşyası'];
+var planTab = 'plan';
+function getPlan() { var p = get('finPlan', null); if (!p || typeof p !== 'object') p = {}; if (!p.groups) p.groups = {}; return p; }
+function savePlan(p) { set('finPlan', p); }
+function planGroup(cat, plan) {
+  var g = plan.groups[cat];
+  if (g) return g;
+  if (FIN_FIXED_CATS.indexOf(cat) !== -1) return 'fixed';
+  if (FIN_IRREG_CATS.indexOf(cat) !== -1) return 'irreg';
+  return 'flex';
+}
+function planTemplateIndex() {
+  var m = {};
+  getRecurring().forEach(function (t) {
+    if (t.type === 'income') return;
+    var pl = t.src ? String(t.src).split('|')[1] : String(t.title || '').toLocaleLowerCase('tr');
+    if (pl) m[pl] = t;
+  });
+  return m;
+}
+function planRecTmpl(p, idx) {
+  if (idx[p]) return idx[p];
+  if (p.length > 3) for (var k in idx) if (k.length > 3 && (p.indexOf(k) !== -1 || k.indexOf(p) !== -1)) return idx[k];
+  return null;
+}
+function planIncomeOf(mk) { return getFinance().filter(function (f) { return f.type === 'income' && f.date && f.date.slice(0, 7) === mk && !isInternalTransfer(f); }).reduce(function (a, f) { return a + Number(f.amount); }, 0); }
+function planStats(mk) {
+  var plan = getPlan(), fin = getFinance(), idx = planTemplateIndex(), first = null, i;
+  fin.forEach(function (f) { if (f.date && (!first || f.date < first)) first = f.date; });
+  var months = [];
+  if (first) for (i = 1; i <= 6; i++) {
+    var m = finShiftM(mk, -i), fm = first.slice(0, 7);
+    if (m > fm || (m === fm && Number(first.slice(8, 10)) <= 7)) months.push(m);
+  }
+  var n = months.length, ents = {}, irregMonth = {}, pay = {};
+  fin.forEach(function (f) {
+    if (!f.date || f.type !== 'expense' || !isSpend(f)) return;
+    var mm = f.date.slice(0, 7), inWin = months.indexOf(mm) !== -1;
+    if (!inWin && mm !== mk) return;
+    var c = f.category || 'Diğer', p = pay[f.title] || (pay[f.title] = finPayee(f.title).toLocaleLowerCase('tr')), t = planRecTmpl(p, idx), g = t ? 'fixed' : planGroup(c, plan), key = c + '|' + g + (t ? '|T' : '');
+    var e = ents[key] || (ents[key] = { c: c, g: g, tm: !!t, sums: {}, cur: 0 }), a = Number(f.amount) || 0;
+    if (inWin) { e.sums[mm] = (e.sums[mm] || 0) + a; if (g === 'irreg') irregMonth[mm] = (irregMonth[mm] || 0) + a; }
+    if (mm === mk) e.cur += a;
+  });
+  var list = Object.keys(ents).map(function (k) { var e = ents[k], sm = 0; months.forEach(function (x) { sm += e.sums[x] || 0; }); e.avg = n ? sm / n : 0; return e; });
+  var flexE = list.filter(function (e) { return e.g === 'flex'; }).sort(function (a, b) { return (b.cur - a.cur) || (b.avg - a.avg); });
+  var fixE = list.filter(function (e) { return e.g === 'fixed' && !e.tm; }).sort(function (a, b) { return (b.cur - a.cur) || (b.avg - a.avg); });
+  var irrE = list.filter(function (e) { return e.g === 'irreg'; }).sort(function (a, b) { return (b.cur - a.cur) || (b.avg - a.avg); });
+  var sum = function (arr, k) { return arr.reduce(function (s2, e) { return s2 + e[k]; }, 0); };
+  var flexAvg = sum(flexE, 'avg'), flexSpent = sum(flexE, 'cur'), fixedExtra = sum(fixE, 'avg');
+  var irregMed = finMedian(months.map(function (x) { return irregMonth[x] || 0; }));
+  var rc = getRecurring(), tmplFixed = 0, tmplIncome = 0;
+  rc.forEach(function (t) { if (t.type === 'income') tmplIncome += Number(t.amount) || 0; else tmplFixed += Number(t.amount) || 0; });
+  var act = getInstallments().filter(function (x) { return installmentRemaining(x) > 0; }), inst = act.reduce(function (s2, x) { return s2 + (Number(x.monthlyAmount) || 0); }, 0);
+  var autoInc = 0;
+  if (tmplIncome > 0) autoInc = tmplIncome;
+  else { var im = [finShiftM(mk, -1), finShiftM(mk, -2), finShiftM(mk, -3)].filter(function (x) { return first && x >= first.slice(0, 7); }); autoInc = im.length ? im.reduce(function (s2, x) { return s2 + planIncomeOf(x); }, 0) / im.length : 0; }
+  var suggestion = Math.round(flexAvg / 100) * 100, flexBudget = plan.flex != null && plan.flex !== '' ? Number(plan.flex) : suggestion;
+  var income = plan.income != null && plan.income !== '' ? Number(plan.income) : autoInc, fixedTotal = tmplFixed + fixedExtra;
+  return { plan: plan, mk: mk, months: months, n: n, flexE: flexE, fixE: fixE, irrE: irrE, flexAvg: flexAvg, flexSpent: flexSpent, fixedExtra: fixedExtra, irregMed: irregMed, tmplFixed: tmplFixed, tmplIncome: tmplIncome,
+    inst: inst, act: act, autoInc: autoInc, suggestion: suggestion, flexBudget: flexBudget, income: income, fixedTotal: fixedTotal, left: income - fixedTotal - inst - irregMed - flexBudget, idx: idx, rc: rc };
+}
+function planPaid(t, mk, idx) {
+  var pl = t.src ? String(t.src).split('|')[1] : String(t.title || '').toLocaleLowerCase('tr');
+  return getFinance().some(function (f) {
+    if (f.type !== t.type || !f.date || f.date.slice(0, 7) !== mk) return false;
+    if (f.recurringId && f.recurringId === t.id) return true;
+    var p = finPayee(f.title).toLocaleLowerCase('tr');
+    return p === pl || (pl.length > 3 && p.length > 3 && (p.indexOf(pl) !== -1 || pl.indexOf(p) !== -1));
+  });
+}
+function planPace(S) {
+  var mk = S.mk, cur = mk === todayISO().slice(0, 7), nd = daysInMonth(mk + '-01'), day = cur ? Number(todayISO().slice(8, 10)) : nd;
+  var expected = S.flexBudget * day / nd, proj = day ? S.flexSpent / day * nd : S.flexSpent;
+  return { cur: cur, nd: nd, day: day, expected: expected, proj: proj, left: nd - day + 1 };
+}
+function renderPlan() {
+  var el = document.getElementById('plan-view');
+  if (!el) return;
+  var mk = finSelectedMonth, S = planStats(mk), pc = planPace(S), mo = MONTHS_TR[parseISO(mk + '-01').getMonth()];
+  if (!S.flexBudget && !S.n && !S.tmplFixed && !S.income) {
+    el.innerHTML = '<div class="empty"><p>Plan için biraz veri gerekli. Banka ekstreni içe aktar ya da birkaç işlem ekle; önerileri son aylarına göre hazırlarım.</p></div>';
+    return;
+  }
+  var rem = S.flexBudget - S.flexSpent, over = rem < 0, pct = S.flexBudget ? Math.min(100, S.flexSpent / S.flexBudget * 100) : 0, mark = pc.cur ? Math.min(100, pc.day / pc.nd * 100) : null;
+  var pace = '';
+  if (pc.cur && S.flexBudget) {
+    var diff = S.flexBudget * pc.day / pc.nd - S.flexSpent;
+    pace = over ? 'Esnek bütçeyi ' + finMoney(-rem) + ' aştın.' :
+      'Günlük \u2248 ' + finMoney(rem / pc.left) + ' harcayabilirsin (' + pc.left + ' gün). ' + (diff >= 0 ? 'Beklenenin ' + finMoney(diff) + ' altındasın \u2713' : 'Beklenenin ' + finMoney(-diff) + ' üstündesin, hızı kes.');
+  }
+  var h = '<div class="plan-hero' + (over ? ' over' : '') + '"><div class="lbl"><span>Esnek harcama \u00b7 ' + mo + '</span><button type="button" class="plan-set" data-plan-edit>Ayarla</button></div>' +
+    '<div class="big">' + finMoney(Math.abs(rem)) + ' <small>' + (over ? 'aşıldı' : 'kaldı') + '</small></div>' +
+    '<div class="plan-bar"><i style="width:' + Math.max(1, pct) + '%"></i>' + (mark != null ? '<u style="left:' + mark + '%" title="bugün olması gereken"></u>' : '') + '</div>' +
+    '<div class="sub">Harcanan ' + finMoney(S.flexSpent) + ' / ' + finMoney(S.flexBudget) + (S.plan.flex == null ? ' \u00b7 son ' + S.n + ' ay ortalamasına göre önerildi' : '') + '</div>' + (pace ? '<div class="pace">' + pace + '</div>' : '') + '</div>';
+  var sumRows = [['Beklenen gelir', '+' + finMoney(S.income), 'pos', S.plan.income == null ? (S.tmplIncome > 0 ? 'sabit gelir kalemlerinden' : 'son 3 ay ortalaması') : 'elle girdin']];
+  sumRows.push(['Sabit ödemeler', '\u2212' + finMoney(S.fixedTotal), '', S.rc.filter(function (t) { return t.type !== 'income'; }).length + ' kalem' + (S.fixedExtra ? ' + kategori ort.' : '')]);
+  if (S.inst) sumRows.push(['Taksitler', '\u2212' + finMoney(S.inst), '', S.act.length + ' aktif']);
+  if (S.irregMed) sumRows.push(['Düzensiz (tipik)', '\u2212' + finMoney(S.irregMed), '', 'havale, tatil, tadilat \u2026']);
+  sumRows.push(['Esnek bütçe', '\u2212' + finMoney(S.flexBudget), '', '']);
+  h += '<div class="card plan-sum">' + sumRows.map(function (r) { return '<div><span>' + r[0] + (r[3] ? '<small>' + r[3] + '</small>' : '') + '</span><span class="mono ' + r[2] + '">' + r[1] + '</span></div>'; }).join('') +
+    '<div><span>Plan sonrası kalan</span><span class="mono ' + (S.left >= 0 ? 'pos' : 'neg') + '">' + (S.left >= 0 ? '+' : '\u2212') + finMoney(Math.abs(S.left)) + '</span></div></div>';
+  // sabit ödemeler
+  var fx = S.rc.filter(function (t) { return t.type !== 'income'; }).slice().sort(function (a, b) { return (Number(a.dayOfMonth) || 0) - (Number(b.dayOfMonth) || 0); });
+  if (fx.length) {
+    var paidN = 0, today = todayISO(), curM = today.slice(0, 7);
+    var rows = fx.map(function (t) {
+      var paid = planPaid(t, mk, S.idx); if (paid) paidN++;
+      var dd = mk === curM ? (Number(t.dayOfMonth) || 1) - Number(today.slice(8, 10)) : null, tag = paid ? 'Ödendi' : (dd == null ? 'bekliyor' : dd < 0 ? 'bekliyor' : dd === 0 ? 'bugün' : dd + ' gün');
+      return '<div class="plan-row' + (paid ? ' paid' : '') + '"><span class="st">' + icon(paid ? 'check' : 'clock') + '</span><span class="nm"><b>' + esc(t.title) + '</b><i>her ayın ' + t.dayOfMonth + '. günü</i></span><span class="am mono">' + (t.variable ? '\u2248' : '') + finMoney(t.amount) + '<i>' + tag + '</i></span></div>';
+    }).join('');
+    h += '<div class="plan-h"><h3>Sabit ödemeler</h3><span>' + paidN + '/' + fx.length + ' ödendi</span></div><div class="card" style="padding:.2rem .9rem">' + rows + '</div>';
+  }
+  function catSection(title, sub, arr, grpLabel) {
+    if (!arr.length) return '';
+    var max = Math.max.apply(null, arr.map(function (e) { return Math.max(e.cur, e.avg); })) * 1.1 || 1;
+    return '<div class="plan-h"><h3>' + title + '</h3><span>' + sub + '</span></div><div class="card" style="padding:.2rem .9rem">' + arr.map(function (e) {
+      var d = e.avg ? Math.round((e.cur - e.avg) / e.avg * 100) : null, ov = e.avg && e.cur > e.avg * 1.05;
+      return '<div class="plan-cat"><div class="top"><b>' + esc(e.c) + '</b><span class="mono">' + finMoney(e.cur) + '</span></div><div class="plan-bar sm' + (ov ? ' over' : '') + '"><i style="width:' + Math.max(1, e.cur / max * 100) + '%"></i><u style="left:' + (e.avg / max * 100) + '%"></u></div>' +
+        '<div class="meta"><span>ort. ' + finMoney(e.avg) + (d != null ? ' \u00b7 ' + (d >= 0 ? '\u25b2 %' : '\u25bc %') + Math.abs(d) : '') + '</span><button type="button" class="plan-grp ' + e.g + '" data-plan-grp="' + esc(e.c) + '">' + grpLabel + ' \u21bb</button></div></div>';
+    }).join('') + '</div>';
+  }
+  h += catSection('Esnek kategoriler', 'çizgi = son ' + S.n + ' ay ort.', S.flexE, 'Esnek');
+  h += catSection('Sabit kategoriler', 'şablonu olmayanlar', S.fixE, 'Sabit');
+  h += catSection('Düzensiz harcamalar', 'plana ortalama olarak girer', S.irrE, 'Düzensiz');
+  h += '<p class="fc-note">Grup etiketine dokunarak bir kategoriyi Esnek \u2192 Sabit \u2192 Düzensiz arasında taşıyabilirsin; öneriler buna göre yeniden hesaplanır.</p>';
+  el.innerHTML = h;
+}
+function planForecast() {
+  var cm = todayISO().slice(0, 7), S = planStats(cm), pc = planPace(S), nd = pc.nd, frac = (nd - pc.day) / nd, bal = currentBalance(), out = [], today = Number(todayISO().slice(8, 10)), cum = bal, lowest = null;
+  for (var k = 0; k < 12; k++) {
+    var m = finShiftM(cm, k), income, fixed, inst, flex, irreg;
+    if (k === 0) {
+      var recvd = planIncomeOf(cm);
+      income = S.tmplIncome > 0 ? S.rc.filter(function (t) { return t.type === 'income' && !planPaid(t, cm, S.idx) && (Number(t.dayOfMonth) || 1) >= today; }).reduce(function (a, t) { return a + (Number(t.amount) || 0); }, 0) : Math.max(0, S.income - recvd);
+      fixed = S.rc.filter(function (t) { return t.type !== 'income' && !planPaid(t, cm, S.idx); }).reduce(function (a, t) { return a + (Number(t.amount) || 0); }, 0) + S.fixedExtra * frac;
+      inst = S.inst * frac; flex = Math.max(0, S.flexBudget - S.flexSpent); irreg = S.irregMed * frac;
+    } else {
+      income = S.income; fixed = S.fixedTotal;
+      inst = S.act.filter(function (x) { return installmentRemaining(x) > k; }).reduce(function (a, x) { return a + (Number(x.monthlyAmount) || 0); }, 0);
+      flex = S.flexBudget; irreg = S.irregMed;
+    }
+    var net = income - fixed - inst - flex - irreg; cum += net;
+    var row = { m: m, k: k, income: income, out: fixed + inst + flex + irreg, net: net, cum: cum };
+    out.push(row);
+    if (!lowest || cum < lowest.cum) lowest = row;
+  }
+  return { rows: out, start: bal, S: S, lowest: lowest };
+}
+function renderPlanForecast() {
+  var el = document.getElementById('plan-forecast');
+  if (!el) return;
+  var F = planForecast(), S = F.S;
+  if (!S.income && !S.fixedTotal && !S.flexBudget) { el.innerHTML = '<div class="empty"><p>Tahmin için gelir ve harcama verisi gerekli.</p></div>'; return; }
+  var max = Math.max.apply(null, F.rows.map(function (r) { return Math.abs(r.net); })) || 1, last = F.rows[F.rows.length - 1], low = F.lowest;
+  var h = '<div class="fc-sum"><div class="fin-tile"><span>12 ay sonunda</span><b>' + finMoney(last.cum) + '</b><i>' + (last.cum >= F.start ? '\u25b2 ' : '\u25bc ') + finMoney(Math.abs(last.cum - F.start)) + ' değişim</i></div>' +
+    '<div class="fin-tile"><span>En düşük nokta</span><b' + (low.cum < 0 ? ' style="color:var(--danger)"' : '') + '>' + finMoney(low.cum) + '</b><i>' + MONTHS_TR[parseISO(low.m + '-01').getMonth()] + (low.m.slice(0, 4) !== todayISO().slice(0, 4) ? ' ' + low.m.slice(0, 4) : '') + (low.cum < 0 ? ' \u00b7 açık riski' : '') + '</i></div></div>';
+  h += '<div class="card" style="padding:.2rem .9rem">' + F.rows.map(function (r) {
+    var d = parseISO(r.m + '-01'), lab = (r.k === 0 ? 'Kalan' : MONTHS_TR[d.getMonth()].slice(0, 3)) + (d.getMonth() === 0 && r.k ? ' ' + String(d.getFullYear()).slice(2) : '');
+    return '<div class="fc-row"><span class="mo">' + lab + '</span><span class="bars"><i class="' + (r.net < 0 ? 'neg' : '') + '" style="width:' + Math.max(2, Math.abs(r.net) / max * 70) + '%"></i><span>' + (r.net >= 0 ? '+' : '\u2212') + formatMoneyCompact(Math.abs(r.net)) + '</span></span>' +
+      '<span class="cum' + (r.cum < 0 ? ' neg' : '') + '">' + finMoney(r.cum) + '</span></div>';
+  }).join('') + '</div>';
+  h += '<p class="fc-note">Başlangıç bakiyesi ' + finMoney(F.start) + '. Gelir ve sabit ödemeler kayıtlı şablonlardan, esnek harcama bütçenden (' + finMoney(S.flexBudget) + '), düzensiz kalemler son ' + S.n + ' ayın tipik değerinden alınır. İlk satır bu ayın kalanıdır. Bu bir tahmindir; fatura tutarları değişebilir.</p>';
+  el.innerHTML = h;
+}
+function openPlanSheet() {
+  var S = planStats(finSelectedMonth), p = S.plan;
+  openSheet({
+    title: 'Planı ayarla',
+    bodyHTML: '<div class="field"><label>Aylık esnek bütçe (\u20ba)</label><input type="number" inputmode="decimal" id="pl-flex" value="' + (p.flex != null ? p.flex : '') + '" placeholder="' + S.suggestion + '"></div>' +
+      '<button type="button" class="fin-chip" id="pl-sug" style="margin:0 0 .9rem">Önerilen: ' + formatMoney(S.suggestion) + ' (son ' + S.n + ' ay ort.)</button>' +
+      '<div class="field"><label>Aylık beklenen gelir (\u20ba)</label><input type="number" inputmode="decimal" id="pl-inc" value="' + (p.income != null ? p.income : '') + '" placeholder="' + Math.round(S.autoInc) + '"></div>' +
+      '<p class="muted" style="font-size:.78rem;margin:.2rem 0 1rem">Boş bırakırsan otomatik hesaplanır: esnek bütçe son aylarının ortalamasından, gelir sabit gelir kalemlerinden.</p>' +
+      '<div class="stack"><button class="btn btn-primary btn-block" id="pl-save">Kaydet</button><button class="btn btn-secondary btn-block" id="pl-reset">Otomatiğe dön</button></div>',
+    onOpen: function (body) {
+      body.querySelector('#pl-sug').addEventListener('click', function () { body.querySelector('#pl-flex').value = S.suggestion; });
+      body.querySelector('#pl-save').addEventListener('click', function () {
+        var pl = getPlan(), f = body.querySelector('#pl-flex').value.trim(), i = body.querySelector('#pl-inc').value.trim();
+        if (f === '') delete pl.flex; else pl.flex = Math.max(0, Number(f) || 0);
+        if (i === '') delete pl.income; else pl.income = Math.max(0, Number(i) || 0);
+        savePlan(pl); closeSheet(); renderAll(); showToast('Plan kaydedildi');
+      });
+      body.querySelector('#pl-reset').addEventListener('click', function () { var pl = getPlan(); delete pl.flex; delete pl.income; savePlan(pl); closeSheet(); renderAll(); showToast('Otomatik plana dönüldü'); });
+    }
+  });
+}
+function planSetTab(v) {
+  planTab = v;
+  var root = document.querySelector('.fin-sub[data-sub="budgets"]');
+  if (!root) return;
+  root.querySelectorAll('#plan-tabs button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === v); });
+  var ids = { plan: 'plan-view', limits: 'plan-limits', forecast: 'plan-forecast' };
+  Object.keys(ids).forEach(function (k) { var e = document.getElementById(ids[k]); if (e) e.hidden = k !== v; });
+  var mb = document.getElementById('fin-monthbar'); if (mb && finSub === 'budgets') mb.hidden = v === 'forecast';
+  if (v === 'forecast') renderPlanForecast(); else if (v === 'plan') renderPlan();
+}
+function finInitPlan() {
+  var root = document.querySelector('.fin-sub[data-sub="budgets"]');
+  if (!root) return;
+  planTab = 'plan';
+  root.querySelectorAll('#plan-tabs button').forEach(function (b) { b.onclick = function () { planSetTab(b.dataset.v); }; });
+  var pe = document.getElementById('plan-edit-btn'); if (pe) pe.onclick = openPlanSheet;
+  root.addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('[data-plan-edit]')) { openPlanSheet(); return; }
+    var g = e.target.closest && e.target.closest('[data-plan-grp]');
+    if (g) {
+      var c = g.getAttribute('data-plan-grp'), pl = getPlan(), cur = planGroup(c, pl), nx = { flex: 'fixed', fixed: 'irreg', irreg: 'flex' }[cur];
+      pl.groups[c] = nx; savePlan(pl); renderAll();
+    }
+  });
+}
+
 function renderAll() {
   renderQuickActions();
   renderOverview();
@@ -7831,6 +8121,8 @@ function renderAll() {
   renderFinKpis();
   renderFinHub();
   renderFinHome();
+  renderPlan();
+  if (planTab === 'forecast') renderPlanForecast();
 }
 
 function initFinance() {
