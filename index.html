@@ -627,6 +627,45 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .det-row .row-main{flex:1;min-width:0}
 .det-row .row-title,.det-row .row-sub{display:block}
 .det-tag{display:inline-block;font-size:.66rem;font-weight:700;padding:.05rem .4rem;border-radius:99px;background:var(--accent-soft);color:var(--accent);margin-left:.3rem;vertical-align:middle}
+
+/* ---- Finans ana sayfa: arama, dikkat listesi, son işlemler, başlangıç ---- */
+.fin-search{position:relative;margin:.1rem 0 .8rem}
+.fin-search .ic{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:var(--ink-soft);pointer-events:none;display:grid}
+.fin-search .ic svg{width:1.05rem;height:1.05rem}
+.fin-search input{width:100%;background:var(--paper-raised);border:1px solid var(--rule-strong);border-radius:99px;padding:.7rem 1rem .7rem 2.6rem;font:inherit;font-size:.92rem;color:var(--ink)}
+.fin-search input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.fin-actions{grid-template-columns:repeat(5,1fr);gap:.4rem}
+.fin-actions button{font-size:.7rem;padding:.6rem .1rem}
+.fin-hero .sub[data-fin-go]{cursor:pointer}
+.fin-hero .sub[data-fin-go]::after{content:' \203A';opacity:.8}
+.fin-flow>div[data-fin-go]{cursor:pointer;transition:background .15s}
+.fin-flow>div[data-fin-go]:active{background:rgba(255,255,255,.25)}
+.fin-hero [data-fin-go]:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+#fin-attn:empty,#fin-start:empty{display:none}
+.fin-attn{display:flex;flex-direction:column;gap:.45rem;margin-bottom:1.2rem}
+.fin-attn-row{--c:var(--accent);display:flex;align-items:center;gap:.7rem;width:100%;text-align:left;font:inherit;color:var(--ink);background:var(--paper-raised);border:1px solid var(--rule);border-left:3px solid var(--c);border-radius:var(--radius-m);padding:.65rem .8rem;cursor:pointer}
+.fin-attn-row.warn{--c:var(--danger)}
+.fin-attn-row.info{--c:var(--accent)}
+.fin-attn-row:active{transform:scale(.985)}
+.fin-attn-row:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.fin-attn-row .ic{flex:none;width:2.1rem;height:2.1rem;border-radius:.7rem;display:grid;place-items:center;color:var(--c);background:var(--accent-soft);background:color-mix(in srgb,var(--c) 14%,transparent)}
+.fin-attn-row .ic svg{width:1.1rem;height:1.1rem}
+.fin-attn-row .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+.fin-attn-row b{font-size:.88rem;font-weight:650}
+.fin-attn-row i{font-style:normal;font-size:.74rem;color:var(--ink-soft)}
+.fin-attn-row .go{flex:none;color:var(--ink-soft);opacity:.6}
+.fin-attn-row .go svg{width:1rem;height:1rem;display:block}
+.fin-allok{display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:var(--ink-soft);padding:.2rem .1rem}
+.fin-allok b{color:var(--success)}
+.fin-startcard{margin-bottom:1.1rem}
+.fin-startcard h3{margin:0 0 .15rem}
+.fin-step{display:flex;align-items:center;gap:.75rem;width:100%;text-align:left;font:inherit;color:var(--ink);background:none;border:0;border-top:1px solid var(--rule);padding:.7rem 0;cursor:pointer}
+.fin-step:first-of-type{border-top:0;margin-top:.3rem}
+.fin-step .n{flex:none;width:1.7rem;height:1.7rem;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:.82rem}
+.fin-step span:last-child{display:flex;flex-direction:column}
+.fin-step b{font-size:.9rem}
+.fin-step i{font-style:normal;font-size:.76rem;color:var(--ink-soft)}
+#fin-recent{margin-bottom:1.2rem}
 </style>
 <script>
   (function () {
@@ -799,8 +838,9 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 <div id="view-finance" style="display:none">
 <main class="page fin-page">
   <section class="fin-sub" data-sub="home">
-    <div class="eyebrow">Finans</div>
+    <div class="eyebrow">Genel bakış</div>
     <h1>Finans</h1>
+    <div class="fin-search"><span class="ic" id="fin-search-ic"></span><input type="search" id="fin-search" placeholder="İşlem ara (ör. market, turkcell)" enterkeyhint="search" autocomplete="off" aria-label="İşlemlerde ara"></div>
     <div data-monthslot>
       <div class="card" id="fin-monthbar" style="padding:.5rem .8rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem">
         <button class="icon-btn" id="fin-month-prev" aria-label="Önceki ay"></button>
@@ -813,10 +853,14 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
     </div>
     <div class="fin-hero" id="fin-overview"></div>
     <div class="fin-actions" id="fin-actions"></div>
-    <div class="fin-tiles" id="fin-insights"></div>
-    <div id="fin-found"></div>
+    <div id="fin-start"></div>
+    <div id="fin-attn"></div>
     <div class="section-title"><h2>Bölümler</h2></div>
     <div class="fin-feats" id="fin-feats"></div>
+    <div class="section-title"><h2>Son işlemler</h2><button type="button" class="link-btn" data-fin-go="history">Tümü</button></div>
+    <div id="fin-recent"></div>
+    <div class="section-title"><h2 id="fin-ins-title">Bu ay özeti</h2></div>
+    <div class="fin-tiles" id="fin-insights"></div>
   </section>
   <section class="fin-sub" data-sub="accounts" hidden>
     <header class="fin-subhead">
@@ -6122,7 +6166,8 @@ function renderQuickActions() {
   var acts = [['arrowDown', 'Gider', function () { openTransactionSheet(null, 'expense'); }],
     ['arrowUp', 'Gelir', function () { openTransactionSheet(null, 'income'); }],
     ['camera', 'Fiş tara', function () { openTransactionSheet(null, 'expense'); setTimeout(function () { var b = document.getElementById('txf-scan-photo'); if (b) b.click(); }, 150); }],
-    ['swap', 'Transfer', function () { openTransferSheet(); }]];
+    ['swap', 'Transfer', function () { openTransferSheet(); }],
+    ['upload', 'İçe aktar', function () { finGo('history'); var b = document.getElementById('hist-import'); if (b) b.click(); }]];
   el.innerHTML = acts.map(function (a) { return '<button type="button"><span class="ic">' + icon(a[0]) + '</span>' + a[1] + '</button>'; }).join('');
   el.querySelectorAll('button').forEach(function (b, i) { b.onclick = acts[i][2]; });
 }
@@ -6133,9 +6178,9 @@ function renderOverview() {
   document.getElementById('fin-overview').innerHTML =
     '<div class="lbl"><span>Toplam bakiye</span><button class="eye" id="fin-eye" aria-label="' + (finHide ? 'Bakiyeyi göster' : 'Bakiyeyi gizle') + '">' + icon(finHide ? 'eyeOff' : 'eye') + '</button></div>' +
     '<div class="big">' + finMask(formatMoney(currentBalance())) + '</div>' +
-    '<div class="sub">Hesaplar ' + finMask(formatMoney(assets)) + (debt ? ' \u00b7 Kart borcu ' + finMask(formatMoney(debt)) : '') + (mt.saved ? ' \u00b7 Birikim ' + finMask(formatMoney(mt.saved)) : '') + '</div>' +
-    '<div class="fin-flow"><div><span>Gelir</span><b>' + finMask(formatMoney(mt.income)) + '</b><i>' + finDelta(mt.income, pm.income) + '</i></div>' +
-    '<div><span>Gider</span><b>' + finMask(formatMoney(mt.expense)) + '</b><i>' + finDelta(mt.expense, pm.expense) + '</i></div></div>';
+    '<div class="sub" data-fin-go="accounts" role="button" tabindex="0">Hesaplar ' + finMask(formatMoney(assets)) + (debt ? ' \u00b7 Kart borcu ' + finMask(formatMoney(debt)) : '') + (mt.saved ? ' \u00b7 Birikim ' + finMask(formatMoney(mt.saved)) : '') + '</div>' +
+    '<div class="fin-flow"><div data-fin-go="reports" role="button" tabindex="0"><span>Gelir</span><b>' + finMask(formatMoney(mt.income)) + '</b><i>' + finDelta(mt.income, pm.income) + '</i></div>' +
+    '<div data-fin-go="reports" role="button" tabindex="0"><span>Gider</span><b>' + finMask(formatMoney(mt.expense)) + '</b><i>' + finDelta(mt.expense, pm.expense) + '</i></div></div>';
   document.getElementById('fin-eye').onclick = function () {
     finHide = !finHide; try { localStorage.setItem('ajandam_finHide', finHide ? '1' : '0'); } catch (e) {}
     renderAll();
@@ -7308,7 +7353,7 @@ ICON_PATHS.card = '<rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 
 ICON_PATHS.repeat = '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>';
 ICON_PATHS.coins = '<circle cx="9" cy="9" r="6"/><path d="M15.3 7.9A6 6 0 1 1 7.9 15.3"/>';
 
-function finGo(sub) {
+function finShow(sub) {
   var root = document.getElementById('view-finance');
   if (!root) return;
   if (FIN_SUBS.indexOf(sub) === -1) sub = 'home';
@@ -7319,13 +7364,105 @@ function finGo(sub) {
   if (sub === 'reports') { renderTrendChart(); renderFinReports(); }
   window.scrollTo(0, 0);
 }
+/* Kullanıcı gezintisi: telefonun geri hareketi/tuşu alt sayfadan Finans ana sayfasına döner (uygulamadan çıkmaz).
+   Alt sayfalar arası geçişte yığın büyümez, böylece geri her zaman ana sayfaya götürür. */
+function finGo(sub) {
+  if (FIN_SUBS.indexOf(sub) === -1) sub = 'home';
+  var st = null;
+  try { st = history.state; } catch (e) {}
+  if (sub === 'home') {
+    if (st && st.fin) { try { history.back(); return; } catch (e2) {} }
+    finShow('home'); return;
+  }
+  try { if (st && st.fin) history.replaceState({ fin: sub }, ''); else history.pushState({ fin: sub }, ''); } catch (e3) {}
+  finShow(sub);
+}
+window.addEventListener('popstate', function (e) {
+  if (!document.body || document.body.getAttribute('data-page') !== 'finance' || !document.getElementById('view-finance')) return;
+  finShow((e.state && e.state.fin) || 'home');
+});
+
+/* ---- Ana sayfa: dikkat edilecekler, son işlemler, başlangıç, arama ---- */
+function finBudgetAlerts() {
+  var mk = todayISO().slice(0, 7), bud = getBudget(), fin = getFinance(), out = [];
+  Object.keys(bud).forEach(function (c) {
+    var lim = Number(bud[c]) || 0;
+    if (!lim) return;
+    var sp = fin.filter(function (f) { return f.type === 'expense' && f.category === c && f.date && f.date.slice(0, 7) === mk; }).reduce(function (a, f) { return a + Number(f.amount); }, 0);
+    if (sp / lim >= 0.85) out.push({ c: c, lim: lim, sp: sp, pct: sp / lim * 100 });
+  });
+  return out.sort(function (a, b) { return b.pct - a.pct; });
+}
+function finAttention() {
+  var rows = [];
+  var near = finUpcomingAll.filter(function (x) { return !x.inc && daysFromToday(x.d) <= 3; });
+  if (near.length) {
+    var d0 = daysFromToday(near[0].d), tot = near.reduce(function (a, x) { return a + (Number(x.amt) || 0); }, 0);
+    rows.push({ tone: d0 <= 1 ? 'warn' : 'info', ic: 'clock', go: 'upcoming', t: near.length === 1 ? esc(near[0].t) + ' \u00b7 ' + inDaysLabel(d0).toLowerCase() : near.length + ' ödeme 3 gün içinde', s: finMoney(tot) + (near.length > 1 ? ' toplam \u00b7 ilki ' + inDaysLabel(d0).toLowerCase() : '') });
+  }
+  var ba = finBudgetAlerts();
+  if (ba.length) {
+    var w = ba[0];
+    rows.push({ tone: w.pct >= 100 ? 'warn' : 'info', ic: 'target', go: 'budgets', t: esc(w.c) + (w.pct >= 100 ? ' bütçeni aştın (%' + Math.round(w.pct) + ')' : ' bütçesinin %' + Math.round(w.pct) + '\u2019ini kullandın'), s: finMoney(w.sp) + ' / ' + finMoney(w.lim) + (ba.length > 1 ? ' \u00b7 +' + (ba.length - 1) + ' kategori daha' : '') });
+  }
+  var neg = getAccounts().filter(function (a) { return a.type !== 'credit_card' && accountBalance(a.id) < -0.005; }).sort(function (a, b) { return accountBalance(a.id) - accountBalance(b.id); });
+  if (neg.length) rows.push({ tone: 'warn', ic: 'wallet', go: 'accounts', t: esc(neg[0].name) + ' eksi bakiyede', s: finMoney(accountBalance(neg[0].id)) + (neg.length > 1 ? ' \u00b7 +' + (neg.length - 1) + ' hesap daha' : '') });
+  var det = [], seen = '';
+  try { det = finDetectRecurring(); seen = localStorage.getItem('ajandam_finDetectSeen') || ''; } catch (e) {}
+  if (det.length && finDetectSig(det) !== seen) rows.push({ tone: 'info', ic: 'repeat', detect: true, t: det.length + ' düzenli ödeme buldum', s: 'Gözden geçirip yaklaşan ödemelere ekle' });
+  return rows.slice(0, 4);
+}
+function renderFinHome() {
+  var fin = getFinance(), has = fin.length > 0;
+  var st = document.getElementById('fin-start');
+  if (st) st.innerHTML = has ? '' : '<div class="card fin-startcard"><h3>Başlarken</h3><p class="muted" style="margin:0;font-size:.85rem">Finans takibini 3 adımda başlat.</p>' +
+    '<button type="button" class="fin-step" data-fin-act="add"><span class="n">1</span><span><b>İlk işlemini ekle</b><i>Bir gider ya da gelir kaydet</i></span></button>' +
+    '<button type="button" class="fin-step" data-fin-act="import"><span class="n">2</span><span><b>Banka ekstresini içe aktar</b><i>Excel, CSV, PDF veya fotoğraf</i></span></button>' +
+    '<button type="button" class="fin-step" data-fin-go="accounts"><span class="n">3</span><span><b>Hesaplarını düzenle</b><i>Banka, kart ve nakit hesapların</i></span></button></div>';
+  var at = document.getElementById('fin-attn');
+  if (at) {
+    var rows = has ? finAttention() : [];
+    at.innerHTML = !has ? '' : '<div class="section-title"><h2>Dikkat edilecekler</h2></div>' + (rows.length ? '<div class="fin-attn">' + rows.map(function (r) {
+      return '<button type="button" class="fin-attn-row ' + r.tone + '" ' + (r.detect ? 'data-fin-detect' : 'data-fin-go="' + r.go + '"') + '><span class="ic">' + icon(r.ic) + '</span><span class="tx"><b>' + r.t + '</b><i>' + r.s + '</i></span><span class="go">' + icon('chevronR') + '</span></button>';
+    }).join('') + '</div>' : '<div class="fin-allok"><b>\u2713</b> Her şey yolunda \u00b7 yaklaşan ödeme, bütçe veya bakiye uyarısı yok</div>');
+  }
+  var rc = document.getElementById('fin-recent');
+  if (rc) {
+    var last = fin.map(function (f, i) { return { f: f, i: i }; }).filter(function (x) { return x.f.date; })
+      .sort(function (a, b) { return a.f.date < b.f.date ? 1 : a.f.date > b.f.date ? -1 : b.i - a.i; }).slice(0, 5).map(function (x) { return x.f; });
+    rc.innerHTML = last.length ? '<div class="card" style="padding:.2rem .8rem">' + last.map(finRowHTML).join('') + '</div>' : '<div class="empty"><p>Henüz işlem yok. Sağ alttaki + ile ilk kaydını ekle.</p></div>';
+  }
+  var it = document.getElementById('fin-ins-title');
+  if (it) { var d = parseISO(finSelectedMonth + '-01'); it.textContent = (finSelectedMonth === todayISO().slice(0, 7) ? 'Bu ay' : MONTHS_TR[d.getMonth()] + ' ' + d.getFullYear()) + ' özeti'; }
+}
+function finSearchGo(v) {
+  historyFilter.q = v; historyFilter.category = null; historyFilter.type = 'all'; historyFilter.start = ''; historyFilter.end = '';
+  var q = document.getElementById('hist-q'); if (q) q.value = v;
+  ['hist-start', 'hist-end'].forEach(function (id) { var e = document.getElementById(id); if (e) e.value = ''; });
+  document.querySelectorAll('#hist-type-filter button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === 'all'); });
+  renderHistory();
+  finGo('history');
+}
 function finInitNav() {
   var root = document.getElementById('view-finance');
   if (!root) return;
   root.querySelectorAll('.fin-back').forEach(function (b) { b.innerHTML = icon('chevronL'); });
   if (!root.__finNav) {
     root.__finNav = true;
+    root.addEventListener('keydown', function (e) {
+      var t = e.target;
+      if ((e.key === 'Enter' || e.key === ' ') && t && t.getAttribute && t.getAttribute('role') === 'button' && t.hasAttribute('data-fin-go')) { e.preventDefault(); t.click(); }
+    });
     root.addEventListener('click', function (e) {
+      var rr = e.target.closest && e.target.closest('#fin-recent .rep-row[data-open]');
+      if (rr) { openTransactionSheet(rr.getAttribute('data-id')); return; }
+      var fa = e.target.closest && e.target.closest('[data-fin-act]');
+      if (fa) {
+        e.preventDefault();
+        if (fa.getAttribute('data-fin-act') === 'add') openTransactionSheet(null, 'expense');
+        else { finGo('history'); var hb = document.getElementById('hist-import'); if (hb) hb.click(); }
+        return;
+      }
       var dt = e.target.closest && e.target.closest('[data-fin-detect]');
       if (dt) { e.preventDefault(); openRecurringDetectSheet(); return; }
       var t = e.target.closest && e.target.closest('[data-fin-go]');
@@ -7336,8 +7473,15 @@ function finInitNav() {
   }
   var tb = document.getElementById('fin-transfer-btn'); if (tb) tb.onclick = function () { openTransferSheet(); };
   finInitReports();
+  var si = document.getElementById('fin-search');
+  if (si) {
+    var sic = document.getElementById('fin-search-ic'); if (sic) sic.innerHTML = icon('search');
+    si.onkeydown = function (e) { if (e.key === 'Enter') { var v = si.value.trim(); if (v) { si.blur(); si.value = ''; finSearchGo(v); } } };
+  }
+  finSub = 'home';
+  try { if (history.state && history.state.fin) history.replaceState(null, ''); } catch (e) {}
   var st = window.FIN_START_SUB; window.FIN_START_SUB = null;
-  finGo(st || 'home');
+  if (st && st !== 'home') finGo(st); else finShow('home');
 }
 function finMoney(n) { return finMask(formatMoney(n)); }
 function finKpiHTML(tiles) {
@@ -7389,7 +7533,6 @@ function renderFinHub() {
     { sub: 'savings', ic: 'coins', hue: 140, t: 'Birikim hedefleri', v: T ? '%' + Math.round(sp2) : '\u2014', s: sv.length ? sv.length + ' hedef · ' + finMoney(V) : 'Hedef belirle', bar: T ? sp2 : null },
     { sub: 'recurring', ic: 'repeat', hue: 45, t: 'Sabit gelir/gider', v: rc.length + ' kalem', s: rc.length ? 'aylık net ' + finMoney(rnet) : 'Maaş, kira, fatura…' }
   ];
-  finRenderFound();
   el.innerHTML = cards.map(function (c) {
     return '<button type="button" class="fin-feat' + (c.wide ? ' wide' : '') + '" data-fin-go="' + c.sub + '" style="--c:hsl(' + c.hue + ' 68% 46%)">' +
       '<span class="ic">' + icon(c.ic) + '</span>' +
@@ -7478,16 +7621,7 @@ function finDetectRecurring() {
   return out;
 }
 function finDetectSig(c) { return c.map(function (x) { return x.key; }).sort().join(';'); }
-function finRenderFound() {
-  var el = document.getElementById('fin-found');
-  if (!el) return;
-  var c = finDetectRecurring(), seen = '';
-  try { seen = localStorage.getItem('ajandam_finDetectSeen') || ''; } catch (e) {}
-  if (!c.length || finDetectSig(c) === seen) { el.innerHTML = ''; return; }
-  var inc = c.filter(function (x) { return x.type === 'income'; }).length;
-  el.innerHTML = '<button type="button" class="fin-found" data-fin-detect><span class="ic">' + icon('repeat') + '</span><span class="tx"><b>' + c.length + ' düzenli ödeme buldum</b><i>' +
-    (c.length - inc) + ' gider' + (inc ? ' · ' + inc + ' gelir' : '') + ' · gözden geçirip yaklaşan ödemelere ekle</i></span><span class="go">' + icon('chevronR') + '</span></button>';
-}
+function finRenderFound() { if (document.getElementById('fin-attn')) renderFinHome(); }
 function finRecPaidThisMonth(r) {
   if (!r.noAuto || !r.src) return false;
   var mk = todayISO().slice(0, 7), pl = String(r.src).split('|')[1];
@@ -7696,6 +7830,7 @@ function renderAll() {
   renderHistory();
   renderFinKpis();
   renderFinHub();
+  renderFinHome();
 }
 
 function initFinance() {
