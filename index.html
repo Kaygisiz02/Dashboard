@@ -729,6 +729,11 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
   <div class="fin-accs" id="fin-accounts"></div>
   <div id="fin-transfers"></div>
 
+  <button class="btn btn-secondary btn-block" id="fin-bulk-import-btn" style="margin:.6rem 0 0">
+    <span style="display:inline-flex;align-items:center;gap:.4rem"></span>
+  </button>
+  <input type="file" id="fin-bulk-import-file" accept=".csv,.xlsx,.xls" class="sr-only">
+
   <div class="section-title"><h2>Yaklaşan ödemeler</h2></div>
   <div id="fin-upcoming"></div>
 
@@ -761,7 +766,7 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
   <div class="section-title"><h2>Sabit gelir/gider</h2><button class="link-btn" id="fin-recurring-add-btn">Ekle</button></div>
   <div id="fin-recurring"></div>
 
-  <div class="section-title" id="fin-history-head"><h2>Geçmiş</h2><span><button class="link-btn" id="hist-import">İçe aktar (dosya)</button> <button class="link-btn" id="hist-fix" style="margin-left:.6rem">Kayıtları denetle</button> <button class="link-btn" id="hist-export" style="margin-left:.6rem">Dışa aktar (CSV)</button></span></div>
+  <div class="section-title" id="fin-history-head"><h2>Geçmiş</h2><span><button class="link-btn" id="hist-import">İçe aktar (dosya)</button> <button class="link-btn" id="hist-export" style="margin-left:.6rem">Dışa aktar (CSV)</button></span></div>
   <div id="hist-undo-wrap"></div>
   <div class="field" style="margin-bottom:.6rem"><input type="search" id="hist-q" placeholder="İşlemlerde ara" autocomplete="off" aria-label="İşlemlerde ara"></div>
   <div class="segmented" id="hist-type-filter">
@@ -907,117 +912,11 @@ function resolveStorageKey(key, userId) {
   return uid === DEFAULT_USER_ID ? base : base + '_u_' + uid;
 }
 
-/* ---- Depolama: localStorage + büyük listeler için IndexedDB taşması ------------------
-   finance listesi ~2,5 MB'ı (yaklaşık 10-11 bin işlem) geçince ya da localStorage dolunca IndexedDB'ye
-   taşınır (kota GB düzeyindedir). Bellekteki kopya get()/set() senkron kullanımını korur; yazma arka planda ve
-   birleştirilerek yapılır. Veriyi kaybetmemek için: işaret (marker) ancak IndexedDB yazımı BAŞARILI olunca
-   atılır, başarısız yazımda bellek son kalıcı sürüme döner. Kalıcılığı garanti etmesi gereken akışlar
-   (ekstre içe aktarma) finFlush() ile bekler. */
-var BIG_MARK_KEY = 'gunlukAjandam_bigkeys';
-var BIG_SPILL_KEYS = ['finance'];
-var BIG_SPILL_BYTES = 2500000;
-var FIN_BIG = {}, FIN_MEM = {}, FIN_PERSISTED = {}, FIN_PENDING = {}, FIN_INFLIGHT = {}, FIN_PARSE_MEMO = {}, FIN_WAITERS = [];
-var FIN_BIG_READY = true, FIN_DB = null, FIN_LAST_OK = true;
-(function () {
-  try { (JSON.parse(localStorage.getItem(BIG_MARK_KEY) || '[]') || []).forEach(function (k) { FIN_BIG[k] = true; FIN_BIG_READY = false; }); } catch (e) {}
-})();
-function bigSupported() { return typeof indexedDB !== 'undefined' && !!indexedDB; }
-function bigOpen() {
-  if (FIN_DB) return FIN_DB;
-  FIN_DB = new Promise(function (res, rej) {
-    var rq = indexedDB.open('gunlukAjandamDB', 1);
-    rq.onupgradeneeded = function () { rq.result.createObjectStore('kv'); };
-    rq.onsuccess = function () { res(rq.result); };
-    rq.onerror = function () { FIN_DB = null; rej(rq.error || new Error('idb')); };
-  });
-  return FIN_DB;
-}
-function bigReq(mode, fn) {
-  return bigOpen().then(function (db) {
-    return new Promise(function (res, rej) {
-      var tx = db.transaction('kv', mode), st = tx.objectStore('kv'), out;
-      var r = fn(st);
-      if (r) r.onsuccess = function () { out = r.result; };
-      tx.oncomplete = function () { res(out); };
-      tx.onerror = tx.onabort = function () { rej(tx.error || new Error('idb tx')); };
-    });
-  });
-}
-function bigMark() {
-  var ks = Object.keys(FIN_BIG).filter(function (k) { return FIN_BIG[k] && FIN_PERSISTED[k]; });
-  try { localStorage.setItem(BIG_MARK_KEY, JSON.stringify(ks)); return true; } catch (e) { return false; }
-}
-function bigBusy() { return Object.keys(FIN_INFLIGHT).some(function (k) { return FIN_INFLIGHT[k] || FIN_PENDING[k]; }); }
-function bigNotify() {
-  if (bigBusy()) return;
-  var ok = FIN_LAST_OK;
-  FIN_WAITERS.splice(0).forEach(function (f) { f(ok); });
-}
-function bigSchedule(sk) {
-  FIN_PENDING[sk] = true;
-  if (FIN_INFLIGHT[sk]) return;
-  FIN_INFLIGHT[sk] = true;
-  function run() {
-    if (!FIN_PENDING[sk]) { FIN_INFLIGHT[sk] = false; bigNotify(); return; }
-    FIN_PENDING[sk] = false;
-    var snap = FIN_MEM[sk];
-    bigReq('readwrite', function (st) { return st.put(snap, sk); }).then(function () {
-      FIN_PERSISTED[sk] = snap;
-      if (bigMark()) { try { localStorage.removeItem(sk); } catch (e) {} }
-      run();
-    }, function (err) {
-      console.warn('IndexedDB yazma hatası', err);
-      FIN_LAST_OK = false; FIN_PENDING[sk] = false; FIN_INFLIGHT[sk] = false;
-      if (FIN_PERSISTED[sk]) FIN_MEM[sk] = FIN_PERSISTED[sk]; else { delete FIN_BIG[sk]; delete FIN_MEM[sk]; }
-      showToast('Büyük veri kalıcı yazılamadı — son kayıt geri alındı');
-      bigNotify();
-    });
-  }
-  setTimeout(run, 120);
-}
-function finFlush() {
-  if (!bigBusy()) return Promise.resolve(FIN_LAST_OK);
-  return new Promise(function (res) { FIN_WAITERS.push(res); });
-}
-function bigSpill(sk, value) { FIN_LAST_OK = true; FIN_BIG[sk] = true; FIN_MEM[sk] = value; bigSchedule(sk); return true; }
-function bigLoadAll() {
-  var keys = Object.keys(FIN_BIG).filter(function (k) { return FIN_BIG[k]; });
-  if (!keys.length) return;
-  if (!bigSupported()) { showToast('Bu tarayıcı IndexedDB desteklemiyor — büyük veri açılamadı'); return; }
-  Promise.all(keys.map(function (k) { return bigReq('readonly', function (st) { return st.get(k); }).then(function (v) { return [k, v]; }); })).then(function (pairs) {
-    pairs.forEach(function (pr) {
-      if (Array.isArray(pr[1])) { FIN_MEM[pr[0]] = pr[1]; FIN_PERSISTED[pr[0]] = pr[1]; } else delete FIN_BIG[pr[0]]; // IDB'de yoksa localStorage kopyasına dön
-    });
-    FIN_BIG_READY = true; bigMark();
-    if (typeof navigateTo === 'function' && document.body) navigateTo(document.body.getAttribute('data-page') || 'today');
-  }, function (err) { console.warn('IndexedDB okuma hatası', err); showToast('Büyük veri yüklenemedi — sayfayı yenile'); });
-}
-function finBigReset(userId) {
-  BIG_SPILL_KEYS.forEach(function (k) {
-    var sk = resolveStorageKey(k, userId);
-    if (!FIN_BIG[sk]) return;
-    delete FIN_BIG[sk]; delete FIN_MEM[sk]; delete FIN_PERSISTED[sk];
-    if (bigSupported()) bigReq('readwrite', function (st) { return st.delete(sk); }).catch(function () {});
-  });
-  bigMark();
-}
-
 function get(key, def, userId) {
   var storageKey = resolveStorageKey(key, userId);
-  if (FIN_BIG[storageKey]) {
-    if (!FIN_BIG_READY || !FIN_MEM[storageKey]) return def;
-    return FIN_MEM[storageKey].slice();
-  }
   try {
     var raw = localStorage.getItem(storageKey);
     if (raw === null || raw === undefined) return def;
-    if (raw.length > 300000 && BIG_SPILL_KEYS.indexOf(key) !== -1) { // büyük liste: aynı ham metin için tekrar ayrıştırma
-      var m = FIN_PARSE_MEMO[storageKey];
-      if (m && m.raw === raw) return m.val.slice();
-      var v = JSON.parse(raw);
-      if (Array.isArray(v)) { FIN_PARSE_MEMO[storageKey] = { raw: raw, val: v }; return v.slice(); }
-      return v;
-    }
     return JSON.parse(raw);
   } catch (e) {
     console.warn('get() okuma hatası:', storageKey, e);
@@ -1027,19 +926,10 @@ function get(key, def, userId) {
 
 function set(key, value, userId) {
   var storageKey = resolveStorageKey(key, userId);
-  var spillable = BIG_SPILL_KEYS.indexOf(key) !== -1 && Array.isArray(value) && bigSupported();
-  if (FIN_BIG[storageKey]) {
-    if (!FIN_BIG_READY) { showToast('Veriler yükleniyor, birkaç saniye bekle'); return false; }
-    FIN_LAST_OK = true; FIN_MEM[storageKey] = value; bigSchedule(storageKey);
-    return true;
-  }
   try {
-    var json = JSON.stringify(value);
-    if (spillable && json.length > BIG_SPILL_BYTES) return bigSpill(storageKey, value);
-    localStorage.setItem(storageKey, json);
+    localStorage.setItem(storageKey, JSON.stringify(value));
     return true;
   } catch (e) {
-    if (spillable && bigSpill(storageKey, value)) return true; // localStorage kotası doldu: IndexedDB'ye taşı
     console.warn('set() yazma hatası:', storageKey, e);
     showToast('Kaydedilemedi — depolama alanı dolu olabilir');
     return false;
@@ -1310,6 +1200,7 @@ var ICON_PATHS = {
   book: '<path d="M4 5.5A2 2 0 0 1 6 4h5v16H6a2 2 0 0 0-2 1.5V5.5z"/><path d="M20 5.5A2 2 0 0 0 18 4h-5v16h5a2 2 0 0 1 2 1.5V5.5z"/>',
   moon: '<path d="M20 13.5A8.5 8.5 0 1 1 10.5 4a6.8 6.8 0 0 0 9.5 9.5z"/>',
   wallet: '<rect x="3.5" y="6.5" width="17" height="12" rx="2.2"/><path d="M16 12.5h3M3.5 9.5h17"/>',
+  swap: '<path d="M7 7h11l-3-3M18 7l-3 3"/><path d="M17 17H6l3 3M6 17l3-3"/>',
   note: '<path d="M6 4h9l4 4v12H6z"/><path d="M15 4v4h4M9 12h6M9 16h6"/>',
   trophy: '<path d="M8 4h8v6a4 4 0 0 1-8 0V4z"/><path d="M8 5H5a3 3 0 0 0 3 5M16 5h3a3 3 0 0 1-3 5"/><path d="M12 14v3M9 21h6l-1-2H10z"/>',
   search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-5-5"/>',
@@ -1915,13 +1806,11 @@ function importDataFile(file, userId) {
 function resetAllData(userId) {
   if (userId) {
     USER_SCOPED_KEYS.forEach(function (k) { localStorage.removeItem(resolveStorageKey(k, userId)); });
-    finBigReset(userId);
     showToast('Kullanıcı verileri sıfırlandı');
     setTimeout(function () { window.location.reload(); }, 600);
     return;
   }
   Object.keys(STORAGE_KEYS).forEach(function (k) { localStorage.removeItem(STORAGE_KEYS[k]); });
-  finBigReset(DEFAULT_USER_ID);
   showToast('Veriler sıfırlandı');
   setTimeout(function () { window.location.reload(); }, 600);
 }
@@ -2264,6 +2153,7 @@ function initCore() {
 </script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script>
 /* ---- dashboard.js ---- */
 /* ==========================================================================
@@ -3330,7 +3220,7 @@ function renderMonthView() {
   renderDayDetail(selected);
 }
 
-function renderUpcoming() {
+function renderUpcomingEvents() {
   var today = todayISO();
   var items = getEvents().map(function (e) { return { e: e, next: nextOccurrence(e, today) }; })
     .filter(function (x) { return x.next; }).sort(function (a, b) { return a.next < b.next ? -1 : 1; }).slice(0, 6);
@@ -3349,7 +3239,7 @@ function renderCalendar() {
   if (calState.view === 'day') renderDayView();
   else if (calState.view === 'week') renderWeekView();
   else renderMonthView();
-  renderUpcoming();
+  renderUpcomingEvents();
 }
 
 function openEventSheet(id) {
@@ -4276,7 +4166,7 @@ var historyFilter = { type: 'all', category: null, start: '', end: '' };
 var finSelectedMonth = todayISO().slice(0, 7); // "YYYY-MM" — Finans sayfasında gezinilen ay
 
 function getFinance() { return get('finance', []); }
-function saveFinance(list) { return set('finance', list); }
+function saveFinance(list) { set('finance', list); }
 
 /* ---- Hesap / Kart yönetimi -----------------------------------------------
    type: 'bank' | 'cash' | 'credit_card'
@@ -4391,11 +4281,6 @@ function toggleInstallmentMonth(instId, monthKey) {
    olduğu için işaretler bakiye zincirinden çıkarılır:
    önceki bakiye = bakiye − tutar. Zincir tutmayan satırlar işaretlenir. */
 var STMT_AMT_RE = /^\d{1,3}(?:\.\d{3})*,\d{2}$/;
-function stmtFixFis(t) {
-  if (/^[A-Z]O\d{5}$/.test(t)) return t.charAt(0) + t.slice(2);
-  if (/^[A-Z][0-9OIl]{5}$/.test(t) && (t.match(/\d/g) || []).length >= 3) return t.charAt(0) + t.slice(1).replace(/[Oo]/g, '0').replace(/[Il]/g, '1');
-  return t;
-}
 function stmtFixNumTok(t) {
   t = String(t || '').trim().replace(/^[^\dOolIS|B]+/, '');
   function norm(x) {
@@ -4507,7 +4392,7 @@ function stmtTableFromWords(words, W, H, page, pageCount) {
       var piece = String(cand[c].s).trim();
       if (last && cand[c].x0 - last.x1 > 0.03 * W) break;
       txt += piece; last = cand[c];
-      if (fisRe.test(txt) && (txt.match(/\d/g) || []).length >= 2) { r.fis = stmtFixFis(txt); r.fisX1 = last.x1; fisX1.push(last.x1); break; }
+      if (fisRe.test(txt) && (txt.match(/\d/g) || []).length >= 2) { r.fis = txt; r.fisX1 = last.x1; fisX1.push(last.x1); break; }
     }
   });
   fisX1.sort(function (a, b) { return a - b; });
@@ -4753,8 +4638,7 @@ function stmtFillDates(rows) {
 
 function stmtCleanTitle(d) {
   var t = String(d || '');
-  if (/ATM\s+P\.?\s*Y\b|PARA\s+YAT[İI]R/i.test(t)) return 'ATM para yatırma';
-  if (/ATM\s+(QR\s+(ILE\s+)?)?PARA\s+[ÇC]EKME|YURTI[ÇC]I\s+ATM/i.test(t)) return 'ATM para çekme';
+  if (/ATM\s+(QR\s+)?PARA\s+[ÇC]EKME|YURTI[ÇC]I\s+ATM/i.test(t)) return 'ATM para çekme';
   var merchant = t.match(/[İIiıl]\S{0,2}YER\S{0,2}\s*:\s*(.+?)(?:\s+MUTABAKAT\b.*)?$/i);
   if (/POS\s+AL/i.test(t) && merchant) return merchant[1].replace(/\s+/g, ' ').trim().slice(0, 80);
   t = t.replace(/TR\d{2}[\s\d]{20,}/g, '').replace(/KART\s*NO\s*:\s*[\d*\s]+/gi, '').replace(/MUTABAKAT\s*:\s*\d+/gi, '')
@@ -4803,18 +4687,18 @@ function stmtTrimCanvas(cv) {
   if (bot <= top) return null;
   return stmtCropCanvas(cv, top, bot + 1 - top);
 }
-function stmtMakeWorker(psm) {
+function stmtMakeWorker() {
   function fallback() { return { rec: function (cv) { return Tesseract.recognize(cv, 'tur+eng'); }, end: function () { return Promise.resolve(); } }; }
   try {
     return Tesseract.createWorker('tur+eng').then(function (w) {
-      var p = w.setParameters ? Promise.resolve(w.setParameters({ tessedit_pageseg_mode: String(psm || '11'), preserve_interword_spaces: '1' })).catch(function () {}) : Promise.resolve();
+      var p = w.setParameters ? Promise.resolve(w.setParameters({ tessedit_pageseg_mode: '11', preserve_interword_spaces: '1' })).catch(function () {}) : Promise.resolve();
       return p.then(function () { return { rec: function (cv) { return w.recognize(cv); }, end: function () { return w.terminate(); } }; });
     }).catch(function () { return fallback(); });
   } catch (e) { return Promise.resolve(fallback()); }
 }
 
 /* nextSegment(): Promise<canvas|null>. Segmentler art arda birleştirilir, 2400px'lik üst üste binen dilimler OCR'lanır. */
-function stmtOcrSegments(nextSegment, label, psm) {
+function stmtOcrSegments(nextSegment, label) {
   STMT_CANCEL = false;
   var H = 2400, OVERLAP = 500, STEP = H - OVERLAP;
   var slices = [], cur = null, worker = null;
@@ -4847,7 +4731,7 @@ function stmtOcrSegments(nextSegment, label, psm) {
       return drain().then(pump);
     });
   }
-  return stmtMakeWorker(psm).then(function (w) { worker = w; return pump(); }).then(function () {
+  return stmtMakeWorker().then(function (w) { worker = w; return pump(); }).then(function () {
     if (cur && (slices.length === 0 || cur.height > OVERLAP + 40)) return ocr(cur);
   }).then(function () { return worker.end(); }).then(function () { return slices; },
     function (err) { try { worker && worker.end(); } catch (e) {} throw err; });
@@ -4859,40 +4743,20 @@ function stmtLooksLikeTable(pages) {
   return total >= 8 && withB / total >= 0.6 && withA / total >= 0.8;
 }
 
-function stmtConsensusTitles(raw) {
-  var cnt = {};
-  raw.forEach(function (x) { cnt[x.title] = (cnt[x.title] || 0) + 1; });
-  var names = Object.keys(cnt).filter(function (t) { return t.length >= 8 && t.length <= 40 && !/\d{4,}|havale|fast|fatura|abone|tel no/i.test(t); }), map = {};
-  names.forEach(function (t) {
-    var best = null;
-    names.forEach(function (u) {
-      if (u === t || Math.abs(u.length - t.length) > 2 || stmtLev(t.toLowerCase(), u.toLowerCase()) > 2) return;
-      if (cnt[u] > cnt[t] || (cnt[u] === cnt[t] && u.length > t.length)) { if (!best || cnt[u] > cnt[best] || (cnt[u] === cnt[best] && u.length > best.length)) best = u; }
-    });
-    if (best) map[t] = best;
-  });
-  raw.forEach(function (x) { if (map[x.title]) x.title = map[x.title]; });
-}
 function finishStatementTable(pages, ocr) {
   var merged = stmtMergePages(pages);
   stmtChainRepair(merged);
   stmtFillDates(merged);
-  var tt = merged.totals || {}, sd = 0, sc = 0, last = null;
-  merged.forEach(function (r) { if (isNaN(r.A) || !(r.A > 0) || !r.date) return; last = r; if ((r.s || 1) < 0) sd += r.A; else sc += r.A; });
-  var totalsOk = tt.borc != null && tt.alacak != null && Math.abs(sd - tt.borc) < 0.02 && Math.abs(sc - tt.alacak) < 0.02;
   var raw = [], clean = 0;
   merged.forEach(function (r) {
     if (isNaN(r.A) || !(r.A > 0) || !r.date) return;
     var warn = '';
-    if (r.flag === 'bad' || r.flag === 'unk' || r.flag === 'amb') warn = (totalsOk && r === last && r.flag === 'unk') ? '' : 'bakiye zinciriyle doğrulanamadı';
+    if (r.flag === 'bad' || r.flag === 'unk' || r.flag === 'amb') warn = 'bakiye zinciriyle doğrulanamadı';
     else if (r.dateGuess) warn = 'tarih tahmini';
     if (!warn) clean++;
-    var ttl = stmtCleanTitle(r.desc), sg = (r.s || 1) * r.A;
-    if (sg > 0 && ttl === 'ATM para çekme') ttl = 'ATM para yatırma'; // ATM'den gelen (alacak) tutar para yatırmadır
-    raw.push({ date: r.date, title: ttl, signed: sg, ref: r.fis || '', warn: warn });
+    raw.push({ date: r.date, title: stmtCleanTitle(r.desc), signed: (r.s || 1) * r.A, ref: r.fis || '', warn: warn });
   });
   if (!raw.length) { showToast('Ekstrede işlem satırı bulunamadı'); return; }
-  stmtConsensusTitles(raw);
   raw.meta = { skipped: [], expected: null, ocr: !!ocr, totals: merged.totals || {}, verified: clean };
   openStatementImport('', raw);
 }
@@ -4924,163 +4788,29 @@ function stmtNoWorkerNotice() {
   });
 }
 
-/* Ekran görüntüsünden üretilmiş PDF'lerde tek uzun görüntü birden çok sayfada kesit olarak tekrar eder; sayfaları
-   çizip birleştirmek satırları sayfa sınırında böler. Burada PDF'in içindeki JPEG akışları (DCTDecode) doğrudan,
-   her görüntü bir kez ve dosyadaki sırayla çıkarılır. Çıkarılamazsa/şüpheliyse eski sayfa-çizme yoluna dönülür. */
-function stmtExtractPdfJpegs(bytes) {
-  var txt = new TextDecoder('latin1').decode(bytes), found = {}, pos = 0;
-  while (true) {
-    var f = txt.indexOf('/DCTDecode', pos);
-    if (f < 0) break;
-    pos = f + 10;
-    var ob = txt.lastIndexOf(' obj', f), st = txt.indexOf('stream', f);
-    if (ob < 0 || st < 0) continue;
-    var dict = txt.slice(ob, st);
-    if (dict.indexOf('/Image') < 0 || dict.indexOf('endobj') >= 0) continue;
-    var numM = txt.slice(Math.max(0, ob - 16), ob).match(/(\d+)\s+(\d+)\s*$/), num = numM ? numM[1] : String(ob);
-    var wM = dict.match(/\/Width\s+(\d+)/), hM = dict.match(/\/Height\s+(\d+)/);
-    var ds = st + 6;
-    if (txt.charCodeAt(ds) === 13) ds++;
-    if (txt.charCodeAt(ds) === 10) ds++;
-    var lenM = dict.match(/\/Length\s+(\d+)(?!\d|\s+\d+\s+R)/);
-    var de = lenM ? ds + parseInt(lenM[1], 10) : txt.indexOf('endstream', ds);
-    if (de < 0 || de > bytes.length) continue;
-    var e = de;
-    while (e > ds + 2 && de - e < 8 && !(bytes[e - 2] === 0xFF && bytes[e - 1] === 0xD9)) e--;
-    if (!(bytes[ds] === 0xFF && bytes[ds + 1] === 0xD8 && bytes[e - 2] === 0xFF && bytes[e - 1] === 0xD9)) continue; // geçerli JPEG değil
-    found[num] = { w: wM ? +wM[1] : 0, h: hM ? +hM[1] : 0, off: ob, data: bytes.subarray(ds, e) };
-    pos = e;
-  }
-  return Object.keys(found).map(function (k) { return found[k]; }).sort(function (a, b) { return a.off - b.off; });
-}
-function stmtNativeUsable(imgs, numPages) {
-  // yalnız "aynı görüntü birden çok sayfada tekrar ediyor" durumu: benzersiz görüntü sayısı sayfadan az
-  return imgs.length >= 1 && imgs.length < numPages && imgs.every(function (m) { return m.w >= 600 && m.h >= 600 && Math.abs(m.w - imgs[0].w) <= 2; });
-}
-function stmtNativeSegmenter(imgs, opts) {
-  var idx = 0, y = 0, bmp = null, SRC_BAND = 1100;
-  function decode(i) {
-    var blob = new Blob([imgs[i].data], { type: 'image/jpeg' });
-    if (typeof createImageBitmap === 'function') return createImageBitmap(blob);
-    return new Promise(function (res, rej) {
-      var im = new Image(), url = URL.createObjectURL(blob);
-      im.onload = function () { URL.revokeObjectURL(url); res(im); };
-      im.onerror = function () { rej(new Error('jpeg çözülemedi')); };
-      im.src = url;
-    });
-  }
-  function next() {
-    if (idx >= imgs.length) return Promise.resolve(null);
-    var p = bmp ? Promise.resolve(bmp) : decode(idx).then(function (b) { bmp = b; y = 0; return b; });
-    return p.then(function (b) {
-      var W = b.width, H = b.height, h = Math.min(SRC_BAND, H - y), TW = (opts && opts.width) || 1785, sc = W < TW ? TW / W : 1;
-      var cv = stmtNewCanvas(Math.round(W * sc), Math.max(1, Math.round(h * sc))), g = cv.getContext('2d');
-      g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
-      g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
-      g.drawImage(b, 0, y, W, h, 0, 0, cv.width, cv.height);
-      if (opts && opts.enhance) stmtEnhance(cv);
-      y += h;
-      if (y >= H) { if (b.close) b.close(); bmp = null; idx++; }
-      return cv;
-    });
-  }
-  return { next: next };
-}
-
-/* Gri tonlama + kontrast germe: JPEG sıkıştırmasıyla soluklaşmış rakamları OCR için belirginleştirir */
-function stmtEnhance(cv) {
-  if (!cv.width || !cv.height) return cv;
-  var g = cv.getContext('2d'), im = g.getImageData(0, 0, cv.width, cv.height), d = im.data;
-  for (var i = 0; i < d.length; i += 4) {
-    var v = (d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000;
-    v = (v - 60) * 255 / 150; v = v < 0 ? 0 : (v > 255 ? 255 : v);
-    d[i] = d[i + 1] = d[i + 2] = v;
-  }
-  g.putImageData(im, 0, 0);
-  return cv;
-}
-function stmtClonePages(pages) {
-  return pages.map(function (p) { var c = p.map(function (r) { return Object.assign({}, r); }); c.totals = p.totals; return c; });
-}
-/* Bir OCR geçişini ekstrenin kendi kanıtlarıyla puanlar: Borç/Alacak toplamı + bakiye zinciri.
-   perfect = toplamlar kuruşu kuruşuna tutuyor ve zinciri doğrulanamayan satır yok. */
-function stmtScoreSlices(slices) {
-  var pages = slices.map(function (sl, i) { return stmtTableFromWords(sl.words, sl.W, sl.H, i, slices.length); });
-  if (!stmtLooksLikeTable(pages)) return { pages: pages, table: false, perfect: false, score: -1e9 };
-  var merged = stmtMergePages(stmtClonePages(pages));
-  stmtChainRepair(merged); stmtFillDates(merged);
-  var tt = merged.totals || {}, sd = 0, sc = 0, n = 0, bad = 0, last = null;
-  merged.forEach(function (r) {
-    if (isNaN(r.A) || !(r.A > 0) || !r.date) return;
-    n++; last = r;
-    if (r.flag === 'bad' || r.flag === 'unk' || r.flag === 'amb') bad++;
-    if ((r.s || 1) < 0) sd += r.A; else sc += r.A;
-  });
-  var hasTot = tt.borc != null && tt.alacak != null;
-  var dB = hasTot ? Math.abs(sd - tt.borc) : 0, dA = hasTot ? Math.abs(sc - tt.alacak) : 0;
-  var totOk = hasTot && dB < 0.02 && dA < 0.02;
-  if (totOk && last && last.flag === 'unk') bad--; // zincir sonu satırı toplamlarla doğrulandı
-  var perfect = hasTot ? (totOk && bad <= 0) : bad === 0;
-  return { pages: pages, table: true, perfect: perfect, score: (perfect ? 1e6 : 0) - dB - dA - bad * 50 + n };
-}
-function stmtMissText(t, pb, pa) {
-  var mb = t.borc != null ? Math.round((t.borc - pb) * 100) / 100 : 0, ma = t.alacak != null ? Math.round((t.alacak - pa) * 100) / 100 : 0, m = [];
-  if (mb > 0.02) m.push('Borç ' + formatMoney(mb));
-  if (ma > 0.02) m.push('Alacak ' + formatMoney(ma));
-  return m.length ? ' (okunamayan satır olabilir — eksik: ' + m.join(' · ') + ')' : '';
-}
-
-function importStatementOcrPdf(pdf, bytes) {
+function importStatementOcrPdf(pdf) {
   return stmtCheckWorkers().then(function (ok) {
     if (!ok) { stmtNoWorkerNotice(); return; }
-    return importStatementOcrPdfRun(pdf, bytes);
+    return importStatementOcrPdfRun(pdf);
   });
 }
-function importStatementOcrPdfRun(pdf, bytes) {
-  var maxP = Math.min(pdf.numPages, 40), imgs = [];
-  try { imgs = bytes ? stmtExtractPdfJpegs(bytes) : []; } catch (e) { imgs = []; }
-  var canNative = stmtNativeUsable(imgs, pdf.numPages);
-  // 1. geçiş her zamanki ayar. Ekstre toplamı/bakiye zinciri tutmazsa daha yüksek çözünürlük + kontrastla yeniden okunur.
-  var PASSES = [
-    { width: 1785, scale: 3, psm: '11', enhance: false },
-    { width: 2400, scale: 4, psm: '11', enhance: true },
-    { width: 1785, scale: 3, psm: '6', enhance: true }
-  ];
-  function makeNext(o) {
-    var pn = 0, native = canNative ? stmtNativeSegmenter(imgs, o) : null, started = false;
-    function pageNext() {
-      if (pn >= maxP) return Promise.resolve(null);
-      pn++;
-      stmtProgress('Sayfa ' + pn + '/' + maxP + ' hazırlanıyor…');
-      return pdf.getPage(pn).then(function (pg) {
-        var vp = pg.getViewport({ scale: o.scale }), cv = stmtNewCanvas(Math.round(vp.width), Math.round(vp.height));
-        var g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
-        return pg.render({ canvasContext: g, viewport: vp }).promise.then(function () {
-          var t = stmtTrimCanvas(cv) || stmtNewCanvas(cv.width, 1);
-          return o.enhance ? stmtEnhance(t) : t;
-        });
+function importStatementOcrPdfRun(pdf) {
+  var pn = 0, maxP = Math.min(pdf.numPages, 40);
+  function nextSegment() {
+    if (pn >= maxP) return Promise.resolve(null);
+    pn++;
+    stmtProgress('Sayfa ' + pn + '/' + maxP + ' hazırlanıyor…');
+    return pdf.getPage(pn).then(function (pg) {
+      var vp = pg.getViewport({ scale: 3 }), cv = stmtNewCanvas(Math.round(vp.width), Math.round(vp.height));
+      var g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+      return pg.render({ canvasContext: g, viewport: vp }).promise.then(function () {
+        var t = stmtTrimCanvas(cv);
+        return t || stmtNewCanvas(cv.width, 1);
       });
-    }
-    return function () {
-      if (!native) return pageNext();
-      return native.next().then(function (cv) { if (cv) { started = true; stmtProgress('Görüntü hazırlanıyor…'); } return cv; },
-        function (err) { if (started) throw err; console.warn('Gömülü görüntü okunamadı, sayfa görünümüne dönülüyor', err); native = null; return pageNext(); });
-    };
-  }
-  var results = [];
-  function pass(i) {
-    var o = PASSES[i], label = i ? 'PDF (OCR) · ekstre toplamı tutmadı, yeniden okunuyor ' + i + '/' + (PASSES.length - 1) : 'PDF (OCR)';
-    return stmtOcrSegments(makeNext(o), label, o.psm).then(function (slices) {
-      var res = stmtScoreSlices(slices); res.slices = slices; results.push(res);
-      if (!res.table || res.perfect || i === PASSES.length - 1) return null;
-      return pass(i + 1);
     });
   }
-  return pass(0).then(function () {
-    stmtProgressEnd();
-    var best = results.reduce(function (a, b) { return (!a || b.score > a.score) ? b : a; }, null);
-    if (best.table) finishStatementTable(best.pages, true); else stmtFinishOcrSlices(best.slices);
-  }).catch(function (err) { stmtProgressEnd(); if (!err || err.message !== 'cancel') { console.warn('OCR hatası:', stmtErrText(err), err); showToast('OCR hatası: ' + stmtErrText(err)); } else showToast('İptal edildi'); });
+  return stmtOcrSegments(nextSegment, 'PDF (OCR)').then(function (slices) { stmtProgressEnd(); stmtFinishOcrSlices(slices); })
+    .catch(function (err) { stmtProgressEnd(); if (!err || err.message !== 'cancel') { console.warn('OCR hatası:', stmtErrText(err), err); showToast('OCR hatası: ' + stmtErrText(err)); } else showToast('İptal edildi'); });
 }
 
 function stmtFinishOcrSlices(slices) {
@@ -5289,29 +5019,6 @@ function importStatementExcel(file) {
   fr.readAsArrayBuffer(file);
 }
 
-/* İçe aktarılmış kayıtları yeniden denetler: kendi hesaplarım arası transferler, para yatırma ve kategoriler */
-function auditImportedRecords() {
-  var fin = getFinance(), fixes = [], auto = { 'Diğer': 1, 'Havale/FAST Gönderim': 1, 'Gelen Havale/FAST': 1, 'Nakit Çekim': 1 };
-  fin.forEach(function (f) {
-    if (f.source !== 'import') return;
-    var inc = f.type === 'income', title = (inc && f.title === 'ATM para çekme') ? 'ATM para yatırma' : f.title;
-    var g = stmtGuessCategory(title, inc);
-    if (title !== f.title || (g !== f.category && (auto[f.category] || g === FIN_TRANSFER_CAT))) fixes.push({ f: f, title: title, cat: (g !== f.category && (auto[f.category] || g === FIN_TRANSFER_CAT)) ? g : f.category });
-  });
-  if (!fixes.length) { showToast('İçe aktarılan kayıtlarda düzeltilecek hata bulunmadı'); return; }
-  var tr = fixes.filter(function (x) { return x.cat === FIN_TRANSFER_CAT && x.f.category !== FIN_TRANSFER_CAT; }), sum = tr.reduce(function (a, x) { return a + Number(x.f.amount); }, 0);
-  confirmDialog({
-    title: fixes.length + ' kayıt düzeltilsin mi?',
-    message: (tr.length ? tr.length + ' kayıt kendi hesaplarınız arası transfer olarak ayrılacak (toplam ' + formatMoney(sum) + '), gelir/gider hesabından çıkar. ' : '') + 'Kategori ve başlık hataları yeniden hesaplanıp düzeltilecek; elle değiştirdiğin kategoriler korunur.',
-    confirmText: 'Düzelt'
-  }).then(function (ok) {
-    if (!ok) return;
-    fixes.forEach(function (x) { x.f.title = x.title; x.f.category = x.cat; });
-    saveFinance(fin);
-    renderAll();
-    showToast(fixes.length + ' kayıt düzeltildi');
-  });
-}
 function refreshUndoLink() {
   var w = document.getElementById('hist-undo-wrap');
   if (!w) return;
@@ -5339,7 +5046,6 @@ function importStatementPdf(file) {
   var fr = new FileReader();
   fr.onerror = function () { showToast('Dosya okunamadı'); };
   fr.onload = function () {
-    var pdfBytes = new Uint8Array(fr.result.slice(0)); // pdf.js ham veriyi tüketebilir; gömülü görüntüler için kopya
     pdfjsLib.getDocument({ data: new Uint8Array(fr.result) }).promise.then(function (pdf) {
       var jobs = [];
       for (var i = 1; i <= Math.min(pdf.numPages, 40); i++) {
@@ -5362,7 +5068,7 @@ function importStatementPdf(file) {
         }
         // Metin katmanı yok (taranmış PDF): sayfaları görüntüye çevirip OCR ile oku
         if (typeof Tesseract === 'undefined') { showToast('PDF içinde metin yok ve OCR yüklenemedi'); return; }
-        return importStatementOcrPdf(pdf, pdfBytes);
+        return importStatementOcrPdf(pdf);
       });
     }).catch(function (err) { console.warn('PDF ekstre hatası:', err); showToast('PDF okunamadı'); });
   };
@@ -5419,20 +5125,16 @@ function stmtFindColumns(rows) {
 
 function stmtIsOwnTransfer(asc) {
   // FAST açıklaması: "...-<alıcı adı>/<gönderen adı>FAST işlemi". Alıcı = gönderen ise kendi hesabıma gönderilmiştir.
-  // OCR'da Ş → "$", "/" → "," olabilir ve bir-iki harf kayabilir: bu yüzden bulanık karşılaştırılır.
-  var t = asc.replace(/\$/g, 's').replace(/[,;|]/g, '/');
-  var m = t.match(/-\s*([a-z][a-z ]{2,38}[a-z])\s*\/\s*([a-z][a-z ]{2,38}?)\s*fast ?islem/);
+  var m = asc.match(/-([a-z][a-z ]{2,38}[a-z])\/([a-z][a-z ]{2,38}?)\s*fast ?islem/);
   if (!m) return false;
   var a = m[1].replace(/ /g, ''), b = m[2].replace(/ /g, '');
-  if (a.length < 6 || b.length < 6) return false;
-  if (a === b || a.indexOf(b) === 0 || b.indexOf(a) === 0) return true;
-  return Math.abs(a.length - b.length) <= 2 && stmtLev(a, b) <= Math.max(1, Math.floor(Math.min(a.length, b.length) * 0.12));
+  return a.length >= 6 && b.length >= 6 && (a === b || a.indexOf(b) === 0 || b.indexOf(a) === 0);
 }
 
 function stmtGuessCategory(title, isIncome) {
   var low = String(title || '').toLocaleLowerCase('tr');
-  var asc = low.replace(/ı/g, 'i').replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/\$/g, 's');
-  if (/virman|devir|kapanan hesap|acilan hesap/.test(asc) || stmtIsOwnTransfer(asc)) return FIN_TRANSFER_CAT; // kendi hesaplarım arası: gelir/gider değil
+  var asc = low.replace(/ı/g, 'i').replace(/ş/g, 's').replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ö/g, 'o').replace(/ü/g, 'u');
+  if (/virman/.test(asc) || stmtIsOwnTransfer(asc)) return FIN_TRANSFER_CAT; // kendi hesaplarım arası: gelir/gider değil
   if (isIncome) {
     // Özelden genele: "Maaş Farkı", "Maaş"tan önce kontrol edilmeli
     var INCOME_RULES = [
@@ -5441,7 +5143,7 @@ function stmtGuessCategory(title, isIncome) {
       ['Nöbet Ücreti', /nobet ucret/],
       ['Ek Ödeme', /ek odeme|tesvik|doner sermaye/],
       ['İade', /iade|iptal/],
-      ['Nakit Yatırma', /atm p\.?y|nakit yat|para yatir/],
+      ['Nakit Yatırma', /atm p\.?y|nakit yat/],
       ['Ek Gelir', /prim\b/],
       ['Gelen Havale/FAST', /havale|fast ?islem|\bfast\b|\bgond\b|eft\b/]
     ];
@@ -5459,7 +5161,7 @@ function stmtGuessCategory(title, isIncome) {
     ['Banka Masrafı/Faiz', /kmh|islem toplam masraf|komisyon|hesap isletim|faiz/],
     ['Kredi Kartı Ödemesi', /kk tahsilat|kart borc/],
     ['Yemek', /trendyol yemek|trendyolgo|ubertrendyol|uber ?eats|yemeksepeti|getir ?yemek|restoran|restauran|lokanta|kebap|kofte|doner|pide|pastane|kunefe|kadayif|corba|tavuk|balik evi|midye|burger|mcdonald|kafe|cafe|kahve|dondurma|kantin|otomat/],
-    ['Market', /sembo+l|mjet|halkmar|dagcioglu|kaplanlar|migros|a101|\bbim\b|\bsok\b|sok-|market|tugmar|gross|carrefour|gida|bakkal|manav|kasap|ekmek|kuruyemis|kuryemis|icecek/],
+    ['Market', /sembol senter|migros|a101|\bbim\b|\bsok\b|sok-|market|tugmar|gross|carrefour|gida|bakkal|manav|kasap|ekmek|kuruyemis|kuryemis|icecek/],
     ['Akaryakıt', /akaryakit|petrol|shell|opet|\bbp\b|seva|canpet|aytemiz|kadoil|lukoil/],
     ['Telefon', /vodafone|turkcell|turk telekom|telefon/],
     ['Su', /gaski|su idaresi|\bsu\b/],
@@ -5517,7 +5219,7 @@ function openStatementImport(text, preRaw, preRows) {
   if (!raw.length) { showToast('Dosyada içe aktarılacak işlem bulunamadı'); return; }
 
   var accounts = getAccounts();
-  var state = { invert: false, onlyWarn: false, flips: {}, items: [], limit: 300 };
+  var state = { invert: false, onlyWarn: false, flips: {}, items: [] };
 
   function build() {
     var existing = {}, existingRef = {};
@@ -5539,23 +5241,6 @@ function openStatementImport(text, preRaw, preRows) {
       else if (existing[k] > 0) { dup = true; existing[k]--; }
       return { date: x.date, title: x.title, type: type, amount: amount, dup: dup, warn: x.warn || '', ref: x.ref || '', on: prevOn ? prevOn[idx] : (!dup && !(x.warn && /doğrulanamadı/.test(x.warn))) };
     });
-  }
-
-  function rowHTML(i) {
-    var x = state.items[i];
-        return '<label class="list-row" data-row="' + i + '" style="cursor:pointer;gap:.6rem' + ((state.onlyWarn && !x.warn) ? ';display:none' : '') + '"><input type="checkbox" data-si="' + i + '"' + (x.on ? ' checked' : '') + '>' +
-          '<span class="row-main"><span class="row-title">' + esc(x.title.slice(0, 60)) + '</span>' +
-          '<span class="row-sub">' + esc(formatDateTR(x.date)) + (x.dup ? ' · zaten kayıtlı' : '') + (x.warn ? ' · ⚠ ' + esc(x.warn) : '') + (state.flips[i] ? ' · yön elle değiştirildi' : '') + '</span></span>' +
-          '<button type="button" class="mono" data-flip="' + i + '" title="Gelir/gider yönünü çevir" style="color:' + (x.type === 'income' ? 'var(--success)' : 'var(--danger)') + ';background:transparent;border:1px solid var(--rule-strong);border-radius:6px;padding:.25rem .45rem;white-space:nowrap">' + (x.type === 'income' ? '+' : '−') + formatMoney(x.amount) + ' ⇄</button></label>';
-  }
-  function visibleIdx() {
-    var v = [];
-    for (var i = 0; i < state.items.length; i++) if (!(state.onlyWarn && !state.items[i].warn)) v.push(i);
-    return v;
-  }
-  function listHTML() {
-    var v = visibleIdx(), shown = v.slice(0, state.limit);
-    return shown.map(rowHTML).join('') + (v.length > shown.length ? '<button type="button" class="btn btn-secondary btn-block" id="si-more" style="margin:.5rem 0">Daha fazla göster (' + (v.length - shown.length) + ' satır daha)</button>' : '');
   }
 
   function bodyHTML() {
@@ -5587,7 +5272,13 @@ function openStatementImport(text, preRaw, preRows) {
       '<button type="button" class="btn btn-secondary" id="si-only-warn" style="padding:.35rem .6rem">' + (state.onlyWarn ? 'Tümünü göster' : '⚠ olanları göster') + '</button></div>' +
       '<p class="muted" style="margin:0 0 .4rem;font-size:.82rem">Tutarın üstüne dokunarak o satırın gelir/gider (alacak/borç) yönünü çevirebilirsin.</p>' +
       '<p id="si-live" class="muted" style="margin:0 0 .4rem"></p>' +
-      '<div id="si-list" style="max-height:42vh;overflow:auto;border:1px solid var(--rule);border-radius:var(--radius-m);padding:0 .6rem">' + listHTML() + '</div>' +
+      '<div style="max-height:42vh;overflow:auto;border:1px solid var(--rule);border-radius:var(--radius-m);padding:0 .6rem">' +
+      state.items.map(function (x, i) {
+        return '<label class="list-row" data-row="' + i + '" style="cursor:pointer;gap:.6rem' + ((state.onlyWarn && !x.warn) ? ';display:none' : '') + '"><input type="checkbox" data-si="' + i + '"' + (x.on ? ' checked' : '') + '>' +
+          '<span class="row-main"><span class="row-title">' + esc(x.title.slice(0, 60)) + '</span>' +
+          '<span class="row-sub">' + esc(formatDateTR(x.date)) + (x.dup ? ' · zaten kayıtlı' : '') + (x.warn ? ' · ⚠ ' + esc(x.warn) : '') + (state.flips[i] ? ' · yön elle değiştirildi' : '') + '</span></span>' +
+          '<button type="button" class="mono" data-flip="' + i + '" title="Gelir/gider yönünü çevir" style="color:' + (x.type === 'income' ? 'var(--success)' : 'var(--danger)') + ';background:transparent;border:1px solid var(--rule-strong);border-radius:6px;padding:.25rem .45rem;white-space:nowrap">' + (x.type === 'income' ? '+' : '−') + formatMoney(x.amount) + ' ⇄</button></label>';
+      }).join('') + '</div>' +
       '<button class="btn btn-primary btn-block" id="si-go" style="margin-top:.9rem"></button>';
     return h;
   }
@@ -5613,7 +5304,7 @@ function openStatementImport(text, preRaw, preRows) {
       var okB = meta.totals.borc == null || Math.abs(pb - meta.totals.borc) < 0.02, okA = meta.totals.alacak == null || Math.abs(pa - meta.totals.alacak) < 0.02;
       chk.style.color = (okB && okA) ? 'var(--success)' : 'var(--danger)';
       chk.textContent = 'Kontrol: ekstre toplamı Borç ' + (meta.totals.borc != null ? formatMoney(meta.totals.borc) : '–') + ' · Alacak ' + (meta.totals.alacak != null ? formatMoney(meta.totals.alacak) : '–') +
-        ' — okunan Borç ' + formatMoney(pb) + ' · Alacak ' + formatMoney(pa) + ((okB && okA) ? ' ✓ eşleşiyor' : ' — fark var' + stmtMissText(meta.totals, pb, pa) + '; yönü yanlış satırları çevir ya da ⚠ satırlara bak');
+        ' — okunan Borç ' + formatMoney(pb) + ' · Alacak ' + formatMoney(pa) + ((okB && okA) ? ' ✓ eşleşiyor' : ' — fark var; yönü yanlış satırları çevir ya da ⚠ satırlara bak');
     }
   }
 
@@ -5637,16 +5328,11 @@ function openStatementImport(text, preRaw, preRows) {
       title: 'Ekstre içe aktar', bodyHTML: bodyHTML(), onOpen: function (body) {
         if (accountId) document.getElementById('si-account').value = accountId;
         updateGo();
-        var listEl = document.getElementById('si-list');
-        function renderList() { listEl.innerHTML = listHTML(); }
-        listEl.addEventListener('change', function (e) {
-          var cb = e.target.closest ? e.target.closest('[data-si]') : null;
-          if (cb) { state.items[+cb.dataset.si].on = cb.checked; updateGo(); }
+        body.querySelectorAll('[data-si]').forEach(function (cb) {
+          cb.addEventListener('change', function () { state.items[+cb.dataset.si].on = cb.checked; updateGo(); });
         });
-        listEl.addEventListener('click', function (e) {
-          var btn = e.target.closest ? e.target.closest('[data-flip]') : null;
-          if (btn) { e.preventDefault(); e.stopPropagation(); flipItem(body, +btn.dataset.flip); refreshSummary(); return; }
-          if (e.target.closest && e.target.closest('#si-more')) { state.limit += 500; renderList(); }
+        body.querySelectorAll('[data-flip]').forEach(function (btn) {
+          btn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); flipItem(body, +btn.dataset.flip); refreshSummary(); });
         });
         function syncChecks() { body.querySelectorAll('[data-si]').forEach(function (cb) { cb.checked = state.items[+cb.dataset.si].on; }); updateGo(); }
         document.getElementById('si-sel-all').addEventListener('click', function () { state.items.forEach(function (x) { x.on = !x.dup; }); syncChecks(); });
@@ -5659,7 +5345,7 @@ function openStatementImport(text, preRaw, preRows) {
         });
         document.getElementById('si-only-warn').addEventListener('click', function () {
           state.onlyWarn = !state.onlyWarn;
-          renderList();
+          body.querySelectorAll('[data-row]').forEach(function (row) { row.style.display = (state.onlyWarn && !state.items[+row.dataset.row].warn) ? 'none' : ''; });
           this.textContent = state.onlyWarn ? 'Tümünü göster' : '⚠ olanları göster';
         });
         document.getElementById('si-invert').addEventListener('change', function (e) {
@@ -5668,39 +5354,23 @@ function openStatementImport(text, preRaw, preRows) {
           show(document.getElementById('si-account').value);
         });
         document.getElementById('si-go').addEventListener('click', function () {
-          var btn = this, accId = document.getElementById('si-account').value;
-          var picked = state.items.filter(function (x) { return x.on; });
-          if (!picked.length) return;
-          btn.disabled = true;
-          var fin = getFinance(), batch = uid(), pos = 0, CHUNK = 2000;
-          function step() {
-            var end = Math.min(pos + CHUNK, picked.length);
-            for (; pos < end; pos++) {
-              var x = picked[pos];
-              fin.push({
-                id: uid(), title: x.title.slice(0, 80), amount: x.amount, type: x.type,
-                category: stmtGuessCategory(x.title, x.type === 'income'), date: x.date,
-                accountId: accId, source: 'import', batch: batch, ref: x.ref || undefined
-              });
-            }
-            btn.textContent = 'Kaydediliyor… ' + pos + ' / ' + picked.length;
-            if (pos < picked.length) return new Promise(function (r) { setTimeout(r, 0); }).then(step);
-          }
-          Promise.resolve().then(step).then(function () {
-            if (!saveFinance(fin)) throw new Error('kayıt başarısız');
-            return finFlush();
-          }).then(function (ok) {
-            if (ok === false) throw new Error('kalıcı yazma başarısız');
-            set('lastImport', { id: batch, count: picked.length, at: todayISO() });
-            closeSheet();
-            renderAll();
-            refreshUndoLink();
-            showToast(picked.length + ' işlem içe aktarıldı');
-          }).catch(function (err) {
-            console.warn('İçe aktarma kaydı başarısız:', err);
-            btn.disabled = false; btn.textContent = 'Tekrar dene';
-            showToast('Kayıt yazılamadı — hiçbir işlem eklenmedi. Tekrar dene.');
+          var accId = document.getElementById('si-account').value;
+          var fin = getFinance(), added = 0, batch = uid();
+          state.items.forEach(function (x) {
+            if (!x.on) return;
+            fin.push({
+              id: uid(), title: x.title.slice(0, 80), amount: x.amount, type: x.type,
+              category: stmtGuessCategory(x.title, x.type === 'income'), date: x.date,
+              accountId: accId, source: 'import', batch: batch, ref: x.ref || undefined
+            });
+            added++;
           });
+          saveFinance(fin);
+          set('lastImport', { id: batch, count: added, at: todayISO() });
+          closeSheet();
+          renderAll();
+          refreshUndoLink();
+          showToast(added + ' işlem içe aktarıldı');
         });
       }
     });
@@ -5961,7 +5631,7 @@ function renderInsights() {
   document.getElementById('fin-insights').innerHTML = tiles.map(function (t) { return '<div class="fin-tile"><span>' + t[0] + '</span><b>' + t[1] + '</b><i>' + t[2] + '</i></div>'; }).join('');
 }
 
-function renderFinUpcoming() {
+function renderUpcoming() {
   var items = [], curM = todayISO().slice(0, 7), nextM = (function () { var d = parseISO(curM + '-01'); d.setMonth(d.getMonth() + 1); return d.getFullYear() + '-' + pad2(d.getMonth() + 1); })();
   getRecurring().forEach(function (r) { items.push({ d: nextDayOfMonth(Number(r.dayOfMonth) || 1, true), t: r.title, amt: Number(r.amount), inc: r.type === 'income', ic: r.type === 'income' ? 'arrowUp' : 'arrowDown', sub: 'Sabit ' + (r.type === 'income' ? 'gelir' : 'gider') }); });
   getInstallments().forEach(function (it) {
@@ -6718,6 +6388,296 @@ function scanPdfStatement(file) {
   reader.readAsArrayBuffer(file);
 }
 
+/* ---------------------------------------------------------------------- */
+/* Toplu İçe Aktar (CSV / Excel) — banka ekstresi, binlerce işlem          */
+/* ---------------------------------------------------------------------- */
+/* Akış: dosya seç -> satırları oku (PapaParse/SheetJS) -> sütunları
+   otomatik tahmin et -> kullanıcı eşlemeyi onaylar/düzeltir -> önizleme
+   (kaç satır geçerli, kaç satır hatalı, kaç tanesi muhtemel mükerrer) ->
+   onay -> gerçek içe aktarma (tek seferde, parça parça localStorage'a
+   yazılır). Büyük dosyalarda (binlerce satır) tarayıcıyı dondurmamak için
+   PapaParse worker:true ile arka planda parse eder. */
+
+var bulkImportState = { rows: [], headers: [], mapping: {}, fileName: '' };
+
+/* Sütun başlıklarına bakarak hangisinin Tarih/Açıklama/Tutar/Tür/Kategori
+   olduğunu tahmin eder. Türkçe ve İngilizce başlıkları kapsar (bankalar
+   genelde ikisinden birini kullanır). */
+function guessColumnMapping(headers) {
+  var lower = headers.map(function (h) { return String(h || '').toLocaleLowerCase('tr-TR').trim(); });
+  var takenCols = {}; // bir sütun yalnızca bir alana atanabilir (ör. "İşlem Tarihi" hem date hem description anahtar kelimesiyle eşleşmesin)
+  function findFirst(keywords) {
+    for (var i = 0; i < lower.length; i++) {
+      if (takenCols[i]) continue;
+      for (var k = 0; k < keywords.length; k++) {
+        if (lower[i].indexOf(keywords[k]) !== -1) { takenCols[i] = true; return i; }
+      }
+    }
+    return -1;
+  }
+  // Sıra önemli: en belirgin/az belirsiz alanlar önce eşlenir (tarih, tutar,
+  // borç/alacak gibi dar anlamlı kelimeler), "açıklama" gibi geniş/çakışmaya
+  // açık alanlar en sona bırakılır ki önceden alınmış bir sütunu tekrar almasın.
+  var date = findFirst(['tarih', 'date', 'valör', 'valor']);
+  var amount = findFirst(['tutar', 'amount', 'miktar']);
+  var debit = findFirst(['borç', 'borc', 'debit', 'çıkış', 'cikis']);
+  var credit = findFirst(['alacak', 'credit', 'giriş', 'giris']);
+  var category = findFirst(['kategori', 'category']);
+  var description = findFirst(['açıklama', 'aciklama', 'description', 'detay', 'aciklamasi']);
+  return { date: date, description: description, amount: amount, debit: debit, credit: credit, category: category };
+}
+
+/* Tarihi birçok yaygın formatta parse etmeyi dener: GG.AA.YYYY, GG/AA/YYYY,
+   YYYY-AA-GG, GG-AA-YYYY. Geçersizse null döner. */
+function parseFlexibleDate(raw) {
+  if (!raw) return null;
+  var s = String(raw).trim();
+  var m;
+  if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return m[1] + '-' + pad2(+m[2]) + '-' + pad2(+m[3]);
+  if ((m = s.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})/))) return m[3] + '-' + pad2(+m[2]) + '-' + pad2(+m[1]);
+  if ((m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})/))) return m[3] + '-' + pad2(+m[2]) + '-' + pad2(+m[1]);
+  // Excel seri tarih numarası (ör. 45678) olabilir
+  if (/^\d{4,6}$/.test(s) && typeof XLSX !== 'undefined' && XLSX.SSF) {
+    try {
+      var d = XLSX.SSF.parse_date_code(Number(s));
+      if (d && d.y) return d.y + '-' + pad2(d.m) + '-' + pad2(d.d);
+    } catch (e) { /* yoksay */ }
+  }
+  return null;
+}
+
+/* Tek bir ham satırı (mapping'e göre), geçerli bir finans kaydına çevirir.
+   Dönüş: { ok: true, record } ya da { ok: false, reason }. Borç/Alacak
+   ayrı sütunlarda ise (çoğu banka ekstresi böyledir) işareti otomatik
+   belirler: Borç sütunu doluysa gider, Alacak doluysa gelir. */
+function parseBulkImportRow(row, mapping) {
+  var dateRaw = mapping.date !== -1 ? row[mapping.date] : null;
+  var dateISO = parseFlexibleDate(dateRaw);
+  if (!dateISO) return { ok: false, reason: 'Tarih okunamadı' };
+
+  var desc = mapping.description !== -1 ? String(row[mapping.description] || '').trim() : '';
+  if (!desc) desc = 'İşlem';
+
+  var amount = null, type = 'expense';
+  if (mapping.amount !== -1) {
+    amount = parseTRAmount(String(row[mapping.amount] || ''));
+    if (!isNaN(amount) && amount < 0) { amount = Math.abs(amount); type = 'expense'; }
+    else if (!isNaN(amount) && amount > 0) type = 'income';
+  } else if (mapping.debit !== -1 || mapping.credit !== -1) {
+    var debitVal = mapping.debit !== -1 ? parseTRAmount(String(row[mapping.debit] || '')) : NaN;
+    var creditVal = mapping.credit !== -1 ? parseTRAmount(String(row[mapping.credit] || '')) : NaN;
+    if (!isNaN(debitVal) && debitVal > 0) { amount = debitVal; type = 'expense'; }
+    else if (!isNaN(creditVal) && creditVal > 0) { amount = creditVal; type = 'income'; }
+  }
+  if (amount === null || isNaN(amount) || amount <= 0) return { ok: false, reason: 'Tutar okunamadı' };
+
+  var category = mapping.category !== -1 ? String(row[mapping.category] || '').trim() : '';
+
+  return {
+    ok: true,
+    record: { id: uid(), title: desc.slice(0, 80), amount: amount, type: type, category: category || 'Diğer', date: dateISO, source: 'bulk_import' }
+  };
+}
+
+/* Zaten var olan kayıtlarla (tarih+tutar+açıklama birebir aynıysa)
+   karşılaştırıp mükerrer olup olmadığını söyler — aynı dosyayı yanlışlıkla
+   iki kez içeri aktarınca kayıtların ikiye katlanmasını önler.
+   PERFORMANS NOTU: binlerce yeni kayıt × binlerce mevcut kayıt söz konusu
+   olduğunda (toplu içe aktarmada tipik durum), her satır için existing
+   dizisini baştan sona taraman (.some()) milyonlarca karşılaştırmaya
+   çıkıp tarayıcıyı dondurabilir. Bunun yerine mevcut kayıtlardan BİR KERE
+   bir anahtar kümesi (Set) kuruyoruz; sonra her yeni satırın mükerrer
+   olup olmadığı O(1) ile (kümede arama) kontrol edilir — toplamda
+   O(n+m), O(n*m) değil. */
+function buildFinanceDuplicateKeySet(records) {
+  var set = new Set();
+  records.forEach(function (f) {
+    set.add(f.date + '|' + Number(f.amount) + '|' + (f.title || '').trim().toLocaleLowerCase('tr-TR'));
+  });
+  return set;
+}
+function financeDuplicateKey(record) {
+  return record.date + '|' + Number(record.amount) + '|' + record.title.trim().toLocaleLowerCase('tr-TR');
+}
+
+/* Dosyayı (CSV ya da Excel) okuyup { headers, rows } döndürür (rows: her
+   biri bir dizi hücre değeri olan satırlar). CSV için PapaParse (worker
+   ile arka planda, büyük dosyalarda tarayıcıyı dondurmaz), Excel için
+   zaten yüklü olan SheetJS kullanılır. */
+function readTabularFile(file) {
+  var isExcel = /\.xlsx?$/i.test(file.name);
+  if (isExcel) {
+    return new Promise(function (resolve, reject) {
+      if (typeof XLSX === 'undefined') { reject(new Error('Excel kütüphanesi yüklenemedi')); return; }
+      var reader = new FileReader();
+      reader.onerror = function () { reject(new Error('Dosya okunamadı')); };
+      reader.onload = function () {
+        try {
+          var wb = XLSX.read(reader.result, { type: 'array' });
+          var sheet = wb.Sheets[wb.SheetNames[0]];
+          var json = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+          if (!json.length) { resolve({ headers: [], rows: [] }); return; }
+          resolve({ headers: json[0], rows: json.slice(1) });
+        } catch (err) { reject(err); }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+  return new Promise(function (resolve, reject) {
+    if (typeof Papa === 'undefined') { reject(new Error('CSV kütüphanesi yüklenemedi')); return; }
+    Papa.parse(file, {
+      worker: true, // büyük dosyalarda UI donmasın diye arka plan thread'i
+      skipEmptyLines: true,
+      complete: function (results) {
+        if (!results.data.length) { resolve({ headers: [], rows: [] }); return; }
+        resolve({ headers: results.data[0], rows: results.data.slice(1) });
+      },
+      error: function (err) { reject(err); }
+    });
+  });
+}
+
+function openBulkImportSheet() {
+  var html = '<p class="muted" style="margin-top:0">Banka ekstresi veya başka bir uygulamadan dışa aktardığın CSV/Excel dosyasını yükle. Binlerce işlemi tek seferde ekleyebilirsin.</p>' +
+    '<button class="btn btn-primary btn-block" id="bi-pick-file">' + icon('upload') + ' Dosya seç (.csv, .xlsx)</button>' +
+    '<input type="file" id="bi-file-input" accept=".csv,.xlsx,.xls" class="sr-only">' +
+    '<div id="bi-status" class="hint" style="margin-top:.6rem"></div>';
+
+  openSheet({
+    title: 'Toplu İçe Aktar', bodyHTML: html, onOpen: function () {
+      document.getElementById('bi-pick-file').addEventListener('click', function () { document.getElementById('bi-file-input').click(); });
+      document.getElementById('bi-file-input').addEventListener('change', function (e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        var status = document.getElementById('bi-status');
+        status.textContent = 'Dosya okunuyor…';
+        readTabularFile(file).then(function (parsed) {
+          if (!parsed.rows.length) { status.textContent = 'Dosyada okunacak satır bulunamadı.'; return; }
+          bulkImportState.headers = parsed.headers;
+          bulkImportState.rows = parsed.rows;
+          bulkImportState.fileName = file.name;
+          bulkImportState.mapping = guessColumnMapping(parsed.headers);
+          openBulkImportMappingSheet();
+        }).catch(function (err) {
+          console.warn('Dosya okuma hatası:', err);
+          status.textContent = 'Dosya okunamadı — formatını kontrol et.';
+        });
+      });
+    }
+  });
+}
+
+function openBulkImportMappingSheet() {
+  var headers = bulkImportState.headers;
+  var mapping = bulkImportState.mapping;
+  var fieldDefs = [
+    { key: 'date', label: 'Tarih', required: true },
+    { key: 'description', label: 'Açıklama', required: false },
+    { key: 'amount', label: 'Tutar (tek sütun, +/- işaretli)', required: false },
+    { key: 'debit', label: 'Borç / Gider sütunu (ayrı sütunsa)', required: false },
+    { key: 'credit', label: 'Alacak / Gelir sütunu (ayrı sütunsa)', required: false },
+    { key: 'category', label: 'Kategori (varsa)', required: false }
+  ];
+
+  function selectHTML(field) {
+    var opts = '<option value="-1">— Seçilmedi —</option>' + headers.map(function (h, i) {
+      return '<option value="' + i + '" ' + (mapping[field.key] === i ? 'selected' : '') + '>' + esc(String(h)) + '</option>';
+    }).join('');
+    return '<div class="field"><label>' + esc(field.label) + (field.required ? ' *' : '') + '</label>' +
+      '<select data-map-field="' + field.key + '" style="width:100%;background:var(--paper-raised);border:1px solid var(--rule-strong);border-radius:6px;padding:.62rem .7rem">' + opts + '</select></div>';
+  }
+
+  var sampleRows = bulkImportState.rows.slice(0, 3);
+  var sampleHTML = '<div class="hint" style="margin-bottom:.8rem">İlk birkaç satır (kontrol için):<br>' +
+    sampleRows.map(function (r) { return esc(r.slice(0, 4).join(' | ')); }).join('<br>') + '</div>';
+
+  var html = '<p class="muted" style="margin-top:0">' + esc(bulkImportState.fileName) + ' — ' + bulkImportState.rows.length + ' satır bulundu. Hangi sütunun ne olduğunu seç:</p>' +
+    sampleHTML +
+    fieldDefs.map(selectHTML).join('') +
+    '<p class="hint">Tutar ya TEK bir sütunda (+gelir/-gider) ya da BORÇ/ALACAK olarak iki ayrı sütunda olabilir — hangisi uyuyorsa onu doldur.</p>' +
+    '<button class="btn btn-primary btn-block" id="bi-preview-btn">Önizlemeye geç</button>';
+
+  openSheet({
+    title: 'Sütunları Eşleştir', bodyHTML: html, onOpen: function (body) {
+      body.querySelectorAll('[data-map-field]').forEach(function (sel) {
+        sel.addEventListener('change', function () { bulkImportState.mapping[sel.dataset.mapField] = Number(sel.value); });
+      });
+      document.getElementById('bi-preview-btn').addEventListener('click', function () {
+        if (bulkImportState.mapping.date === -1) { showToast('Tarih sütununu seçmelisin'); return; }
+        if (bulkImportState.mapping.amount === -1 && bulkImportState.mapping.debit === -1 && bulkImportState.mapping.credit === -1) {
+          showToast('Tutar ya da Borç/Alacak sütunlarından birini seçmelisin'); return;
+        }
+        openBulkImportPreviewSheet();
+      });
+    }
+  });
+}
+
+function openBulkImportPreviewSheet() {
+  var mapping = bulkImportState.mapping;
+  var existing = getFinance();
+  var valid = [], invalid = [], duplicates = [];
+
+  // Mevcut kayıtların anahtar kümesi BİR KERE kurulur (O(m)); dosyadaki
+  // yeni kayıtlar işlendikçe aynı kümeye eklenir, böylece hem "zaten
+  // kayıtlı" hem "dosya içinde tekrar eden" satırlar tek geçişte, O(1)
+  // aramayla yakalanır. Bu, binlerce satırlık dosyalarda eski .some()
+  // tabanlı O(n*m) yaklaşıma göre çok büyük bir hız farkı yaratır.
+  var seenKeys = buildFinanceDuplicateKeySet(existing);
+
+  bulkImportState.rows.forEach(function (row) {
+    var parsed = parseBulkImportRow(row, mapping);
+    if (!parsed.ok) { invalid.push({ row: row, reason: parsed.reason }); return; }
+    var key = financeDuplicateKey(parsed.record);
+    if (seenKeys.has(key)) { duplicates.push(parsed.record); return; }
+    seenKeys.add(key);
+    valid.push(parsed);
+  });
+
+  var html = '<div class="stack">' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Başarıyla okunacak</span></span><span class="mono" style="color:var(--success)">' + valid.length + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Mükerrer (atlanacak)</span></span><span class="mono muted">' + duplicates.length + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Hatalı (atlanacak)</span></span><span class="mono" style="color:var(--danger)">' + invalid.length + '</span></div>' +
+    '</div>';
+
+  if (invalid.length) {
+    html += '<div class="eyebrow" style="margin-top:1rem">Hatalı satırlardan örnekler</div>' +
+      '<div class="hint">' + invalid.slice(0, 5).map(function (x) { return esc(x.row.slice(0, 3).join(' | ')) + ' — ' + esc(x.reason); }).join('<br>') + '</div>';
+  }
+
+  html += '<button class="btn btn-primary btn-block" id="bi-confirm-btn" style="margin-top:1.2rem">' + valid.length + ' işlemi içeri aktar</button>' +
+    '<div id="bi-import-progress" class="hint" style="margin-top:.5rem"></div>';
+
+  openSheet({
+    title: 'Önizleme', bodyHTML: html, onOpen: function () {
+      document.getElementById('bi-confirm-btn').addEventListener('click', function () {
+        if (!valid.length) { showToast('İçeri aktarılacak geçerli işlem yok'); return; }
+        var progress = document.getElementById('bi-import-progress');
+        var confirmBtn = document.getElementById('bi-confirm-btn');
+        confirmBtn.disabled = true;
+        progress.textContent = 'İçeri aktarılıyor…';
+
+        // Büyük listelerde (binlerce kayıt) tek seferde dizi birleştirme +
+        // tek localStorage yazma işlemi yapıyoruz (her kayıt için ayrı
+        // ayrı set() çağırmak çok daha yavaş olurdu ve UI'yi kilitlerdi).
+        setTimeout(function () {
+          var currentFinance = getFinance();
+          var newRecords = valid.map(function (v) { return v.record; });
+          var defaultAccountId = getAccounts()[0] && getAccounts()[0].id;
+          newRecords.forEach(function (r) { if (!r.accountId) r.accountId = defaultAccountId; });
+          saveFinance(currentFinance.concat(newRecords));
+          progress.textContent = newRecords.length + ' işlem başarıyla eklendi.';
+          showToast(newRecords.length + ' işlem içeri aktarıldı');
+          setTimeout(function () {
+            closeSheet();
+            renderAll();
+          }, 900);
+        }, 30); // UI'nin "içeri aktarılıyor" mesajını göstermesine izin ver
+      });
+    }
+  });
+}
+
 /* ---- İşlem ekle/düzenle -------------------------------------------------- */
 function openTransactionSheet(id, presetType) {
   txOcrPending = false;
@@ -7117,7 +7077,7 @@ function renderAll() {
   renderInsights();
   renderAccounts();
   renderTransfers();
-  renderFinUpcoming();
+  renderUpcoming();
   renderTrendChart();
   renderCategoryChart();
   renderBudgets();
@@ -7137,6 +7097,11 @@ function initFinance() {
   document.getElementById('fin-budget-btn').addEventListener('click', openBudgetSheet);
   document.getElementById('fin-recurring-add-btn').addEventListener('click', function () { openRecurringSheet(null); });
   document.getElementById('fin-account-add-btn').addEventListener('click', function () { openAccountSheet(null); });
+  var bulkBtn = document.getElementById('fin-bulk-import-btn');
+  if (bulkBtn) {
+    bulkBtn.querySelector('span').innerHTML = icon('upload') + ' Toplu İçe Aktar (CSV/Excel)';
+    bulkBtn.addEventListener('click', function () { openBulkImportSheet(); });
+  }
   document.getElementById('fin-installment-add-btn').addEventListener('click', function () { openInstallmentSheet(); });
   document.getElementById('fin-month-prev').addEventListener('click', function () { shiftFinMonth(-1); checkBudgetOverrunsAndNotify(); });
   document.getElementById('fin-month-next').addEventListener('click', function () { shiftFinMonth(1); checkBudgetOverrunsAndNotify(); });
@@ -7163,7 +7128,6 @@ function initFinance() {
   hq.oninput = function () { historyFilter.q = hq.value.trim(); historyLimit = 40; renderHistory(); };
   document.getElementById('hist-export').onclick = exportCSV;
   document.getElementById('hist-import').onclick = pickStatementFile;
-  document.getElementById('hist-fix').onclick = auditImportedRecords;
   refreshUndoLink();
   document.getElementById('fin-goal-add-btn').onclick = function () { openSavingsSheet(null); };
   renderAll();
@@ -8188,7 +8152,6 @@ loadAuthorizedUsersOverride();
 
 initCore();
 navigateTo('today');
-bigLoadAll();
 </script>
 </body>
 </html>
