@@ -632,7 +632,7 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .fin-search{position:relative;margin:.1rem 0 .8rem}
 .fin-search .ic{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:var(--ink-soft);pointer-events:none;display:grid}
 .fin-search .ic svg{width:1.05rem;height:1.05rem}
-.fin-search input{width:100%;background:var(--paper-raised);border:1px solid var(--rule-strong);border-radius:99px;padding:.7rem 1rem .7rem 2.6rem;font:inherit;font-size:.92rem;color:var(--ink)}
+.fin-search input{width:100%;background:var(--paper-raised);border:1px solid var(--rule-strong);border-radius:99px;padding:.7rem 1rem .7rem 2.6rem;font:inherit;font-size:1rem;color:var(--ink)}
 .fin-search input:focus{outline:2px solid var(--accent);outline-offset:1px}
 .fin-actions{grid-template-columns:repeat(5,1fr);gap:.4rem}
 .fin-actions button{font-size:.7rem;padding:.6rem .1rem}
@@ -793,6 +793,13 @@ html,body,*{touch-action:manipulation}
 [style*="touch-action:none"],[data-drag-handle]{touch-action:none}
 button,[role="button"],a,label,input,select,textarea,.prayer-toggle,.checkbox{-webkit-touch-callout:none}
 .zk-btn,.zk-chip,.ib-time,.icon-btn{-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+
+/* ---- iOS: yazı boyutu 16px altındaki giriş kutuları odaklanınca sayfayı yakınlaştırır ve geri almaz.
+        Dokunmatik cihazlarda tüm giriş kutuları 16px'e sabitlenir (masaüstü etkilenmez). ---- */
+@media (pointer:coarse){
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="button"]):not([type="submit"]),
+  select,textarea{font-size:16px!important}
+}
 </style>
 <script>
   (function () {
