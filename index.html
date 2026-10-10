@@ -722,6 +722,71 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .fc-row .cum.neg{color:var(--danger)}
 .fc-row .cum small{display:block;font-size:.66rem;font-weight:400;color:var(--ink-soft);font-family:inherit}
 .fc-note{font-size:.76rem;color:var(--ink-soft);margin:.6rem 0 0;line-height:1.45}
+
+/* ---- İbadet: vakitler, kıble, zikir, hatim planı, takvim ---- */
+.ib-sec[hidden]{display:none!important}
+.ib-sec{animation:finIn .25s cubic-bezier(.2,.7,.2,1) both}
+.ib-tabs{margin:.2rem 0 1rem}
+.ib-hero{background:var(--accent);color:var(--accent-ink);border-radius:var(--radius-l);padding:1rem 1.1rem 1.05rem;margin-bottom:.9rem}
+.ib-hero .top{display:flex;align-items:center;justify-content:space-between;gap:.5rem;font-size:.78rem;opacity:.95}
+.ib-hero .lbl{font-size:.78rem;opacity:.85;margin-top:.7rem}
+.ib-hero .name{font-size:1.5rem;font-weight:700;line-height:1.15}
+.ib-hero .name b{font-family:var(--font-mono);font-weight:600;opacity:.9;margin-left:.3rem;font-size:1.15rem}
+.ib-hero .count{font-family:var(--font-mono);font-size:2.3rem;font-weight:700;letter-spacing:-.02em;margin:.1rem 0 .15rem;font-variant-numeric:tabular-nums}
+.ib-hero .sub{font-size:.8rem;opacity:.92}
+.ib-loc{display:inline-flex;align-items:center;gap:.3rem;background:rgba(255,255,255,.2);border:0;color:inherit;border-radius:99px;padding:.25rem .65rem;font:inherit;font-size:.76rem;font-weight:600;cursor:pointer}
+.ib-loc svg{width:.9rem;height:.9rem}
+.ib-chips{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.65rem}
+.ib-chip{background:rgba(255,255,255,.18);border-radius:99px;padding:.22rem .65rem;font-size:.74rem;font-weight:600}
+.ib-btns{display:flex;gap:.5rem;margin-top:.8rem;flex-wrap:wrap}
+.ib-btn{background:var(--accent-ink);color:var(--accent);border:0;border-radius:99px;padding:.55rem 1rem;font:inherit;font-size:.82rem;font-weight:700;cursor:pointer}
+.ib-btn.ghost{background:rgba(255,255,255,.2);color:inherit}
+.ib-times{display:flex;justify-content:space-between;gap:.3rem}
+.ib-time{flex:1;display:flex;flex-direction:column;align-items:center;gap:.25rem;background:none;border:0;cursor:pointer;color:inherit;border-radius:var(--radius-m);padding:.45rem .1rem .35rem;font:inherit}
+.ib-time.cur{background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent)}
+.ib-time .nm{font-size:.7rem}
+.ib-time .tm{font-family:var(--font-mono);font-size:.74rem;font-weight:600;color:var(--ink-soft)}
+.ib-time.cur .tm{color:var(--accent)}
+.ib-gunes{display:flex;justify-content:center;gap:.4rem;font-size:.74rem;color:var(--ink-soft);margin:.5rem 0 0}
+.ib-gunes b{font-family:var(--font-mono);font-weight:600}
+.ib-rev{margin-bottom:.9rem}
+.ib-rev-row{display:flex;align-items:center;gap:.5rem;padding:.55rem 0;border-bottom:1px solid var(--rule)}
+.ib-rev-row:last-of-type{border-bottom:0}
+.ib-rev-row .nm{flex:1;min-width:0;display:flex;flex-direction:column}
+.ib-rev-row .nm b{font-size:.88rem;font-weight:600}
+.ib-rev-row .nm i{font-style:normal;font-size:.72rem;color:var(--ink-soft)}
+.ib-rev-row button{border:0;border-radius:99px;padding:.35rem .7rem;font:inherit;font-size:.75rem;font-weight:700;cursor:pointer;background:var(--accent);color:var(--accent-ink)}
+.ib-rev-row button.ghost{background:var(--accent-soft);color:var(--accent)}
+.ib-compass{display:grid;place-items:center;margin:.5rem 0 .8rem}
+.ib-ring{position:relative;width:13rem;height:13rem;border-radius:50%;border:2px solid var(--rule-strong);background:var(--paper-raised);transition:transform .2s linear}
+.ib-ring .n{position:absolute;top:.35rem;left:50%;transform:translateX(-50%);font-weight:700;font-size:.8rem;color:var(--danger)}
+.ib-ring .ar{position:absolute;left:50%;top:50%;width:0;height:0}
+.ib-ring .ar i{position:absolute;left:-.55rem;top:-5.3rem;width:1.1rem;height:5.3rem;background:linear-gradient(var(--accent) 0 60%,transparent 60%);clip-path:polygon(50% 0,100% 45%,62% 45%,62% 100%,38% 100%,38% 45%,0 45%)}
+.ib-ring .dot{position:absolute;left:50%;top:50%;width:.7rem;height:.7rem;margin:-.35rem 0 0 -.35rem;border-radius:50%;background:var(--ink)}
+.ib-qdeg{text-align:center;font-family:var(--font-mono);font-size:1.4rem;font-weight:700}
+.ib-city{display:flex;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--rule);padding:.7rem .2rem;font:inherit;color:var(--ink);cursor:pointer}
+.zk-presets{display:flex;gap:.4rem;overflow-x:auto;padding-bottom:.3rem;margin-bottom:.8rem;scrollbar-width:none}
+.zk-presets::-webkit-scrollbar{display:none}
+.zk-chip{flex:none;border:1px solid var(--rule-strong);background:var(--paper-raised);color:var(--ink);border-radius:99px;padding:.4rem .85rem;font:inherit;font-size:.8rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.zk-chip.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.zk-wrap{display:grid;place-items:center;margin:.4rem 0 .6rem}
+.zk-btn{--p:0;position:relative;width:15rem;height:15rem;border-radius:50%;border:0;cursor:pointer;color:var(--ink);font:inherit;background:conic-gradient(var(--accent) calc(var(--p)*1%),var(--rule) 0);display:grid;place-items:center;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none}
+.zk-btn::before{content:'';position:absolute;inset:.7rem;border-radius:50%;background:var(--paper-raised);box-shadow:inset 0 0 0 1px var(--rule)}
+.zk-btn:active::before{background:var(--accent-soft)}
+.zk-btn .c{position:relative;font-family:var(--font-mono);font-size:4rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.zk-btn .t{position:relative;display:block;font-size:.78rem;color:var(--ink-soft);margin-top:.4rem;text-align:center}
+.zk-meta{display:flex;justify-content:center;gap:1rem;font-size:.82rem;color:var(--ink-soft);margin-bottom:.7rem}
+.zk-meta b{color:var(--ink);font-family:var(--font-mono)}
+.zk-tools{display:flex;justify-content:center;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.kh-bar{height:.55rem;border-radius:99px;background:var(--rule);overflow:hidden;margin:.5rem 0}
+.kh-bar i{display:block;height:100%;border-radius:99px;background:var(--accent)}
+.kh-bar.ok i{background:var(--success)}
+.ib-big{font-size:1.5rem;font-weight:700;line-height:1.15}
+.ib-days .plan-row .am{min-width:4.6rem}
+.fast-strip{display:flex;gap:.25rem;margin:.6rem 0}
+.fast-strip i{flex:1;height:1.5rem;border-radius:6px;background:var(--rule)}
+.fast-strip i.on{background:var(--accent)}
+.fast-strip i.today{box-shadow:inset 0 0 0 2px var(--ink)}
 </style>
 <script>
   (function () {
@@ -863,31 +928,53 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 <button class="fab" id="learning-add-fab" aria-label="Ekle"></button>
 </div>
 <div id="view-worship" style="display:none">
-<main class="page">
+<main class="page ib-page">
   <div class="eyebrow">İbadet</div>
   <h1>İbadet</h1>
-
-  <div class="card">
-    <div class="card-head mt0"><h3>Bugünkü namazlar</h3></div>
-    <div id="prayer-today"></div>
-    <hr class="divider">
-    <div id="prayer-streak"></div>
+  <div class="segmented ib-tabs" id="ib-tabs">
+    <button data-v="namaz" class="active">Namaz</button>
+    <button data-v="kuran">Kur'an</button>
+    <button data-v="zikir">Zikir</button>
+    <button data-v="takvim">Takvim</button>
   </div>
 
-  <div class="section-title"><h2>Kaza</h2><button class="link-btn" id="bulk-kaza-btn">Toplu ekle</button></div>
-  <div class="card" style="padding:.2rem .8rem" id="kaza-list"></div>
-  <div class="card">
-    <div class="card-head mt0"><h3>Kılınan kazalar</h3></div>
-    <div class="segmented" id="kaza-chart-period">
-      <button data-v="14d" class="active">14 Gün</button>
-      <button data-v="month">Aylık</button>
-      <button data-v="year">Yıllık</button>
+  <section class="ib-sec" data-ib="namaz">
+    <div id="ib-hero"></div>
+    <div id="ib-review"></div>
+    <div class="card">
+      <div class="card-head mt0"><h3>Bugünkü namazlar</h3><button type="button" class="link-btn" id="ib-qibla-btn">Kıble</button></div>
+      <div id="prayer-today"></div>
+      <hr class="divider">
+      <div id="prayer-streak"></div>
     </div>
-    <div id="kaza-chart" style="margin-top:.6rem"></div>
-  </div>
+    <div class="section-title"><h2>Kaza</h2><button class="link-btn" id="bulk-kaza-btn">Toplu ekle</button></div>
+    <div class="card" style="padding:.2rem .8rem" id="kaza-list"></div>
+    <div class="card">
+      <div class="card-head mt0"><h3>Kılınan kazalar</h3></div>
+      <div class="segmented" id="kaza-chart-period">
+        <button data-v="14d" class="active">14 Gün</button>
+        <button data-v="month">Aylık</button>
+        <button data-v="year">Yıllık</button>
+      </div>
+      <div id="kaza-chart" style="margin-top:.6rem"></div>
+    </div>
+  </section>
 
-  <div class="section-title"><h2>Kur'an</h2></div>
-  <div class="card" id="quran-panel"></div>
+  <section class="ib-sec" data-ib="kuran" hidden>
+    <div id="khatam-plan"></div>
+    <div class="section-title"><h2>Kur'an</h2></div>
+    <div class="card" id="quran-panel"></div>
+  </section>
+
+  <section class="ib-sec" data-ib="zikir" hidden>
+    <div id="zikir-view"></div>
+  </section>
+
+  <section class="ib-sec" data-ib="takvim" hidden>
+    <div id="ib-hijri"></div>
+    <div id="ib-fast"></div>
+    <div id="ib-days"></div>
+  </section>
 </main>
 <button class="fab" id="worship-add-fab" aria-label="Ekle"></button>
 </div>
@@ -4300,16 +4387,16 @@ function togglePrayer(key) {
 }
 
 function renderPrayerToday() {
-  var p = getPrayers();
-  var todayLog = p.dailyLog[todayISO()] || {};
-  document.getElementById('prayer-today').innerHTML = '<div style="display:flex;justify-content:space-between;gap:.3rem">' +
+  var p = getPrayers(), now = ibNowD(), todayLog = p.dailyLog[todayISO()] || {}, st = ibStatus(now), T = ibDayTimes(now);
+  document.getElementById('prayer-today').innerHTML = '<div class="ib-times">' +
     PRAYER_KEYS.map(function (k) {
-      var done = !!todayLog[k];
-      return '<button data-k="' + k + '" class="prayer-toggle" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:.35rem;background:none;border:none;cursor:pointer;color:inherit">' +
+      var done = !!todayLog[k], cur = st && st.cur === k;
+      return '<button data-k="' + k + '" class="prayer-toggle ib-time' + (cur ? ' cur' : '') + '" aria-pressed="' + done + '" aria-label="' + PRAYER_LABELS[k] + (T ? ' ' + ibFmt(T[k]) : '') + '">' +
         '<span class="checkbox' + (done ? ' checked' : '') + '" style="width:2.15rem;height:2.15rem;pointer-events:none">' + icon('check') + '</span>' +
-        '<span style="font-size:.7rem">' + PRAYER_LABELS[k] + '</span></button>';
-    }).join('') + '</div>';
+        '<span class="nm">' + PRAYER_LABELS[k] + '</span><span class="tm">' + (T ? ibFmt(T[k]) : '\u2013') + '</span></button>';
+    }).join('') + '</div>' + (T ? '<div class="ib-gunes">Güneş <b>' + ibFmt(T.gunes) + '</b> <span>\u00b7 sabah vaktinin sonu</span></div>' : '');
   document.querySelectorAll('.prayer-toggle').forEach(function (btn) { btn.addEventListener('click', function () { togglePrayer(btn.dataset.k); }); });
+  renderIbReview();
 }
 function renderPrayerStreak() {
   document.getElementById('prayer-streak').innerHTML =
@@ -4537,7 +4624,7 @@ function initWorship() {
       renderKazaChart();
     });
   });
-  renderPrayerToday();
+  ibInit();
   renderPrayerStreak();
   renderKaza();
   renderQuran();
@@ -4552,13 +4639,433 @@ function openWorshipAddMenu() {
     '<button class="list-row" id="wm-quran" style="width:100%;text-align:left;background:none;border:none;cursor:pointer">' +
     '<span class="icon-btn">' + icon('book') + '</span>' +
     '<span class="row-main"><span class="row-title">Kur\'an sayfası ekle</span></span>' +
-    '</button></div>';
+    '</button>' +
+    '<button class="list-row" id="wm-zikir" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="icon-btn">' + icon('refresh') + '</span><span class="row-main"><span class="row-title">Zikir çek</span></span></button>' +
+    '<button class="list-row" id="wm-fast" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="icon-btn">' + icon('flame') + '</span><span class="row-main"><span class="row-title">Oruç işaretle</span></span></button></div>';
   openSheet({
     title: 'Ne eklemek istersin?', bodyHTML: html, onOpen: function () {
       document.getElementById('wm-kaza').addEventListener('click', function () { closeSheet(); openBulkKazaSheet(); });
       document.getElementById('wm-quran').addEventListener('click', function () { closeSheet(); promptQuranPages(); });
+      document.getElementById('wm-zikir').addEventListener('click', function () { closeSheet(); ibSetTab('zikir'); });
+      document.getElementById('wm-fast').addEventListener('click', function () { closeSheet(); ibSetTab('takvim'); openFastSheet(todayISO()); });
     }
   });
+}
+
+/* ---- İbadet modülü: namaz vakitleri, kıble, zikir, hatim planı, takvim --------------------- */
+/* ---- Namaz vakti hesabı (bağımsız, çevrimdışı) -------------------------------------------
+   Güneş konumu + saat açısı yöntemi. Diyanet (Türkiye) parametreleri: imsak 18°, yatsı 17°,
+   ihtiyat: güneş -7 dk, öğle +5, ikindi +4, akşam +7 (adhan-js "Turkey" yöntemiyle aynı değerler). */
+function ibRad(d) { return d * Math.PI / 180; }
+function ibDeg(r) { return r * 180 / Math.PI; }
+function ibFix(a, b) { a = a - b * Math.floor(a / b); return a < 0 ? a + b : a; }
+function ibJulian(y, m, d) {
+  if (m <= 2) { y -= 1; m += 12; }
+  var A = Math.floor(y / 100), B = 2 - A + Math.floor(A / 4);
+  return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5;
+}
+function ibSunPos(jd) {
+  var D = jd - 2451545.0, g = ibFix(357.529 + 0.98560028 * D, 360), q = ibFix(280.459 + 0.98564736 * D, 360);
+  var L = ibFix(q + 1.915 * Math.sin(ibRad(g)) + 0.020 * Math.sin(ibRad(2 * g)), 360), e = 23.439 - 0.00000036 * D;
+  var RA = ibFix(ibDeg(Math.atan2(Math.cos(ibRad(e)) * Math.sin(ibRad(L)), Math.cos(ibRad(L)))) / 15, 24);
+  return { decl: ibDeg(Math.asin(Math.sin(ibRad(e)) * Math.sin(ibRad(L)))), eqt: q / 15 - RA };
+}
+/* y,m,d: yerel takvim günü; lat,lng derece; tz: UTC farkı (saat). Dönüş: günün başından itibaren dakika (ondalık). */
+function ibPrayerMinutes(y, m, d, lat, lng, tz) {
+  var jd = ibJulian(y, m, d) - lng / (15 * 24);
+  function noon(t) { return ibFix(12 - ibSunPos(jd + t).eqt, 24); }
+  function sunAngle(angle, t, ccw) {
+    var decl = ibSunPos(jd + t).decl, x = (-Math.sin(ibRad(angle)) - Math.sin(ibRad(decl)) * Math.sin(ibRad(lat))) / (Math.cos(ibRad(decl)) * Math.cos(ibRad(lat)));
+    x = Math.max(-1, Math.min(1, x));
+    var h = ibDeg(Math.acos(x)) / 15;
+    return noon(t) + (ccw ? -h : h);
+  }
+  function asr(f, t) {
+    var decl = ibSunPos(jd + t).decl, a = -ibDeg(Math.atan(1 / (f + Math.tan(ibRad(Math.abs(lat - decl)))))) ;
+    return sunAngle(a, t, false);
+  }
+  var T = { fajr: 5, sunrise: 6, dhuhr: 12, asr: 13, sunset: 18, isha: 18 }, i;
+  for (i = 0; i < 3; i++) {
+    var P = { fajr: T.fajr / 24, sunrise: T.sunrise / 24, dhuhr: T.dhuhr / 24, asr: T.asr / 24, sunset: T.sunset / 24, isha: T.isha / 24 };
+    T = { fajr: sunAngle(18, P.fajr, true), sunrise: sunAngle(0.833, P.sunrise, true), dhuhr: noon(P.dhuhr), asr: asr(1, P.asr), sunset: sunAngle(0.833, P.sunset, false), isha: sunAngle(17, P.isha, false) };
+  }
+  var off = tz - lng / 15;
+  return { fajr: (T.fajr + off) * 60, sunrise: (T.sunrise + off) * 60 - 7, dhuhr: (T.dhuhr + off) * 60 + 5, asr: (T.asr + off) * 60 + 4, maghrib: (T.sunset + off) * 60 + 7, isha: (T.isha + off) * 60 };
+}
+function ibQibla(lat, lng) {
+  var K = { lat: 21.4225, lng: 39.8262 }, dl = ibRad(K.lng - lng), p1 = ibRad(lat), p2 = ibRad(K.lat);
+  return ibFix(ibDeg(Math.atan2(Math.sin(dl), Math.cos(p1) * Math.tan(p2) - Math.sin(p1) * Math.cos(dl))), 360);
+}
+
+var IB_CITIES = [['Adana',37.00,35.32],['Adıyaman',37.76,38.28],['Afyonkarahisar',38.74,30.54],['Ağrı',39.72,43.05],['Aksaray',38.37,34.03],['Amasya',40.65,35.83],['Ankara',39.93,32.86],['Antalya',36.90,30.70],['Ardahan',41.11,42.70],['Artvin',41.18,41.82],['Aydın',37.85,27.84],['Balıkesir',39.65,27.89],['Bartın',41.64,32.34],['Batman',37.88,41.13],['Bayburt',40.26,40.23],['Bilecik',40.14,29.98],['Bingöl',38.88,40.50],['Bitlis',38.40,42.11],['Bolu',40.73,31.61],['Burdur',37.72,30.29],['Bursa',40.19,29.06],['Çanakkale',40.15,26.41],['Çankırı',40.60,33.62],['Çorum',40.55,34.95],['Denizli',37.78,29.09],['Diyarbakır',37.91,40.24],['Düzce',40.84,31.16],['Edirne',41.68,26.56],['Elazığ',38.67,39.22],['Erzincan',39.75,39.49],['Erzurum',39.90,41.27],['Eskişehir',39.78,30.52],['Gaziantep',37.07,37.38],['Giresun',40.91,38.39],['Gümüşhane',40.46,39.48],['Hakkâri',37.58,43.74],['Hatay',36.20,36.16],['Iğdır',39.92,44.04],['Isparta',37.76,30.55],['İstanbul',41.01,28.98],['İzmir',38.42,27.14],['Kahramanmaraş',37.58,36.94],['Karabük',41.20,32.62],['Karaman',37.18,33.22],['Kars',40.60,43.10],['Kastamonu',41.38,33.78],['Kayseri',38.73,35.49],['Kırıkkale',39.85,33.52],['Kırklareli',41.74,27.23],['Kırşehir',39.15,34.17],['Kilis',36.72,37.12],['Kocaeli',40.77,29.92],['Konya',37.87,32.48],['Kütahya',39.42,29.98],['Malatya',38.35,38.31],['Manisa',38.61,27.43],['Mardin',37.31,40.74],['Mersin',36.80,34.64],['Muğla',37.22,28.36],['Muş',38.74,41.49],['Nevşehir',38.62,34.71],['Niğde',37.97,34.68],['Ordu',40.98,37.88],['Osmaniye',37.07,36.25],['Rize',41.02,40.52],['Sakarya',40.76,30.40],['Samsun',41.29,36.33],['Siirt',37.93,41.94],['Sinop',42.03,35.15],['Sivas',39.75,37.02],['Şanlıurfa',37.16,38.79],['Şırnak',37.52,42.46],['Tekirdağ',40.98,27.51],['Tokat',40.31,36.55],['Trabzon',41.00,39.72],['Tunceli',39.11,39.55],['Uşak',38.68,29.41],['Van',38.49,43.38],['Yalova',40.65,29.27],['Yozgat',39.82,34.81],['Zonguldak',41.46,31.80]];
+var IB_HIJRI_MONTHS = ['Muharrem', 'Safer', 'Rebiülevvel', 'Rebiülahir', 'Cemaziyelevvel', 'Cemaziyelahir', 'Recep', 'Şaban', 'Ramazan', 'Şevval', 'Zilkade', 'Zilhicce'];
+var IB_ALL = ['sabah', 'gunes', 'ogle', 'ikindi', 'aksam', 'yatsi'];
+var ibTab = 'namaz', ibTimer = null, ibNext = null, ibHFmt = null;
+ICON_PATHS.compass = '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>';
+ICON_PATHS.pin = '<path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>';
+
+function ibNowD() { return window.__ibNow ? new Date(window.__ibNow) : new Date(); }
+function ibFmt(d) { return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
+function ibLoc() { var p = getPrayers(); return p.loc && isFinite(p.loc.lat) && isFinite(p.loc.lng) ? p.loc : null; }
+function ibDayTimes(date) {
+  var loc = ibLoc();
+  if (!loc) return null;
+  var y = date.getFullYear(), m = date.getMonth() + 1, d = date.getDate(), mn = ibPrayerMinutes(y, m, d, loc.lat, loc.lng, -new Date(y, m - 1, d, 12).getTimezoneOffset() / 60);
+  function mk(v) { return new Date(y, m - 1, d, 0, Math.round(v)); }
+  return { sabah: mk(mn.fajr), gunes: mk(mn.sunrise), ogle: mk(mn.dhuhr), ikindi: mk(mn.asr), aksam: mk(mn.maghrib), yatsi: mk(mn.isha) };
+}
+function ibEvents(now) {
+  var out = [];
+  [-1, 0, 1].forEach(function (o) {
+    var T = ibDayTimes(new Date(now.getFullYear(), now.getMonth(), now.getDate() + o));
+    if (T) IB_ALL.forEach(function (k) { out.push({ k: k, t: T[k], day: o }); });
+  });
+  return out;
+}
+function ibStatus(now) {
+  var ev = ibEvents(now);
+  if (!ev.length) return null;
+  var next = null, prev = null;
+  ev.forEach(function (e) { if (e.t > now) { if (!next) next = e; } else prev = e; });
+  if (!next || !prev) return null;
+  var isP = prev.k !== 'gunes';
+  return { next: next, prev: prev, cur: isP ? prev.k : null, curEnd: isP ? next.t : null, ev: ev };
+}
+function ibCount(ms) { var t = Math.max(0, Math.floor(ms / 1000)); return pad2(Math.floor(t / 3600)) + ':' + pad2(Math.floor(t % 3600 / 60)) + ':' + pad2(t % 60); }
+function ibLabel(k) { return k === 'gunes' ? 'Güneş' : PRAYER_LABELS[k]; }
+function ibHijri(date) {
+  if (!ibHFmt) { try { ibHFmt = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura-nu-latn', { day: 'numeric', month: 'numeric', year: 'numeric' }); } catch (e) { ibHFmt = false; } }
+  if (!ibHFmt) return null;
+  var o = {};
+  ibHFmt.formatToParts(date).forEach(function (x) { if (x.type === 'day' || x.type === 'month' || x.type === 'year') o[x.type] = parseInt(x.value, 10); });
+  return o.day ? { d: o.day, m: o.month, y: o.year, text: o.day + ' ' + IB_HIJRI_MONTHS[o.month - 1] + ' ' + o.year } : null;
+}
+function ibUpcomingDays(now, limit) {
+  var EV = { '1-1': ['Hicri yılbaşı', 0], '1-10': ['Aşure günü', 0], '3-12': ['Mevlid Kandili', 1], '7-1': ['Üç aylar başlangıcı', 0], '7-27': ['Miraç Kandili', 1], '8-15': ['Berat Kandili', 1], '9-1': ['Ramazan başlangıcı', 0], '9-27': ['Kadir Gecesi', 1], '10-1': ['Ramazan Bayramı', 0], '12-9': ['Arefe', 0], '12-10': ['Kurban Bayramı', 0] };
+  var out = [], i, base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  for (i = 0; i < 420 && out.length < limit; i++) {
+    var d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + i), h = ibHijri(d);
+    if (!h) break;
+    var e = EV[h.m + '-' + h.d];
+    if (h.m === 7 && d.getDay() === 5 && h.d <= 7) e = ['Regaib Kandili', 1];
+    if (!e) continue;
+    var shown = e[1] ? new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1) : d;
+    if (shown < base) continue;
+    out.push({ n: e[0], night: !!e[1], date: shown, days: Math.round((shown - base) / 864e5) });
+  }
+  return out;
+}
+/* ---- konum ---- */
+function openIbLocSheet() {
+  function pick(loc) { var p = getPrayers(); p.loc = loc; savePrayers(p); closeSheet(); ibRenderAll(); showToast('Konum: ' + loc.name); }
+  openSheet({
+    title: 'Konum',
+    bodyHTML: '<button class="btn btn-secondary btn-block" id="ibl-gps" style="margin-bottom:.7rem">' + icon('pin') + ' Konumumu kullan</button>' +
+      '<div class="field"><input type="search" id="ibl-q" placeholder="Şehir ara" autocomplete="off" aria-label="Şehir ara"></div><div id="ibl-list" style="max-height:48vh;overflow:auto"></div>' +
+      '<p class="muted" style="font-size:.76rem;margin:.6rem 0 0">Vakitler internet olmadan cihazında hesaplanır (Diyanet yöntemi). Resmî imsakiyeden 1\u20132 dakika farklı olabilir.</p>',
+    onOpen: function (body) {
+      var list = body.querySelector('#ibl-list');
+      function draw(q) {
+        q = (q || '').toLocaleLowerCase('tr');
+        list.innerHTML = IB_CITIES.filter(function (c) { return !q || c[0].toLocaleLowerCase('tr').indexOf(q) !== -1; }).map(function (c, i) { return '<button type="button" class="ib-city" data-n="' + c[0] + '">' + esc(c[0]) + '</button>'; }).join('') || '<p class="muted">Şehir bulunamadı.</p>';
+      }
+      draw('');
+      body.querySelector('#ibl-q').addEventListener('input', function () { draw(this.value.trim()); });
+      list.addEventListener('click', function (e) {
+        var b = e.target.closest('.ib-city');
+        if (!b) return;
+        var c = IB_CITIES.filter(function (x) { return x[0] === b.getAttribute('data-n'); })[0];
+        pick({ name: c[0], lat: c[1], lng: c[2] });
+      });
+      body.querySelector('#ibl-gps').addEventListener('click', function () {
+        if (!navigator.geolocation) { showToast('Bu cihaz konum vermiyor, şehir seç'); return; }
+        showToast('Konum alınıyor…');
+        navigator.geolocation.getCurrentPosition(function (pos) {
+          var la = pos.coords.latitude, lo = pos.coords.longitude, best = null, bd = 1e9;
+          IB_CITIES.forEach(function (c) { var dd = Math.hypot((c[1] - la) * 111, (c[2] - lo) * 111 * Math.cos(la * Math.PI / 180)); if (dd < bd) { bd = dd; best = c; } });
+          pick({ name: best && bd < 60 ? best[0] : 'Konumum', lat: la, lng: lo, gps: true });
+        }, function () { showToast('Konum alınamadı \u2014 şehir seç'); }, { timeout: 12000, maximumAge: 3600000 });
+      });
+    }
+  });
+}
+/* ---- kıble ---- */
+function openQiblaSheet() {
+  var loc = ibLoc();
+  if (!loc) { showToast('Önce konumunu seç'); openIbLocSheet(); return; }
+  var q = ibQibla(loc.lat, loc.lng), dirs = ['kuzey', 'kuzeydoğu', 'doğu', 'güneydoğu', 'güney', 'güneybatı', 'batı', 'kuzeybatı'], dn = dirs[Math.round(q / 45) % 8];
+  openSheet({
+    title: 'Kıble yönü',
+    bodyHTML: '<div class="ib-compass"><div class="ib-ring" id="ib-ring"><span class="n">K</span><div class="ar" style="transform:rotate(' + q.toFixed(1) + 'deg)"><i></i></div><span class="dot"></span></div></div>' +
+      '<div class="ib-qdeg">' + Math.round(q) + '\u00b0 ' + dn + '</div><p class="muted" style="text-align:center;font-size:.8rem;margin:.4rem 0 .9rem" id="ib-qhint">Kuzeyden saat yönünde ölçülür. Telefonun pusulasıyla yönü canlı görmek için aşağıya dokun.</p>' +
+      '<button class="btn btn-primary btn-block" id="ib-qon">Pusulayı aç</button>',
+    onOpen: function (body) {
+      body.querySelector('#ib-qon').addEventListener('click', function () {
+        var btn = this;
+        function begin() {
+          function h(e) {
+            var ring = document.getElementById('ib-ring');
+            if (!ring) { window.removeEventListener('deviceorientation', h, true); window.removeEventListener('deviceorientationabsolute', h, true); return; }
+            var hd = e.webkitCompassHeading != null ? e.webkitCompassHeading : (e.absolute && e.alpha != null ? 360 - e.alpha : null);
+            if (hd == null) return;
+            ring.style.transform = 'rotate(' + (-hd).toFixed(1) + 'deg)';
+            var near = Math.abs(((q - hd + 540) % 360) - 180) > 172;
+            var hint = document.getElementById('ib-qhint'); if (hint) hint.textContent = near ? 'Kıbleye dönüksün \u2713' : 'Oku telefonun üst kenarına doğru çevir.';
+          }
+          window.addEventListener('deviceorientationabsolute', h, true);
+          window.addEventListener('deviceorientation', h, true);
+          btn.style.display = 'none';
+        }
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          DeviceOrientationEvent.requestPermission().then(function (r) { if (r === 'granted') begin(); else showToast('Pusula izni verilmedi'); }).catch(function () { showToast('Pusula açılamadı'); });
+        } else if (typeof DeviceOrientationEvent !== 'undefined') begin();
+        else showToast('Bu cihazda pusula yok');
+      });
+    }
+  });
+}
+/* ---- ana (namaz) sekmesi ---- */
+function renderIbHero() {
+  var el = document.getElementById('ib-hero');
+  if (!el) return;
+  var loc = ibLoc(), now = ibNowD();
+  if (!loc) {
+    el.innerHTML = '<div class="ib-hero"><div class="lbl" style="margin-top:0">Namaz vakitleri</div><div class="name">Konumunu seç</div><div class="sub">Vakitler internet olmadan cihazında hesaplanır; sonraki vakte geri sayım gösterilir.</div>' +
+      '<div class="ib-btns"><button type="button" class="ib-btn" data-ib-gps>Konumumu kullan</button><button type="button" class="ib-btn ghost" data-ib-city>Şehir seç</button></div></div>';
+    ibNext = null; return;
+  }
+  var st = ibStatus(now), T = ibDayTimes(now), h = ibHijri(now), chips = [];
+  if (!st) { el.innerHTML = ''; return; }
+  ibNext = st.next.t;
+  if (now.getDay() === 5) chips.push('Cuma \u00b7 Cuma namazı ' + ibFmt(T.ogle));
+  var up = ibUpcomingDays(now, 3).filter(function (x) { return x.days === 0; })[0];
+  if (up) chips.push(up.night ? 'Bu akşam ' + up.n : 'Bugün ' + up.n);
+  if (h && h.m === 9) chips.push('Ramazan ' + h.d + '. gün \u00b7 sahur ' + ibFmt(T.sabah) + ' \u00b7 iftar ' + ibFmt(T.aksam));
+  var sub = st.cur ? 'Şu an ' + ibLabel(st.cur) + ' vakti \u00b7 ' + ibFmt(st.curEnd) + '\u2019e kadar' : 'Güneş doğdu \u00b7 öğleye kadar kerahat vakti';
+  el.innerHTML = '<div class="ib-hero"><div class="top"><button type="button" class="ib-loc" data-ib-city>' + icon('pin') + esc(loc.name) + '</button><span>' + esc(formatDateTR(todayISO())) + (h ? ' \u00b7 ' + esc(h.text) : '') + '</span></div>' +
+    '<div class="lbl">Sonraki: ' + ibLabel(st.next.k) + '</div><div class="name">' + ibLabel(st.next.k) + '<b>' + ibFmt(st.next.t) + (st.next.day ? ' (yarın)' : '') + '</b></div>' +
+    '<div class="count" id="ib-count">' + ibCount(st.next.t - now) + '</div><div class="sub">' + sub + '</div>' +
+    (chips.length ? '<div class="ib-chips">' + chips.map(function (c) { return '<span class="ib-chip">' + esc(c) + '</span>'; }).join('') + '</div>' : '') + '</div>';
+}
+function ibTick() {
+  var c = document.getElementById('ib-count');
+  if (!c || (document.body && document.body.getAttribute('data-page') !== 'worship')) { clearInterval(ibTimer); ibTimer = null; return; }
+  var now = ibNowD();
+  if (ibNext && now >= ibNext) { renderIbHero(); renderPrayerToday(); return; }
+  if (ibNext) c.textContent = ibCount(ibNext - now);
+}
+function ibIsDone(p, iso, k) { return !!(p.dailyLog[iso] && p.dailyLog[iso][k]); }
+function ibReviewItems(now) {
+  var p = getPrayers(), today = todayISO(), y = addDays(today, -1), items = [], k;
+  if (Object.keys(p.dailyLog).length < 3) return items;
+  p.kazaAdded = p.kazaAdded || {};
+  function skip(iso, key) { return p.kazaAdded[iso + '|' + key]; }
+  PRAYER_KEYS.forEach(function (key) { if (!ibIsDone(p, y, key) && !skip(y, key)) items.push({ d: y, k: key, lab: 'Dün' }); });
+  var st = ibStatus(now);
+  if (st) PRAYER_KEYS.forEach(function (key) {
+    var i, e = null;
+    for (i = 0; i < st.ev.length; i++) if (st.ev[i].k === key && st.ev[i].day === 0) { e = i; break; }
+    if (e == null || !st.ev[e + 1]) return;
+    if (st.ev[e + 1].t <= now && !ibIsDone(p, today, key) && !skip(today, key)) items.push({ d: today, k: key, lab: 'Bugün' });
+  });
+  return items;
+}
+function renderIbReview() {
+  var el = document.getElementById('ib-review');
+  if (!el) return;
+  var items = ibReviewItems(ibNowD());
+  if (!items.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="card ib-rev"><div class="card-head mt0"><h3>İşaretlemeyi unuttun mu?</h3><button type="button" class="link-btn" data-ib-rev-all>Geç</button></div>' +
+    '<p class="muted" style="margin:0 0 .3rem;font-size:.78rem">Vakti çıkmış, işaretlenmemiş namazlar. Kıldıysan işaretle, kılamadıysan kazaya ekle.</p>' +
+    items.slice(0, 6).map(function (x, i) {
+      return '<div class="ib-rev-row"><span class="nm"><b>' + PRAYER_LABELS[x.k] + '</b><i>' + x.lab + '</i></span><button type="button" data-ib-done="' + i + '">Kıldım</button><button type="button" class="ghost" data-ib-kaza="' + i + '">Kazaya ekle</button></div>';
+    }).join('') + '</div>';
+  el.__items = items;
+}
+function ibReviewAct(i, kind) {
+  var el = document.getElementById('ib-review'), x = el && el.__items && el.__items[i];
+  if (!x) return;
+  var p = getPrayers();
+  p.kazaAdded = p.kazaAdded || {};
+  p.dailyLog[x.d] = p.dailyLog[x.d] || {};
+  if (kind === 'done') {
+    var was = PRAYER_KEYS.every(function (k) { return p.dailyLog[x.d][k]; });
+    p.dailyLog[x.d][x.k] = true; savePrayers(p);
+    addXP(2, { silent: true });
+    if (!was && PRAYER_KEYS.every(function (k) { return p.dailyLog[x.d][k]; })) addXP(10);
+  } else {
+    p.kazaAdded[x.d + '|' + x.k] = true; savePrayers(p);
+    adjustKaza(x.k, 1);
+    showToast(PRAYER_LABELS[x.k] + ' kazaya eklendi');
+  }
+  renderPrayerToday(); renderPrayerStreak();
+}
+function ibRevSkipAll() {
+  var el = document.getElementById('ib-review'), items = el && el.__items;
+  if (!items) return;
+  var p = getPrayers(); p.kazaAdded = p.kazaAdded || {};
+  items.forEach(function (x) { p.kazaAdded[x.d + '|' + x.k] = true; });
+  savePrayers(p); renderIbReview();
+}
+/* ---- zikir ---- */
+var IB_ZIKIR = [['Sübhanallah', 33], ['Elhamdülillah', 33], ['Allahu Ekber', 33], ['Lâ ilâhe illallah', 100], ['İstiğfar', 100], ['Salavat', 100], ['Serbest', 0]];
+var ibZ = { name: 'Sübhanallah', target: 33, count: 0, cycles: 0 };
+function ibZikirTotals() {
+  var p = getPrayers(), log = p.dhikrLog || {}, today = log[todayISO()] || {}, tt = 0, all = 0;
+  Object.keys(today).forEach(function (k) { tt += today[k]; });
+  Object.keys(log).forEach(function (d) { Object.keys(log[d]).forEach(function (k) { all += log[d][k]; }); });
+  return { today: today, tt: tt, all: all };
+}
+function renderZikir() {
+  var el = document.getElementById('zikir-view');
+  if (!el) return;
+  var T = ibZikirTotals(), pct = ibZ.target ? Math.min(100, ibZ.count / ibZ.target * 100) : 0;
+  el.innerHTML = '<div class="zk-presets">' + IB_ZIKIR.map(function (z) { return '<button type="button" class="zk-chip' + (z[0] === ibZ.name ? ' active' : '') + '" data-zk-name="' + z[0] + '">' + esc(z[0]) + '</button>'; }).join('') + '</div>' +
+    '<div class="zk-wrap"><button type="button" class="zk-btn" id="zk-tap" style="--p:' + pct + '" aria-label="Say"><span><span class="c" id="zk-c">' + ibZ.count + '</span><span class="t">' + esc(ibZ.name) + (ibZ.target ? ' \u00b7 hedef ' + ibZ.target : '') + '</span></span></button></div>' +
+    '<div class="zk-meta"><span>Tur <b id="zk-cy">' + ibZ.cycles + '</b></span><span>Bugün <b id="zk-td">' + T.tt + '</b></span><span>Toplam <b>' + T.all + '</b></span></div>' +
+    '<div class="zk-tools">' + [33, 99, 100, 500, 0].map(function (n) { return '<button type="button" class="zk-chip' + (ibZ.target === n ? ' active' : '') + '" data-zk-target="' + n + '">' + (n ? n : '\u221e') + '</button>'; }).join('') +
+    '<button type="button" class="zk-chip" data-zk-reset>Sıfırla</button></div>' +
+    (Object.keys(T.today).length ? '<div class="card" style="padding:.2rem .9rem"><div class="plan-h" style="margin:.5rem 0 .2rem"><h3>Bugün</h3></div>' + Object.keys(T.today).map(function (k) { return '<div class="plan-row"><span class="nm"><b>' + esc(k) + '</b></span><span class="am mono">' + T.today[k] + '</span></div>'; }).join('') + '</div>' : '');
+}
+function ibZikirTap() {
+  var p = getPrayers(), today = todayISO();
+  p.dhikrLog = p.dhikrLog || {}; p.dhikrLog[today] = p.dhikrLog[today] || {};
+  p.dhikrLog[today][ibZ.name] = (p.dhikrLog[today][ibZ.name] || 0) + 1;
+  savePrayers(p);
+  ibZ.count++;
+  var done = ibZ.target && ibZ.count >= ibZ.target;
+  if (done) { ibZ.count = 0; ibZ.cycles++; try { if (navigator.vibrate) navigator.vibrate([60, 40, 60]); } catch (e) {} showToast(ibZ.target + ' tamamlandı'); renderZikir(); return; }
+  try { if (navigator.vibrate) navigator.vibrate(12); } catch (e2) {}
+  var c = document.getElementById('zk-c'), b = document.getElementById('zk-tap'), td = document.getElementById('zk-td');
+  if (c) c.textContent = ibZ.count; if (td) td.textContent = ibZikirTotals().tt;
+  if (b && ibZ.target) b.style.setProperty('--p', Math.min(100, ibZ.count / ibZ.target * 100));
+}
+/* ---- takvim: hicri tarih, dini günler, oruç ---- */
+function renderIbCalendar() {
+  var now = ibNowD(), h = ibHijri(now), p = getPrayers(), hj = document.getElementById('ib-hijri');
+  if (hj) hj.innerHTML = '<div class="card"><div class="eyebrow" style="margin:0">Hicri takvim</div><div class="ib-big">' + (h ? esc(h.text) : '\u2013') + '</div><div class="muted" style="font-size:.82rem">' + esc(formatDateTR(todayISO())) +
+    '</div><p class="muted" style="font-size:.72rem;margin:.5rem 0 0">Tarihler astronomik hesaba dayanır; Diyanet ilanından \u00b11 gün farklı olabilir.</p></div>';
+  var dy = document.getElementById('ib-days');
+  if (dy) {
+    var up = ibUpcomingDays(now, 6);
+    dy.innerHTML = '<div class="plan-h"><h3>Dini günler ve geceler</h3><span>yaklaşık</span></div><div class="card ib-days" style="padding:.2rem .9rem">' + (up.length ? up.map(function (x) {
+      return '<div class="plan-row"><span class="st">' + icon(x.night ? 'moon' : 'calendar') + '</span><span class="nm"><b>' + esc(x.n) + '</b><i>' + esc(formatDateTR(toISO(x.date))) + (x.night ? ' akşamı' : '') + '</i></span><span class="am">' + (x.days === 0 ? 'Bugün' : x.days === 1 ? 'Yarın' : x.days + ' gün') + '</span></div>';
+    }).join('') : '<p class="muted">Veri hesaplanamadı.</p>') + '</div>';
+  }
+  var fl = p.fastLog || {}, ff = document.getElementById('ib-fast');
+  if (ff) {
+    var today = todayISO(), mk = today.slice(0, 7), mc = 0, tc = 0, i, strip = '';
+    Object.keys(fl).forEach(function (d) { tc++; if (d.slice(0, 7) === mk) mc++; });
+    for (i = 13; i >= 0; i--) { var dd = addDays(today, -i); strip += '<i class="' + (fl[dd] ? 'on' : '') + (dd === today ? ' today' : '') + '" title="' + dd + '"></i>'; }
+    var sug = [];
+    for (i = 1; i <= 14 && sug.length < 3; i++) {
+      var d2 = parseISO(addDays(today, i)), hh = ibHijri(d2), wd = d2.getDay();
+      if (hh && hh.m === 9) continue;
+      if (wd === 1 || wd === 4 || (hh && hh.d >= 13 && hh.d <= 15)) sug.push((i === 1 ? 'Yarın' : formatDateTR(toISO(d2))) + ' \u00b7 ' + (hh && hh.d >= 13 && hh.d <= 15 ? 'Eyyâm-ı bîd' : (wd === 1 ? 'Pazartesi' : 'Perşembe')));
+    }
+    ff.innerHTML = '<div class="plan-h"><h3>Oruç</h3><span>' + mc + ' gün bu ay \u00b7 ' + tc + ' toplam</span></div><div class="card">' +
+      '<button type="button" class="btn ' + (fl[today] ? 'btn-secondary' : 'btn-primary') + ' btn-block" data-fast-today>' + (fl[today] ? 'Bugün oruçlusun \u2713 (' + esc(fl[today]) + ')' : 'Bugün oruç tutuyorum') + '</button>' +
+      '<div class="fast-strip" aria-label="Son 14 gün">' + strip + '</div>' +
+      '<div class="list-row" style="padding:.3rem 0"><div class="row-main"><div class="row-title">Kaza orucu</div><div class="row-sub">bekleyen gün</div></div><div class="row-actions"><button class="icon-btn" data-fast-dec aria-label="Azalt">' + icon('minus') + '</button><span class="mono" style="min-width:1.7rem;text-align:center">' + (p.fastKaza || 0) + '</span><button class="icon-btn" data-fast-inc aria-label="Artır">' + icon('plus') + '</button></div></div>' +
+      (sug.length ? '<div class="muted" style="font-size:.78rem;margin-top:.4rem">Sünnet oruç günleri: ' + sug.map(esc).join(' \u00b7 ') + '</div>' : '') + '</div>';
+  }
+}
+function openFastSheet(iso) {
+  var p = getPrayers(), cur = (p.fastLog || {})[iso], h = ibHijri(parseISO(iso)), types = [['Ramazan', 'Ramazan orucu'], ['Kaza', 'Kaza orucu'], ['Nafile', 'Nafile / sünnet'], ['Adak', 'Adak / keffâret']];
+  var def = h && h.m === 9 ? 'Ramazan' : 'Nafile';
+  openSheet({
+    title: 'Oruç \u00b7 ' + formatDateTR(iso),
+    bodyHTML: '<div class="stack">' + types.map(function (t) { return '<button class="btn ' + ((cur || def) === t[0] ? 'btn-primary' : 'btn-secondary') + ' btn-block" data-ft="' + t[0] + '">' + t[1] + '</button>'; }).join('') + (cur ? '<button class="btn btn-secondary btn-block" data-ft="">Kaldır</button>' : '') + '</div>',
+    onOpen: function (body) {
+      body.querySelectorAll('[data-ft]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var pp = getPrayers(), t = b.getAttribute('data-ft'), old = (pp.fastLog || {})[iso];
+          pp.fastLog = pp.fastLog || {};
+          if (!t) delete pp.fastLog[iso]; else pp.fastLog[iso] = t;
+          if (t === 'Kaza' && old !== 'Kaza') pp.fastKaza = Math.max(0, (pp.fastKaza || 0) - 1);
+          if (old === 'Kaza' && t !== 'Kaza') pp.fastKaza = (pp.fastKaza || 0) + 1;
+          savePrayers(pp); closeSheet(); renderIbCalendar(); showToast(t ? 'Oruç işaretlendi' : 'Oruç kaldırıldı');
+        });
+      });
+    }
+  });
+}
+/* ---- hatim planı ---- */
+function renderKhatam() {
+  var el = document.getElementById('khatam-plan');
+  if (!el) return;
+  var p = getPrayers(), k = p.khatam, h = computeHatim(), remaining = 604 - h.into, today = todayISO();
+  if (!k) {
+    el.innerHTML = '<div class="card"><div class="card-head mt0"><h3>Hatim planı</h3></div><p class="muted" style="margin:0 0 .6rem;font-size:.85rem">Hatmi hangi tarihe kadar bitirmek istersin? Günlük sayfa hedefini hesaplayayım.</p>' +
+      '<div class="zk-tools" style="justify-content:flex-start;margin:0">' + [30, 60, 90].map(function (n) { return '<button type="button" class="zk-chip" data-kh-days="' + n + '">' + n + ' gün</button>'; }).join('') +
+      '<button type="button" class="zk-chip" data-kh-ram>Ramazan\u2019a kadar</button><button type="button" class="zk-chip" data-kh-date>Tarih seç</button></div></div>';
+    return;
+  }
+  var daysLeft = Math.round((parseISO(k.target) - parseISO(today)) / 864e5) + 1, todayRead = p.quranLog[today] || 0;
+  if (daysLeft < 1) {
+    el.innerHTML = '<div class="card"><div class="card-head mt0"><h3>Hatim planı</h3></div><p style="margin:0 0 .6rem">Hedef tarih (' + esc(formatDateTR(k.target)) + ') geçti. ' + remaining + ' sayfa kaldı.</p><div class="zk-tools" style="justify-content:flex-start;margin:0"><button type="button" class="zk-chip" data-kh-date>Yeni tarih seç</button><button type="button" class="zk-chip" data-kh-clear>Planı kaldır</button></div></div>';
+    return;
+  }
+  var need = Math.max(1, Math.ceil((remaining + todayRead) / daysLeft)), got = Math.min(todayRead, need), ok = todayRead >= need, last7 = 0, i;
+  for (i = 0; i < 7; i++) last7 += p.quranLog[addDays(today, -i)] || 0;
+  var avg = last7 / 7, eta = avg > 0 ? Math.ceil(remaining / avg) : null, etaD = eta != null ? addDays(today, eta) : null, diff = etaD ? Math.round((parseISO(k.target) - parseISO(etaD)) / 864e5) : null;
+  el.innerHTML = '<div class="card"><div class="card-head mt0"><h3>Hatim planı</h3><span class="card-stat">' + daysLeft + ' gün kaldı</span></div>' +
+    '<div class="ib-big">' + need + ' <span style="font-size:.9rem;font-weight:500" class="muted">sayfa / gün</span></div>' +
+    '<div class="kh-bar' + (ok ? ' ok' : '') + '"><i style="width:' + Math.max(2, got / need * 100) + '%"></i></div>' +
+    '<div class="row-sub">Bugün ' + todayRead + ' / ' + need + (ok ? ' \u2713 hedef tamam' : ' \u00b7 ' + (need - todayRead) + ' sayfa kaldı') + '</div>' +
+    '<div class="row-sub" style="margin-top:.35rem">' + remaining + ' sayfa kaldı \u00b7 hedef ' + esc(formatDateTR(k.target)) + '</div>' +
+    (etaD ? '<div class="row-sub">Son 7 gün hızınla (' + avg.toFixed(1) + ' sayfa/gün) ' + esc(formatDateTR(etaD)) + ' tarihinde biter' + (diff >= 0 ? ' \u2713' : ' \u00b7 hedeften ' + (-diff) + ' gün geç') + '</div>' : '') +
+    '<div class="zk-tools" style="justify-content:flex-start;margin:.7rem 0 0"><button type="button" class="zk-chip" data-kh-date>Tarihi değiştir</button><button type="button" class="zk-chip" data-kh-clear>Planı kaldır</button></div></div>';
+}
+function ibSetKhatam(target) { var p = getPrayers(); p.khatam = { target: target, start: todayISO() }; savePrayers(p); renderKhatam(); showToast('Hatim planı kaydedildi'); }
+function ibKhatamDate() {
+  openSheet({
+    title: 'Hatim hedef tarihi',
+    bodyHTML: '<div class="field"><label>Hedef tarih</label><input type="date" id="kh-d" min="' + todayISO() + '" value="' + addDays(todayISO(), 30) + '"></div><button class="btn btn-primary btn-block" id="kh-ok">Kaydet</button>',
+    onOpen: function () { document.getElementById('kh-ok').addEventListener('click', function () { var v = document.getElementById('kh-d').value; if (!v || v < todayISO()) { showToast('Geçerli bir tarih seç'); return; } closeSheet(); ibSetKhatam(v); }); }
+  });
+}
+/* ---- sekmeler / başlatma ---- */
+function ibRenderAll() { renderIbHero(); renderPrayerToday(); renderIbCalendar(); renderKhatam(); renderZikir(); }
+function ibSetTab(v) {
+  ibTab = v;
+  var root = document.querySelector('#view-worship');
+  if (!root) return;
+  root.querySelectorAll('#ib-tabs button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === v); });
+  root.querySelectorAll('.ib-sec').forEach(function (sec) { sec.hidden = sec.getAttribute('data-ib') !== v; });
+  if (v === 'namaz') { renderIbHero(); renderPrayerToday(); } else if (v === 'takvim') renderIbCalendar(); else if (v === 'kuran') { renderKhatam(); renderQuran(); } else if (v === 'zikir') renderZikir();
+  window.scrollTo(0, 0);
+}
+function ibInit() {
+  var root = document.querySelector('#view-worship');
+  ibTab = 'namaz';
+  root.querySelectorAll('#ib-tabs button').forEach(function (b) { b.onclick = function () { ibSetTab(b.dataset.v); }; });
+  var qb = document.getElementById('ib-qibla-btn'); if (qb) qb.onclick = openQiblaSheet;
+  if (!root.__ibBound) {
+    root.__ibBound = true;
+    root.addEventListener('click', function (e) {
+      var t = e.target, c = function (sel) { return t.closest && t.closest(sel); }, x;
+      if (c('[data-ib-city]')) { openIbLocSheet(); return; }
+      if (c('[data-ib-gps]')) { openIbLocSheet(); return; }
+      if ((x = c('[data-ib-done]'))) { ibReviewAct(Number(x.getAttribute('data-ib-done')), 'done'); return; }
+      if ((x = c('[data-ib-kaza]'))) { ibReviewAct(Number(x.getAttribute('data-ib-kaza')), 'kaza'); return; }
+      if (c('[data-ib-rev-all]')) { ibRevSkipAll(); return; }
+      if (c('#zk-tap')) { ibZikirTap(); return; }
+      if ((x = c('[data-zk-name]'))) { var nm = x.getAttribute('data-zk-name'), z = IB_ZIKIR.filter(function (q) { return q[0] === nm; })[0]; ibZ = { name: nm, target: z[1], count: 0, cycles: 0 }; renderZikir(); return; }
+      if ((x = c('[data-zk-target]'))) { ibZ.target = Number(x.getAttribute('data-zk-target')); ibZ.count = 0; renderZikir(); return; }
+      if (c('[data-zk-reset]')) { ibZ.count = 0; ibZ.cycles = 0; renderZikir(); return; }
+      if (c('[data-fast-today]')) { openFastSheet(todayISO()); return; }
+      if (c('[data-fast-inc]') || c('[data-fast-dec]')) { var pp = getPrayers(); pp.fastKaza = Math.max(0, (pp.fastKaza || 0) + (c('[data-fast-inc]') ? 1 : -1)); savePrayers(pp); renderIbCalendar(); return; }
+      if ((x = c('[data-kh-days]'))) { ibSetKhatam(addDays(todayISO(), Number(x.getAttribute('data-kh-days')) - 1)); return; }
+      if (c('[data-kh-ram]')) { var r = ibUpcomingDays(ibNowD(), 12).filter(function (q) { return q.n === 'Ramazan başlangıcı'; })[0]; if (r) ibSetKhatam(addDays(toISO(r.date), -1)); else showToast('Ramazan tarihi hesaplanamadı'); return; }
+      if (c('[data-kh-date]')) { ibKhatamDate(); return; }
+      if (c('[data-kh-clear]')) { var pk = getPrayers(); delete pk.khatam; savePrayers(pk); renderKhatam(); }
+    });
+  }
+  if (ibTimer) clearInterval(ibTimer);
+  ibRenderAll();
+  ibTimer = setInterval(ibTick, 1000);
+  document.querySelectorAll('.ib-sec').forEach(function (sec) { sec.hidden = sec.getAttribute('data-ib') !== 'namaz'; });
 }
 
 /* ---- finance.js ---- */
