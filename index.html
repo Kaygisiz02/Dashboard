@@ -800,6 +800,80 @@ button,[role="button"],a,label,input,select,textarea,.prayer-toggle,.checkbox{-w
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="button"]):not([type="submit"]),
   select,textarea{font-size:16px!important}
 }
+
+/* ---- Notlar (iPhone Notlar tarzı) ---- */
+.nt-head{display:flex;align-items:center;justify-content:space-between;margin:.1rem 0 .6rem}
+.nt-head h1{margin:0;font-size:2rem;letter-spacing:-.02em}
+.nt-search{position:relative;margin-bottom:.6rem}
+.nt-search .ic{position:absolute;left:.8rem;top:50%;transform:translateY(-50%);color:var(--ink-soft);pointer-events:none;display:grid}
+.nt-search .ic svg{width:1rem;height:1rem}
+.nt-search input{width:100%;background:rgba(120,120,128,.14);border:0;border-radius:.7rem;padding:.6rem .9rem .6rem 2.4rem;font:inherit;font-size:1rem;color:var(--ink)}
+.nt-search input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.nt-chips{display:flex;gap:.4rem;overflow-x:auto;padding:.1rem 0 .7rem;scrollbar-width:none}
+.nt-chips::-webkit-scrollbar{display:none}
+.nt-chip{flex:none;display:inline-flex;align-items:center;gap:.35rem;border:0;background:rgba(120,120,128,.14);color:var(--ink);border-radius:99px;padding:.4rem .8rem;font:inherit;font-size:.8rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.nt-chip svg{width:.9rem;height:.9rem}
+.nt-chip i{font-style:normal;font-weight:500;color:var(--ink-soft);font-size:.74rem}
+.nt-chip.on{background:var(--accent);color:var(--accent-ink)}
+.nt-chip.on i{color:inherit;opacity:.85}
+.nt-chip.add{background:none;color:var(--accent);box-shadow:inset 0 0 0 1px var(--rule-strong)}
+.nt-sec{font-size:.95rem;font-weight:700;margin:1.1rem .2rem .4rem}
+.nt-group{background:var(--paper-raised);border-radius:var(--radius-l);overflow:hidden;border:1px solid var(--rule)}
+.nt-row{position:relative;overflow:hidden;border-bottom:1px solid var(--rule)}
+.nt-row:last-child{border-bottom:0}
+.nt-main{position:relative;z-index:1;display:flex;align-items:center;gap:.7rem;padding:.7rem .9rem;background:var(--paper-raised);cursor:pointer;touch-action:pan-y}
+.nt-tx{flex:1;min-width:0}
+.nt-t{font-weight:650;font-size:.98rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nt-s{font-size:.84rem;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.1rem}
+.nt-s .nt-d{color:var(--ink);font-size:.82rem;margin-right:.25rem}
+.nt-f{display:flex;align-items:center;gap:.3rem;font-size:.74rem;color:var(--ink-soft);margin-top:.15rem}
+.nt-f svg{width:.8rem;height:.8rem}
+.nt-th{flex:none;width:2.9rem;height:2.9rem;border-radius:.5rem;object-fit:cover}
+.nt-pin{display:inline-block;color:#e0a100;margin-right:.3rem;vertical-align:-.1em}
+.nt-pin svg{width:.85rem;height:.85rem}
+.nt-act-l,.nt-act-r{position:absolute;top:0;bottom:0;display:flex;align-items:stretch;font-size:.74rem;font-weight:700;color:#fff}
+.nt-act-l{left:0;width:6rem;background:#e0a100;align-items:center;padding-left:1rem}
+.nt-act-l span{display:flex;flex-direction:column;align-items:center;gap:.2rem}
+.nt-act-l svg{width:1.2rem;height:1.2rem}
+.nt-act-r{right:0;width:132px}
+.nt-act-r button{flex:1;border:0;color:#fff;background:#8e8e93;font:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.2rem;cursor:pointer}
+.nt-act-r button.del{background:var(--danger)}
+.nt-act-r svg{width:1.15rem;height:1.15rem}
+.nt-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.nt-card{background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--radius-l);padding:.7rem;cursor:pointer;min-width:0;display:flex;flex-direction:column;gap:.25rem;min-height:7.5rem}
+.nt-card img{width:100%;height:5rem;object-fit:cover;border-radius:.5rem}
+.nt-card .nt-s{white-space:normal;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical}
+.nt-card .nt-d{margin-top:auto;font-size:.72rem;color:var(--ink-soft)}
+.nt-count{text-align:center;color:var(--ink-soft);font-size:.82rem;margin:1.1rem 0 .5rem}
+/* düzenleyici */
+.nt-ed{position:fixed;left:0;right:0;top:0;height:100%;z-index:35;background:var(--paper);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+.nt-ed-top{display:flex;align-items:center;justify-content:space-between;padding:.4rem .6rem}
+.nt-back{display:inline-flex;align-items:center;border:0;background:none;color:var(--accent);font:inherit;font-weight:600;font-size:1rem;cursor:pointer;padding:.4rem .3rem}
+.nt-back svg{width:1.3rem;height:1.3rem}
+.nt-ed-act{display:flex;align-items:center;gap:.2rem}
+.nt-done{border:0;background:none;color:var(--accent);font:inherit;font-weight:700;font-size:1rem;padding:.4rem .5rem;cursor:pointer}
+.nt-ed-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 1.1rem 1.5rem}
+.nt-date{text-align:center;color:var(--ink-soft);font-size:.78rem;margin:.3rem 0 .9rem}
+.nt-body{min-height:45vh;outline:none;font-size:17px;line-height:1.45;caret-color:var(--accent);word-break:break-word;-webkit-user-select:text;user-select:text}
+.nt-body>:first-child{font-size:1.6rem;font-weight:700;line-height:1.2}
+.nt-body h2{font-size:1.3rem;font-weight:700;margin:.6rem 0 .2rem;line-height:1.25}
+.nt-body h3{font-size:1.1rem;font-weight:700;margin:.5rem 0 .15rem;line-height:1.3}
+.nt-body ul,.nt-body ol{margin:.2rem 0;padding-left:1.5rem}
+.nt-body ul.ne-check{padding-left:0;list-style:none}
+.nt-body ul.ne-check li{position:relative;padding-left:2rem;min-height:1.6rem;margin:.2rem 0}
+.nt-body ul.ne-check li::before{content:'';position:absolute;left:.1rem;top:.22rem;width:1.2rem;height:1.2rem;border-radius:50%;border:1.7px solid var(--ink-soft);box-sizing:border-box}
+.nt-body ul.ne-check li[data-done="1"]{color:var(--ink-soft);text-decoration:line-through}
+.nt-body ul.ne-check li[data-done="1"]::before{background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4 8-9'/%3E%3C/svg%3E") center/70% no-repeat;border-color:var(--accent)}
+.nt-body img.ne-img{max-width:100%;border-radius:.7rem;display:block;margin:.5rem 0}
+.nt-fmt{margin:0 .6rem .4rem;background:var(--paper-raised);border:1px solid var(--rule-strong);border-radius:var(--radius-l);padding:.4rem;box-shadow:0 8px 24px -10px rgba(0,0,0,.35)}
+.nt-fmt[hidden]{display:none}
+.nt-fmt .r{display:flex;gap:.3rem;margin:.2rem 0}
+.nt-fmt button{flex:1;border:0;background:rgba(120,120,128,.14);color:var(--ink);border-radius:.6rem;padding:.55rem .3rem;font:inherit;font-size:.85rem;cursor:pointer}
+.nt-fmt button.on{background:var(--accent);color:var(--accent-ink)}
+.nt-ed-bar{display:flex;justify-content:space-around;align-items:center;padding:.35rem .6rem calc(.35rem + env(safe-area-inset-bottom));border-top:1px solid var(--rule);background:var(--paper-raised)}
+.nt-ed-bar button{border:0;background:none;color:var(--accent);min-width:2.8rem;height:2.6rem;border-radius:.6rem;font:inherit;font-weight:700;font-size:1.05rem;cursor:pointer;display:grid;place-items:center}
+.nt-ed-bar button svg{width:1.4rem;height:1.4rem}
+.nt-ed-bar button.on{background:var(--accent-soft)}
 </style>
 <script>
   (function () {
@@ -1171,12 +1245,14 @@ button,[role="button"],a,label,input,select,textarea,.prayer-toggle,.checkbox{-w
 <button class="fab" id="fin-add-fab" aria-label="İşlem ekle"></button>
 </div>
 <div id="view-notes" style="display:none">
-<main class="page">
-  <div class="eyebrow">Notlar</div>
-  <h1>Notlar</h1>
+<main class="page nt-page">
+  <div class="nt-head"><h1 id="nt-title">Notlar</h1><button type="button" class="icon-btn" id="nt-menu" aria-label="Seçenekler"></button></div>
+  <div class="nt-search"><span class="ic" id="nt-search-ic"></span><input type="search" id="nt-q" placeholder="Ara" autocomplete="off" enterkeyhint="search" aria-label="Notlarda ara"></div>
+  <div class="nt-chips" id="nt-chips"></div>
   <div id="notes-list"></div>
+  <div class="nt-count" id="nt-count"></div>
 </main>
-<button class="fab" id="note-add-fab" aria-label="Not ekle"></button>
+<button class="fab" id="note-add-fab" aria-label="Yeni not"></button>
 </div>
 <div id="view-achievements" style="display:none">
 <main class="page">
@@ -1272,6 +1348,7 @@ var STORAGE_KEYS = {
   budget: 'gunlukAjandam_budget',
   recurringFinance: 'gunlukAjandam_recurringFinance',
   finPlan: 'gunlukAjandam_finPlan',
+  noteFolders: 'gunlukAjandam_noteFolders',
   transfers: 'gunlukAjandam_transfers',
   savingsGoals: 'gunlukAjandam_savingsGoals',
   lastImport: 'gunlukAjandam_lastImport',
@@ -1282,7 +1359,7 @@ var STORAGE_KEYS = {
   dashboardCards: 'gunlukAjandam_dashboardCards'
 };
 
-var USER_SCOPED_KEYS = ['user', 'xp', 'tasks', 'routines', 'events', 'goals', 'vocab', 'reading', 'prayers', 'finance', 'accounts', 'installments', 'notifiedBudgetOverruns', 'budget', 'recurringFinance', 'finPlan', 'notes', 'transfers', 'savingsGoals', 'lastImport'];
+var USER_SCOPED_KEYS = ['user', 'xp', 'tasks', 'routines', 'events', 'goals', 'vocab', 'reading', 'prayers', 'finance', 'accounts', 'installments', 'notifiedBudgetOverruns', 'budget', 'recurringFinance', 'finPlan', 'noteFolders', 'notes', 'transfers', 'savingsGoals', 'lastImport'];
 
 var ACTIVE_USER_ID_KEY = 'gunlukAjandam_activeUserId';
 var DEFAULT_USER_ID = 'default';
@@ -2789,7 +2866,7 @@ function renderWeatherRetry(message) {
 }
 
 function noteMiniRowHTML(n) {
-  var text = (n.text || (n.photo ? 'Fotoğraf' : '')).trim();
+  var text = ntTitleOf(n);
   var preview = esc(text.slice(0, 48)) + (text.length > 48 ? '\u2026' : '');
   return '<a href="javascript:void(0)" data-nav="notes" class="list-row" style="text-decoration:none;color:inherit">' +
     icon('note') +
@@ -2828,7 +2905,7 @@ function computeTodayAgenda() {
   var tasks = getTasks().filter(function (t) {
     return t.status !== 'done' && (t.due === today || (t.createdAt || '').slice(0, 10) === today);
   });
-  var notes = getNotes().filter(function (n) { return (n.createdAt || '').slice(0, 10) === today; })
+  var notes = getNotes().filter(function (n) { return ntLocalISO(n.createdAt) === today; })
     .sort(function (a, b) { return (a.createdAt || '').localeCompare(b.createdAt || ''); });
   var hasRoutinesToday = getRoutines().some(function (r) { return !r.archived && isRoutineDue(r, today); });
   return { events: events, overdue: overdue, tasks: tasks, notes: notes, hasRoutinesToday: hasRoutinesToday };
@@ -2938,7 +3015,7 @@ function categoryRowHTML(key) {
       statColor = net > 0 ? 'var(--success)' : net < 0 ? 'var(--danger)' : '';
     }
   } else if (key === 'notes') {
-    var notes = get('notes', []).slice().sort(function (a, b) { return (b.createdAt || '').localeCompare(a.createdAt || ''); });
+    var notes = getNotes().slice().sort(function (a, b) { return (b.createdAt || '').localeCompare(a.createdAt || ''); });
     if (notes.length) {
       var last = notes[0];
       var preview = (last.text || '').trim().slice(0, 40);
@@ -8714,8 +8791,16 @@ function initFinance() {
    Günlük Ajandam — notes.js (Notlar)
    ========================================================================== */
 
-function getNotes() { return get('notes', []); }
-function saveNotes(list) { set('notes', list); }
+/* ==========================================================================
+   Günlük Ajandam — notes.js (Notlar, iPhone Notlar tarzı)
+   Not: { id, html, text (düz metin, arama/önizleme), createdAt, updatedAt, pinned, folder, thumb, deletedAt }
+   Eski notlar ({text, photo}) olduğu gibi çalışır; düzenlenince zengin biçime geçer.
+   ========================================================================== */
+function ntAll() { return get('notes', []); }
+function getNotes() { return ntAll().filter(function (n) { return !n.deletedAt; }); }
+function saveNotes(list) { return set('notes', list); }
+function getNoteFolders() { return get('noteFolders', []); }
+function saveNoteFolders(l) { set('noteFolders', l); }
 
 function resizeImageFile(file, maxW) {
   return new Promise(function (resolve, reject) {
@@ -8723,13 +8808,11 @@ function resizeImageFile(file, maxW) {
     reader.onload = function (e) {
       var img = new Image();
       img.onload = function () {
-        var scale = Math.min(1, maxW / img.width);
-        var w = Math.max(1, Math.round(img.width * scale));
-        var h = Math.max(1, Math.round(img.height * scale));
+        var scale = Math.min(1, maxW / img.width), w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
         var canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.75));
+        resolve(canvas.toDataURL('image/jpeg', 0.72));
       };
       img.onerror = function () { reject(new Error('Görsel yüklenemedi')); };
       img.src = e.target.result;
@@ -8739,86 +8822,518 @@ function resizeImageFile(file, maxW) {
   });
 }
 
-function noteCardHTML(n) {
-  var rawText = n.text || '';
-  var preview = esc(rawText.slice(0, 140)) + (rawText.length > 140 ? '\u2026' : '');
-  return '<div class="card clickable" data-id="' + n.id + '" data-open style="display:flex;gap:.7rem;align-items:flex-start">' +
-    (n.photo ? '<img src="' + n.photo + '" alt="" style="width:3.6rem;height:3.6rem;object-fit:cover;border-radius:8px;flex:none">' : '') +
-    '<div style="flex:1;min-width:0">' +
-    '<div class="row-sub mono" style="margin-bottom:.25rem">' + esc(formatDateTR((n.createdAt || '').slice(0, 10), { year: false })) + '</div>' +
-    (rawText ? '<div style="font-size:.9rem">' + preview + '</div>' : (n.photo ? '<div class="muted" style="font-size:.85rem">Fotoğraf</div>' : '')) +
-    '</div></div>';
-}
+ICON_PATHS.folder = '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>';
+ICON_PATHS.notepin = '<path d="M9 3h6l-1 6 3 3H7l3-3z"/><path d="M12 12v8"/>';
+ICON_PATHS.share = '<path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>';
+ICON_PATHS.checklist = '<circle cx="6" cy="7" r="2.2"/><path d="M11 7h9"/><circle cx="6" cy="17" r="2.2"/><path d="M11 17h9"/>';
+ICON_PATHS.undo = '<path d="M3 8h11a6 6 0 0 1 0 12h-4"/><path d="M7 4L3 8l4 4"/>';
+ICON_PATHS.redo = '<path d="M21 8H10a6 6 0 0 0 0 12h4"/><path d="M17 4l4 4-4 4"/>';
+ICON_PATHS.image = '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/>';
 
+var ntPrefs = { view: 'list', sort: 'edited' }, ntFolder = 'all', ntQ = '', ntEd = null, ntOpenRow = null, ntSw = null;
+var NT_WD = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+function ntLoadPrefs() { try { var p = JSON.parse(localStorage.getItem('ajandam_notesPrefs') || '{}'); ntPrefs.view = p.view === 'grid' ? 'grid' : 'list'; ntPrefs.sort = p.sort === 'created' || p.sort === 'title' ? p.sort : 'edited'; } catch (e) {} }
+function ntSavePrefs() { try { localStorage.setItem('ajandam_notesPrefs', JSON.stringify(ntPrefs)); } catch (e) {} }
+function ntLocalISO(iso) { var d = new Date(iso); return isNaN(d.getTime()) ? '' : toISO(d); }
+function ntTime(iso) { var d = new Date(iso); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
+function ntStamp(n) { return ntPrefs.sort === 'created' ? (n.createdAt || n.updatedAt) : (n.updatedAt || n.createdAt); }
+function ntRowDate(iso) {
+  var d = ntLocalISO(iso), t = todayISO();
+  if (!d) return '';
+  if (d === t) return ntTime(iso);
+  if (d === addDays(t, -1)) return 'Dün';
+  var diff = Math.round((parseISO(t) - parseISO(d)) / 864e5);
+  if (diff > 0 && diff < 7) return NT_WD[parseISO(d).getDay()];
+  return d.slice(8, 10) + '.' + d.slice(5, 7) + '.' + d.slice(0, 4);
+}
+function ntSection(iso) {
+  var d = ntLocalISO(iso), t = todayISO(), diff = Math.round((parseISO(t) - parseISO(d)) / 864e5);
+  if (!d || diff <= 0) return 'Bugün';
+  if (diff === 1) return 'Dün';
+  if (diff <= 7) return 'Önceki 7 Gün';
+  if (diff <= 30) return 'Önceki 30 Gün';
+  return d.slice(0, 4) === t.slice(0, 4) ? MONTHS_TR[Number(d.slice(5, 7)) - 1] : d.slice(0, 4);
+}
+/* ---- düz metin / başlık / önizleme / etiket ---- */
+function ntLines(root) {
+  var lines = [], cur = '';
+  function flush() { lines.push(cur); cur = ''; }
+  function walk(n) {
+    if (n.nodeType === 3) { cur += n.nodeValue; return; }
+    if (n.nodeType !== 1) return;
+    var tag = n.tagName;
+    if (tag === 'BR') { flush(); return; }
+    if (tag === 'IMG') return;
+    var block = /^(DIV|P|H1|H2|H3|LI|UL|OL)$/.test(tag), i;
+    if (block && cur) flush();
+    if (tag === 'LI') {
+      var par = n.parentNode, k = 1, sib = n.previousElementSibling;
+      while (sib) { k++; sib = sib.previousElementSibling; }
+      cur += par.classList && par.classList.contains('ne-check') ? (n.getAttribute('data-done') === '1' ? '\u2611 ' : '\u2610 ') : (par.tagName === 'OL' ? k + '. ' : '\u2022 ');
+    }
+    for (i = 0; i < n.childNodes.length; i++) walk(n.childNodes[i]);
+    if (block && (cur !== '' || tag === 'LI')) flush();
+  }
+  walk(root);
+  if (cur !== '') flush();
+  while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+  return lines;
+}
+var NT_OK_TAGS = { DIV: 1, P: 1, BR: 1, B: 1, STRONG: 1, I: 1, EM: 1, U: 1, S: 1, STRIKE: 1, H2: 1, H3: 1, UL: 1, OL: 1, LI: 1, IMG: 1 };
+function ntSanitize(html) {
+  var src = new DOMParser().parseFromString('<body>' + String(html || '') + '</body>', 'text/html').body, out = document.createElement('div');
+  function copy(from, to) {
+    var i, c;
+    for (i = 0; i < from.childNodes.length; i++) {
+      c = from.childNodes[i];
+      if (c.nodeType === 3) { to.appendChild(document.createTextNode(c.nodeValue)); continue; }
+      if (c.nodeType !== 1) continue;
+      var t = c.tagName;
+      if (!NT_OK_TAGS[t]) { if (!/^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED|LINK|META)$/.test(t)) copy(c, to); continue; }
+      var e = document.createElement(t.toLowerCase());
+      if (t === 'IMG') { var s = c.getAttribute('src') || ''; if (!/^data:image\/(jpeg|png|gif|webp);base64,/i.test(s)) continue; e.setAttribute('src', s); e.className = 'ne-img'; }
+      if (t === 'UL' && c.classList && c.classList.contains('ne-check')) e.className = 'ne-check';
+      if (t === 'LI' && c.getAttribute('data-done') === '1') e.setAttribute('data-done', '1');
+      if (t !== 'IMG') copy(c, e);
+      to.appendChild(e);
+    }
+  }
+  copy(src, out);
+  return out.innerHTML;
+}
+function ntPlainFromHTML(html) {
+  var body = new DOMParser().parseFromString('<body>' + String(html || '') + '</body>', 'text/html').body;
+  return ntLines(body).join('\n');
+}
+function ntStrip(l) { return l.replace(/^[\u2610\u2611\u2022]\s+|^\d+\.\s+/, '').trim(); }
+function ntTitleOf(n) {
+  var ls = String(n.text || '').split('\n'), i;
+  for (i = 0; i < ls.length; i++) { var t = ntStrip(ls[i]); if (t) return t.slice(0, 80); }
+  return (n.thumb || n.photo || /<img/.test(n.html || '')) ? 'Fotoğraf' : 'Yeni Not';
+}
+function ntSnippetOf(n) {
+  var ls = String(n.text || '').split('\n'), i, seen = false, out = [];
+  for (i = 0; i < ls.length && out.join(' ').length < 120; i++) { var t = ntStrip(ls[i]); if (!t) continue; if (!seen) { seen = true; continue; } out.push(t); }
+  return out.join(' ').slice(0, 120);
+}
+function ntTags(n) {
+  var m = String(n.text || '').toLocaleLowerCase('tr').match(/#[a-z0-9_çğıöşü]+/g) || [], seen = {}, out = [];
+  m.forEach(function (t) { if (t.length > 1 && !seen[t]) { seen[t] = 1; out.push(t.slice(1)); } });
+  return out;
+}
+function ntFolderName(id) { var f = getNoteFolders().filter(function (x) { return x.id === id; })[0]; return f ? f.name : ''; }
+/* ---- Son Silinenler: 30 gün sonra kalıcı sil ---- */
+function ntPurge() {
+  var all = ntAll(), cut = Date.now() - 30 * 864e5, keep = all.filter(function (n) { return !n.deletedAt || new Date(n.deletedAt).getTime() > cut; });
+  if (keep.length !== all.length) saveNotes(keep);
+}
+function ntFiltered() {
+  var f = ntFolder, q = ntQ.toLocaleLowerCase('tr');
+  return ntAll().filter(function (n) {
+    if (f === 'trash') { if (!n.deletedAt) return false; }
+    else {
+      if (n.deletedAt) return false;
+      if (f.indexOf('tag:') === 0) { if (ntTags(n).indexOf(f.slice(4)) === -1) return false; }
+      else if (f !== 'all' && n.folder !== f) return false;
+    }
+    return !q || String(n.text || '').toLocaleLowerCase('tr').indexOf(q) !== -1;
+  });
+}
+function ntUserFolder() { return ntFolder !== 'all' && ntFolder !== 'trash' && ntFolder.indexOf('tag:') !== 0 ? ntFolder : null; }
+/* ---- liste çizimi ---- */
+function ntChipsHTML() {
+  var all = ntAll(), live = all.filter(function (n) { return !n.deletedAt; }), trash = all.length - live.length, tags = {};
+  var chips = [{ id: 'all', n: 'Tüm Notlar', c: live.length }];
+  getNoteFolders().forEach(function (f) { chips.push({ id: f.id, n: f.name, c: live.filter(function (x) { return x.folder === f.id; }).length, f: 1 }); });
+  live.forEach(function (n) { ntTags(n).forEach(function (t) { tags[t] = (tags[t] || 0) + 1; }); });
+  Object.keys(tags).sort(function (a, b) { return tags[b] - tags[a]; }).slice(0, 8).forEach(function (t) { chips.push({ id: 'tag:' + t, n: '#' + t, c: tags[t] }); });
+  if (trash) chips.push({ id: 'trash', n: 'Son Silinenler', c: trash });
+  return chips.map(function (c) { return '<button type="button" class="nt-chip' + (c.id === ntFolder ? ' on' : '') + '" data-nt-folder="' + esc(c.id) + '">' + (c.f ? icon('folder') : '') + esc(c.n) + '<i>' + c.c + '</i></button>'; }).join('') + '<button type="button" class="nt-chip add" data-nt-newfolder>+ Klasör</button>';
+}
+function ntRowHTML(n) {
+  var th = n.thumb || n.photo, trash = !!n.deletedAt, fol = !trash && ntFolder === 'all' && n.folder ? ntFolderName(n.folder) : '';
+  var left = trash ? Math.max(0, 30 - Math.floor((Date.now() - new Date(n.deletedAt).getTime()) / 864e5)) : 0;
+  return '<div class="nt-row" data-id="' + n.id + '">' + (trash ? '' : '<div class="nt-act-l"><span>' + icon('notepin') + (n.pinned ? 'Kaldır' : 'Sabitle') + '</span></div><div class="nt-act-r"><button type="button" data-nt-act="move">' + icon('folder') + 'Taşı</button><button type="button" class="del" data-nt-act="del">' + icon('trash') + 'Sil</button></div>') +
+    '<div class="nt-main" data-open><div class="nt-tx"><div class="nt-t">' + (n.pinned ? '<span class="nt-pin">' + icon('notepin') + '</span>' : '') + esc(ntTitleOf(n)) + '</div>' +
+    '<div class="nt-s"><span class="nt-d">' + (trash ? left + ' gün kaldı' : esc(ntRowDate(ntStamp(n)))) + '</span> ' + esc(ntSnippetOf(n) || (th ? 'Fotoğraf' : 'Ek metin yok')) + '</div>' +
+    (fol ? '<div class="nt-f">' + icon('folder') + esc(fol) + '</div>' : '') + '</div>' + (th ? '<img class="nt-th" alt="" src="' + th + '">' : '') + '</div></div>';
+}
+function ntCardHTML(n) {
+  var th = n.thumb || n.photo;
+  return '<div class="nt-card" data-id="' + n.id + '" data-open>' + (th ? '<img alt="" src="' + th + '">' : '') + '<div class="nt-t">' + (n.pinned ? '<span class="nt-pin">' + icon('notepin') + '</span>' : '') + esc(ntTitleOf(n)) + '</div><div class="nt-s">' + esc(ntSnippetOf(n)) + '</div><div class="nt-d">' + (n.deletedAt ? 'Silindi' : esc(ntRowDate(ntStamp(n)))) + '</div></div>';
+}
 function renderNotes() {
-  var notes = getNotes().slice().sort(function (a, b) { return (b.createdAt || '').localeCompare(a.createdAt || ''); });
   var el = document.getElementById('notes-list');
-  if (!notes.length) { el.innerHTML = '<div class="empty"><div class="glyph">\u270E</div><p>Henüz not yok. Sağ alttaki + ile ekleyebilirsin.</p></div>'; return; }
-  el.innerHTML = notes.map(noteCardHTML).join('');
-  el.querySelectorAll('[data-open]').forEach(function (card) { card.addEventListener('click', function () { openNoteSheet(card.dataset.id); }); });
+  if (!el) return;
+  ntPurge();
+  var ch = document.getElementById('nt-chips'); if (ch) ch.innerHTML = ntChipsHTML();
+  var h = document.getElementById('nt-title');
+  if (h) h.textContent = ntFolder === 'all' ? 'Notlar' : ntFolder === 'trash' ? 'Son Silinenler' : ntFolder.indexOf('tag:') === 0 ? '#' + ntFolder.slice(4) : (ntFolderName(ntFolder) || 'Notlar');
+  var list = ntFiltered(), cnt = document.getElementById('nt-count');
+  if (cnt) cnt.textContent = list.length + ' Not';
+  if (!list.length) {
+    el.innerHTML = '<div class="empty"><div class="glyph">\u270E</div><p>' + (ntQ ? 'Sonuç bulunamadı.' : ntFolder === 'trash' ? 'Silinen not yok. Silinen notlar 30 gün burada kalır.' : 'Henüz not yok. Sağ alttaki kalemle yaz.') + '</p></div>';
+    return;
+  }
+  var pinned = ntFolder === 'trash' ? [] : list.filter(function (n) { return n.pinned; }), rest = list.filter(function (n) { return pinned.indexOf(n) === -1; });
+  function srt(a, b) { return ntPrefs.sort === 'title' ? ntTitleOf(a).localeCompare(ntTitleOf(b), 'tr') : (ntStamp(b) || '').localeCompare(ntStamp(a) || ''); }
+  pinned.sort(srt); rest.sort(srt);
+  var grid = ntPrefs.view === 'grid', one = grid ? ntCardHTML : ntRowHTML;
+  function group(items) { return grid ? '<div class="nt-grid">' + items.map(one).join('') + '</div>' : '<div class="nt-group">' + items.map(one).join('') + '</div>'; }
+  var html = '';
+  if (pinned.length) html += '<div class="nt-sec">Sabitlenenler</div>' + group(pinned);
+  if (ntPrefs.sort === 'title' || ntFolder === 'trash') html += (pinned.length ? '<div class="nt-sec">Notlar</div>' : '') + group(rest);
+  else {
+    var secs = [], map = {};
+    rest.forEach(function (n) { var s = ntSection(ntStamp(n)); if (!map[s]) { map[s] = []; secs.push(s); } map[s].push(n); });
+    secs.forEach(function (s) { html += '<div class="nt-sec">' + esc(s) + '</div>' + group(map[s]); });
+  }
+  el.innerHTML = html;
+  ntOpenRow = null;
 }
-
-function openNoteSheet(id) {
-  var list = getNotes();
-  var n = id ? list.find(function (x) { return x.id === id; }) : null;
-  var isNew = !n;
-  var draft = n ? JSON.parse(JSON.stringify(n)) : { id: uid(), text: '', photo: null, createdAt: new Date().toISOString() };
-
-  function photoPreviewHTML() {
-    return draft.photo ? '<img src="' + draft.photo + '" alt="" style="width:100%;border-radius:10px;margin-bottom:.7rem;max-height:220px;object-fit:cover">' : '';
-  }
-  function bodyHTML() {
-    return '' +
-      '<div id="nf-photo-preview">' + photoPreviewHTML() + '</div>' +
-      '<div class="field"><label>Not</label><textarea id="nf-text" placeholder="Aklından geçeni yaz…" style="min-height:6rem">' + esc(draft.text || '') + '</textarea></div>' +
-      '<button class="btn btn-secondary btn-block" id="nf-photo-btn" type="button">' + icon('camera') + ' Fotoğraf ekle / değiştir</button>' +
-      '<input type="file" id="nf-photo-input" accept="image/*" class="sr-only">' +
-      '<div class="stack" style="margin-top:.85rem">' +
-      '<button class="btn btn-primary btn-block" id="nf-save">Kaydet</button>' +
-      (isNew ? '' : '<button class="btn btn-danger btn-block" id="nf-delete">Notu sil</button>') +
-      '</div>';
-  }
-
+/* ---- işlemler ---- */
+function ntFind(id) { return ntAll().filter(function (n) { return n.id === id; })[0]; }
+function ntUpdate(id, fn) { var l = ntAll(), i; for (i = 0; i < l.length; i++) if (l[i].id === id) { fn(l[i]); saveNotes(l); return l[i]; } return null; }
+function ntTogglePin(id) { ntUpdate(id, function (n) { n.pinned = !n.pinned; }); renderNotes(); }
+function ntTrash(id) { ntUpdate(id, function (n) { n.deletedAt = new Date().toISOString(); n.pinned = false; }); renderNotes(); showToast('Son Silinenler\u2019e taşındı'); }
+function ntMoveSheet(id, after) {
+  var n = ntFind(id), folders = getNoteFolders();
+  if (!n && !after) return;
   openSheet({
-    title: isNew ? 'Yeni not' : 'Notu düzenle', bodyHTML: bodyHTML(), onOpen: function () {
-      document.getElementById('nf-photo-btn').addEventListener('click', function () { document.getElementById('nf-photo-input').click(); });
-      document.getElementById('nf-photo-input').addEventListener('change', function (e) {
-        var file = e.target.files[0];
-        if (!file) return;
-        resizeImageFile(file, 1000).then(function (dataUrl) {
-          draft.photo = dataUrl;
-          document.getElementById('nf-photo-preview').innerHTML = photoPreviewHTML();
-        }).catch(function () { showToast('Fotoğraf işlenemedi'); });
-      });
-      document.getElementById('nf-save').addEventListener('click', function () {
-        var text = document.getElementById('nf-text').value.trim();
-        if (!text && !draft.photo) { showToast('Metin veya fotoğraf ekle'); return; }
-        draft.text = text;
-        var all = getNotes();
-        var idx = all.findIndex(function (x) { return x.id === draft.id; });
-        if (idx === -1) all.push(draft); else all[idx] = draft;
-        saveNotes(all);
-        closeSheet();
-        renderNotes();
-        addXP(1, { silent: true });
-        showToast('Kaydedildi');
-      });
-      if (!isNew) {
-        document.getElementById('nf-delete').addEventListener('click', function () {
-          confirmDialog({ title: 'Not silinsin mi?', danger: true, confirmText: 'Sil' }).then(function (ok) {
-            if (ok) { saveNotes(getNotes().filter(function (x) { return x.id !== draft.id; })); closeSheet(); renderNotes(); }
-          });
+    title: 'Klasöre taşı',
+    bodyHTML: '<div class="stack"><button class="list-row" data-f="" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="row-main"><span class="row-title">Klasörsüz</span></span>' + (n && !n.folder ? icon('check') : '') + '</button>' +
+      folders.map(function (f) { return '<button class="list-row" data-f="' + esc(f.id) + '" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="row-main"><span class="row-title">' + esc(f.name) + '</span></span>' + (n && n.folder === f.id ? icon('check') : '') + '</button>'; }).join('') +
+      '<button class="list-row" data-f="__new" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="row-main"><span class="row-title" style="color:var(--accent)">+ Yeni klasör</span></span></button></div>',
+    onOpen: function (body) {
+      body.querySelectorAll('[data-f]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var v = b.getAttribute('data-f');
+          function apply(fid) { if (after) after(fid); else ntUpdate(id, function (x) { x.folder = fid; }); closeSheet(); renderNotes(); showToast(fid ? 'Taşındı: ' + ntFolderName(fid) : 'Klasörden çıkarıldı'); }
+          if (v === '__new') { closeSheet(); ntNewFolder(function (fid) { apply(fid); }); return; }
+          apply(v || null);
         });
-      }
+      });
     }
   });
 }
-
+function ntNewFolder(cb) {
+  promptDialog({ title: 'Yeni klasör', placeholder: 'Klasör adı', confirmText: 'Oluştur' }).then(function (v) {
+    var name = v == null ? '' : String(v).trim().slice(0, 40);
+    if (!name) return;
+    var fs = getNoteFolders(), f = { id: uid(), name: name };
+    fs.push(f); saveNoteFolders(fs);
+    if (cb) cb(f.id); else { ntFolder = f.id; renderNotes(); }
+  });
+}
+function ntTrashSheet(id) {
+  openSheet({
+    title: 'Silinen not',
+    bodyHTML: '<div class="stack"><button class="btn btn-primary btn-block" id="nt-rec">Kurtar</button><button class="btn btn-danger btn-block" id="nt-kill">Kalıcı olarak sil</button></div>',
+    onOpen: function () {
+      document.getElementById('nt-rec').addEventListener('click', function () { ntUpdate(id, function (n) { delete n.deletedAt; }); closeSheet(); renderNotes(); showToast('Not kurtarıldı'); });
+      document.getElementById('nt-kill').addEventListener('click', function () {
+        confirmDialog({ title: 'Kalıcı olarak silinsin mi?', message: 'Bu işlem geri alınamaz.', danger: true, confirmText: 'Sil' }).then(function (ok) { if (ok) { saveNotes(ntAll().filter(function (n) { return n.id !== id; })); closeSheet(); renderNotes(); } });
+      });
+    }
+  });
+}
+function ntOpenMenu() {
+  var user = ntUserFolder(), trash = ntFolder === 'trash';
+  openSheet({
+    title: 'Seçenekler',
+    bodyHTML: '<div class="field"><label>Görünüm</label><div class="segmented" id="ntm-view"><button data-v="list">Liste</button><button data-v="grid">Galeri</button></div></div>' +
+      '<div class="field"><label>Sırala</label><div class="segmented" id="ntm-sort"><button data-v="edited">Düzenleme</button><button data-v="created">Oluşturma</button><button data-v="title">Başlık</button></div></div>' +
+      '<div class="stack"><button class="btn btn-secondary btn-block" id="ntm-new">+ Yeni klasör</button>' +
+      (user ? '<button class="btn btn-secondary btn-block" id="ntm-ren">Klasörü yeniden adlandır</button><button class="btn btn-danger btn-block" id="ntm-del">Klasörü sil</button>' : '') +
+      (trash ? '<button class="btn btn-danger btn-block" id="ntm-empty">Hepsini kalıcı olarak sil</button>' : '') + '</div>',
+    onOpen: function (body) {
+      function seg(id, key) {
+        var box = body.querySelector(id);
+        box.querySelectorAll('button').forEach(function (b) {
+          b.classList.toggle('active', ntPrefs[key] === b.dataset.v);
+          b.addEventListener('click', function () { ntPrefs[key] = b.dataset.v; ntSavePrefs(); box.querySelectorAll('button').forEach(function (x) { x.classList.toggle('active', x === b); }); renderNotes(); });
+        });
+      }
+      seg('#ntm-view', 'view'); seg('#ntm-sort', 'sort');
+      body.querySelector('#ntm-new').addEventListener('click', function () { closeSheet(); ntNewFolder(); });
+      if (user) {
+        body.querySelector('#ntm-ren').addEventListener('click', function () {
+          closeSheet();
+          promptDialog({ title: 'Klasör adı', value: ntFolderName(user), confirmText: 'Kaydet' }).then(function (v) {
+            var name = v == null ? '' : String(v).trim().slice(0, 40);
+            if (!name) return;
+            saveNoteFolders(getNoteFolders().map(function (f) { if (f.id === user) f.name = name; return f; })); renderNotes();
+          });
+        });
+        body.querySelector('#ntm-del').addEventListener('click', function () {
+          closeSheet();
+          confirmDialog({ title: 'Klasör silinsin mi?', message: 'İçindeki notlar silinmez, Tüm Notlar\u2019da kalır.', danger: true, confirmText: 'Sil' }).then(function (ok) {
+            if (!ok) return;
+            saveNotes(ntAll().map(function (n) { if (n.folder === user) n.folder = null; return n; }));
+            saveNoteFolders(getNoteFolders().filter(function (f) { return f.id !== user; }));
+            ntFolder = 'all'; renderNotes();
+          });
+        });
+      }
+      if (trash) body.querySelector('#ntm-empty').addEventListener('click', function () {
+        closeSheet();
+        confirmDialog({ title: 'Hepsi kalıcı silinsin mi?', message: 'Bu işlem geri alınamaz.', danger: true, confirmText: 'Sil' }).then(function (ok) { if (ok) { saveNotes(ntAll().filter(function (n) { return !n.deletedAt; })); ntFolder = 'all'; renderNotes(); } });
+      });
+    }
+  });
+}
+/* ---- kaydırma hareketleri (sağa: sabitle, sola: taşı/sil) ---- */
+function ntCloseRow(row) { if (!row) return; var m = row.querySelector('.nt-main'); if (m) { m.style.transition = 'transform .2s'; m.style.transform = ''; } row.classList.remove('open'); if (ntOpenRow === row) ntOpenRow = null; }
+function ntSwipeBind(el) {
+  el.addEventListener('touchstart', function (e) {
+    var main = e.target.closest && e.target.closest('.nt-main'), row = main && main.parentNode;
+    if (!row || !row.classList.contains('nt-row') || !e.touches.length) { ntSw = null; return; }
+    if (ntOpenRow && ntOpenRow !== row) ntCloseRow(ntOpenRow);
+    ntSw = { row: row, main: main, x0: e.touches[0].clientX, y0: e.touches[0].clientY, axis: null, base: row.classList.contains('open') ? -132 : 0, pos: 0 };
+    main.style.transition = 'none';
+  }, { passive: true });
+  el.addEventListener('touchmove', function (e) {
+    var s = ntSw;
+    if (!s || !e.touches.length) return;
+    var dx = e.touches[0].clientX - s.x0, dy = e.touches[0].clientY - s.y0;
+    if (!s.axis && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) s.axis = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'x' : 'y';
+    if (s.axis !== 'x') return;
+    if (e.cancelable) e.preventDefault();
+    s.pos = Math.max(-260, Math.min(120, s.base + dx));
+    s.main.style.transform = 'translateX(' + s.pos + 'px)';
+    s.row.classList.toggle('pin-on', s.pos > 70);
+  }, { passive: false });
+  function end() {
+    var s = ntSw; ntSw = null;
+    if (!s || s.axis !== 'x') return;
+    s.moved = true; s.row.__swiped = Date.now();
+    s.main.style.transition = 'transform .2s';
+    var id = s.row.getAttribute('data-id');
+    s.row.classList.remove('pin-on');
+    if (s.pos > 70) { s.main.style.transform = ''; ntTogglePin(id); }
+    else if (s.pos < -210) { ntTrash(id); }
+    else if (s.pos < -50) { s.main.style.transform = 'translateX(-132px)'; s.row.classList.add('open'); ntOpenRow = s.row; }
+    else { s.main.style.transform = ''; s.row.classList.remove('open'); if (ntOpenRow === s.row) ntOpenRow = null; }
+  }
+  el.addEventListener('touchend', end);
+  el.addEventListener('touchcancel', end);
+}
 function initNotes() {
-  document.getElementById('note-add-fab').innerHTML = icon('plus');
-  document.getElementById('note-add-fab').addEventListener('click', function () { openNoteSheet(null); });
+  ntLoadPrefs(); ntFolder = 'all'; ntQ = ''; ntEd = null;
+  var fab = document.getElementById('note-add-fab');
+  fab.innerHTML = icon('pencil'); fab.onclick = function () { openNoteEditor(null); };
+  document.getElementById('nt-menu').innerHTML = icon('more'); document.getElementById('nt-menu').onclick = ntOpenMenu;
+  document.getElementById('nt-search-ic').innerHTML = icon('search');
+  var q = document.getElementById('nt-q'); q.value = ''; q.oninput = function () { ntQ = q.value.trim(); renderNotes(); };
+  document.getElementById('nt-chips').addEventListener('click', function (e) {
+    var c = e.target.closest && e.target.closest('[data-nt-folder]');
+    if (c) { ntFolder = c.getAttribute('data-nt-folder'); renderNotes(); return; }
+    if (e.target.closest && e.target.closest('[data-nt-newfolder]')) ntNewFolder();
+  });
+  var el = document.getElementById('notes-list');
+  ntSwipeBind(el);
+  el.addEventListener('click', function (e) {
+    var act = e.target.closest && e.target.closest('[data-nt-act]'), row = e.target.closest && e.target.closest('.nt-row,.nt-card');
+    if (!row) return;
+    var id = row.getAttribute('data-id');
+    if (act) { e.stopPropagation(); ntCloseRow(row); if (act.getAttribute('data-nt-act') === 'del') ntTrash(id); else ntMoveSheet(id); return; }
+    if (row.__swiped && Date.now() - row.__swiped < 400) return;
+    if (row.classList.contains('open')) { ntCloseRow(row); return; }
+    var n = ntFind(id);
+    if (n && n.deletedAt) ntTrashSheet(id); else openNoteEditor(id);
+  });
   renderNotes();
 }
+function openNoteSheet(id) { openNoteEditor(id); }
+/* ---- düzenleyici (tam ekran) ---- */
+function ntThumb(src, cb) {
+  var img = new Image();
+  img.onload = function () { var s = Math.min(1, 160 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.width * s)); c.height = Math.max(1, Math.round(img.height * s)); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); cb(c.toDataURL('image/jpeg', 0.6)); };
+  img.onerror = function () { cb(null); };
+  img.src = src;
+}
+function openNoteEditor(id) {
+  if (ntEd) return;
+  var found = id ? ntFind(id) : null, isNew = !found, nowISO = new Date().toISOString();
+  var note = found ? JSON.parse(JSON.stringify(found)) : { id: uid(), createdAt: nowISO, updatedAt: nowISO, folder: ntUserFolder(), pinned: false };
+  var html = note.html ? ntSanitize(note.html) : String(note.text || '').split('\n').map(function (l) { return '<div>' + (l ? esc(l) : '<br>') + '</div>'; }).join('') + (note.photo ? '<div><img class="ne-img" src="' + note.photo + '"></div>' : '');
+  if (!html) html = '<div><br></div>';
+  var root = document.createElement('div');
+  root.className = 'nt-ed'; root.id = 'nt-ed';
+  root.innerHTML = '<div class="nt-ed-top"><button type="button" class="nt-back" id="nt-back">' + icon('chevronL') + 'Notlar</button><div class="nt-ed-act"><button type="button" class="icon-btn" id="nt-undo" aria-label="Geri al">' + icon('undo') + '</button><button type="button" class="icon-btn" id="nt-redo" aria-label="Yinele">' + icon('redo') + '</button><button type="button" class="icon-btn" id="nt-more" aria-label="Daha fazla">' + icon('more') + '</button><button type="button" class="nt-done" id="nt-done" hidden>Bitti</button></div></div>' +
+    '<div class="nt-ed-scroll" id="nt-scroll"><div class="nt-date" id="nt-date"></div><div class="nt-body" id="ne-body" contenteditable="true" spellcheck="true" autocapitalize="sentences" role="textbox" aria-multiline="true" aria-label="Not"></div></div>' +
+    '<div class="nt-fmt" id="nt-fmt" hidden><div class="r"><button type="button" data-blk="h2">Başlık</button><button type="button" data-blk="h3">Alt başlık</button><button type="button" data-blk="div">Gövde</button></div>' +
+    '<div class="r"><button type="button" data-cmd="bold"><b>K</b></button><button type="button" data-cmd="italic"><i>İ</i></button><button type="button" data-cmd="underline"><u>A</u></button><button type="button" data-cmd="strikeThrough"><s>Ü</s></button></div>' +
+    '<div class="r"><button type="button" data-list="ul">\u2022 Madde</button><button type="button" data-list="ol">1. Numara</button></div></div>' +
+    '<div class="nt-ed-bar"><button type="button" id="nt-b-check" aria-label="Yapılacaklar listesi">' + icon('checklist') + '</button><button type="button" id="nt-b-aa" aria-label="Biçim">Aa</button><button type="button" id="nt-b-img" aria-label="Fotoğraf ekle">' + icon('image') + '</button></div>' +
+    '<input type="file" id="nt-file" accept="image/*" class="sr-only">';
+  document.body.appendChild(root);
+  var prevOverflow = document.body.style.overflow; document.body.style.overflow = 'hidden';
+  var body = root.querySelector('#ne-body'), fmt = root.querySelector('#nt-fmt'), done = root.querySelector('#nt-done'), saved = !isNew, timer = null, range = null, deleted = false;
+  body.innerHTML = html;
+  try { document.execCommand('styleWithCSS', false, false); document.execCommand('defaultParagraphSeparator', false, 'div'); } catch (e) {}
+  function stampLabel() { var s = note.updatedAt || note.createdAt; return formatDateTR(ntLocalISO(s)) + ' ' + ntTime(s); }
+  root.querySelector('#nt-date').textContent = stampLabel();
+  function fit() { var vv = window.visualViewport; if (vv) { root.style.height = vv.height + 'px'; root.style.top = vv.offsetTop + 'px'; } }
+  fit();
+  if (window.visualViewport) { window.visualViewport.addEventListener('resize', fit); window.visualViewport.addEventListener('scroll', fit); }
+  function onSel() {
+    var sel = window.getSelection();
+    if (sel && sel.rangeCount && body.contains(sel.anchorNode)) { range = sel.getRangeAt(0).cloneRange(); state(); }
+  }
+  document.addEventListener('selectionchange', onSel);
+  function onHide() { if (document.visibilityState === 'hidden') commit(false); }
+  document.addEventListener('visibilitychange', onHide);
+  window.addEventListener('pagehide', onHide);
+  function restore() { body.focus(); if (range) { var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range); } }
+  function inEd(tag) { var n = window.getSelection().anchorNode; while (n && n !== body) { if (n.nodeType === 1 && n.tagName === tag) return n; n = n.parentNode; } return null; }
+  function state() {
+    ['bold', 'italic', 'underline', 'strikeThrough'].forEach(function (c) { var b = fmt.querySelector('[data-cmd="' + c + '"]'), on = false; try { on = document.queryCommandState(c); } catch (e) {} if (b) b.classList.toggle('on', !!on); });
+    var h2 = inEd('H2'), h3 = inEd('H3');
+    fmt.querySelectorAll('[data-blk]').forEach(function (b) { var k = b.getAttribute('data-blk'); b.classList.toggle('on', (k === 'h2' && !!h2) || (k === 'h3' && !!h3) || (k === 'div' && !h2 && !h3)); });
+    var ul = inEd('UL'), ol = inEd('OL');
+    fmt.querySelector('[data-list="ul"]').classList.toggle('on', !!ul && !ul.classList.contains('ne-check'));
+    fmt.querySelector('[data-list="ol"]').classList.toggle('on', !!ol);
+    root.querySelector('#nt-b-check').classList.toggle('on', !!ul && ul.classList.contains('ne-check'));
+  }
+  function schedule() { clearTimeout(timer); timer = setTimeout(function () { commit(false); }, 700); }
+  function normalize() {
+    if (!body.firstChild) { body.innerHTML = '<div><br></div>'; return; }
+    if (body.firstChild.nodeType === 3) { try { document.execCommand('formatBlock', false, 'div'); } catch (e) {} }
+  }
+  function commit(final) {
+    clearTimeout(timer);
+    if (deleted) return;
+    var clean = ntSanitize(body.innerHTML), text = ntPlainFromHTML(clean), hasImg = /<img\b/i.test(clean), list = ntAll(), idx = -1, i;
+    for (i = 0; i < list.length; i++) if (list[i].id === note.id) { idx = i; break; }
+    if (!text.trim() && !hasImg) {
+      if (final && idx !== -1) { list[idx].deletedAt = new Date().toISOString(); list[idx].pinned = false; saveNotes(list); }
+      return;
+    }
+    var changed = idx === -1 || list[idx].html !== clean || list[idx].text !== text;
+    note.html = clean; note.text = text; delete note.photo;
+    if (changed) note.updatedAt = new Date().toISOString();
+    var m = clean.match(/<img[^>]*\bsrc="([^"]+)"/i), sig = m ? m[1].length + ':' + m[1].slice(-40) : '';
+    if (!m) { delete note.thumb; delete note.thumbSig; }
+    var needThumb = m && note.thumbSig !== sig;
+    if (idx === -1) list.push(note); else list[idx] = note;
+    if (saveNotes(list) === false) return;
+    saved = true;
+    root.querySelector('#nt-date').textContent = stampLabel();
+    if (needThumb) ntThumb(m[1], function (th) { if (!th) return; note.thumb = th; note.thumbSig = sig; ntUpdate(note.id, function (x) { x.thumb = th; x.thumbSig = sig; }); if (!ntEd) renderNotes(); });
+  }
+  function exec(cmd, val) { restore(); try { document.execCommand(cmd, false, val); } catch (e) {} schedule(); state(); }
+  function setBlock(tag) { restore(); var cur = tag === 'h2' ? inEd('H2') : tag === 'h3' ? inEd('H3') : null; try { document.execCommand('formatBlock', false, cur ? 'div' : tag); } catch (e) {} schedule(); state(); }
+  function setList(kind) {
+    restore();
+    var ul = inEd('UL');
+    if (kind === 'check') {
+      if (ul && ul.classList.contains('ne-check')) { try { document.execCommand('insertUnorderedList'); } catch (e) {} }
+      else { if (!ul) { try { document.execCommand('insertUnorderedList'); } catch (e2) {} } ul = inEd('UL'); if (ul) ul.classList.add('ne-check'); }
+    } else if (kind === 'ul') {
+      if (ul && ul.classList.contains('ne-check')) ul.classList.remove('ne-check'); else { try { document.execCommand('insertUnorderedList'); } catch (e3) {} }
+    } else { try { document.execCommand('insertOrderedList'); } catch (e4) {} }
+    schedule(); state();
+  }
+  function stay(e) { e.preventDefault(); }
+  root.querySelectorAll('.nt-fmt button, .nt-ed-bar button, #nt-undo, #nt-redo').forEach(function (b) { b.addEventListener('pointerdown', stay); b.addEventListener('mousedown', stay); });
+  fmt.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('button');
+    if (!b) return;
+    if (b.hasAttribute('data-cmd')) exec(b.getAttribute('data-cmd'));
+    else if (b.hasAttribute('data-blk')) setBlock(b.getAttribute('data-blk'));
+    else if (b.hasAttribute('data-list')) setList(b.getAttribute('data-list'));
+  });
+  root.querySelector('#nt-b-aa').addEventListener('click', function () { fmt.hidden = !fmt.hidden; this.classList.toggle('on', !fmt.hidden); restore(); state(); });
+  root.querySelector('#nt-b-check').addEventListener('click', function () { setList('check'); });
+  root.querySelector('#nt-undo').addEventListener('click', function () { exec('undo'); });
+  root.querySelector('#nt-redo').addEventListener('click', function () { exec('redo'); });
+  root.querySelector('#nt-b-img').addEventListener('click', function () { root.querySelector('#nt-file').click(); });
+  root.querySelector('#nt-file').addEventListener('change', function (e) {
+    var file = e.target.files[0]; e.target.value = '';
+    if (!file) return;
+    resizeImageFile(file, 900).then(function (url) {
+      try { if (JSON.stringify(ntAll()).length > 3.6e6) showToast('Depolama dolmak üzere \u2014 fotoğraflı eski notları silmeyi düşün'); } catch (er0) {}
+      restore();
+      try { document.execCommand('insertHTML', false, '<div><img class="ne-img" src="' + url + '"></div><div><br></div>'); } catch (er) {}
+      schedule();
+    }).catch(function () { showToast('Fotoğraf işlenemedi'); });
+  });
+  body.addEventListener('focus', function () { done.hidden = false; });
+  body.addEventListener('blur', function () { commit(false); });
+  done.addEventListener('click', function () { body.blur(); fmt.hidden = true; root.querySelector('#nt-b-aa').classList.remove('on'); done.hidden = true; commit(false); });
+  body.addEventListener('input', function () { normalize(); schedule(); });
+  body.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') setTimeout(function () { var li = inEd('LI'); if (li && li.parentNode.classList.contains('ne-check') && !li.textContent.trim()) li.removeAttribute('data-done'); }, 0);
+  });
+  body.addEventListener('paste', function (e) {
+    var cd = e.clipboardData || window.clipboardData, t = cd ? cd.getData('text/plain') : null;
+    if (t == null) return;
+    e.preventDefault();
+    try { document.execCommand('insertText', false, t); } catch (er) {}
+  });
+  body.addEventListener('click', function (e) {
+    var li = e.target.closest && e.target.closest('li'), img = e.target.closest && e.target.closest('img.ne-img');
+    if (li && li.parentNode.classList.contains('ne-check') && e.clientX - li.getBoundingClientRect().left < 34) {
+      e.preventDefault();
+      if (li.getAttribute('data-done') === '1') li.removeAttribute('data-done'); else li.setAttribute('data-done', '1');
+      schedule(); return;
+    }
+    if (img) confirmDialog({ title: 'Fotoğraf silinsin mi?', danger: true, confirmText: 'Sil' }).then(function (ok) { if (ok) { var blk = img.parentNode === body ? img : img.parentNode; blk.parentNode.removeChild(blk); normalize(); schedule(); } });
+  });
+  function close(fromPop) {
+    if (!ntEd) return;
+    commit(true);
+    document.removeEventListener('selectionchange', onSel);
+    document.removeEventListener('visibilitychange', onHide);
+    window.removeEventListener('pagehide', onHide);
+    if (window.visualViewport) { window.visualViewport.removeEventListener('resize', fit); window.visualViewport.removeEventListener('scroll', fit); }
+    document.body.style.overflow = prevOverflow;
+    var wasNew = isNew && saved;
+    root.parentNode && root.parentNode.removeChild(root);
+    ntEd = null;
+    if (!fromPop) { try { if (history.state && history.state.nt) history.back(); } catch (e) {} }
+    renderNotes();
+    if (wasNew) addXP(1, { silent: true });
+  }
+  root.querySelector('#nt-back').addEventListener('click', function () { close(false); });
+  root.querySelector('#nt-more').addEventListener('click', function () {
+    commit(false);
+    openSheet({
+      title: 'Not',
+      bodyHTML: '<div class="stack">' + [['pin', note.pinned ? 'Sabitlemeyi kaldır' : 'Notu sabitle'], ['move', 'Klasöre taşı'], ['share', 'Paylaş'], ['copy', 'Metni kopyala']].map(function (r) { return '<button class="list-row" data-a="' + r[0] + '" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="row-main"><span class="row-title">' + r[1] + '</span></span></button>'; }).join('') +
+        '<button class="list-row" data-a="del" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="row-main"><span class="row-title" style="color:var(--danger)">Notu sil</span></span></button></div>',
+      onOpen: function (b) {
+        b.querySelectorAll('[data-a]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var a = btn.getAttribute('data-a');
+            if (a === 'pin') { note.pinned = !note.pinned; if (saved) ntUpdate(note.id, function (x) { x.pinned = note.pinned; }); closeSheet(); showToast(note.pinned ? 'Sabitlendi' : 'Sabitleme kaldırıldı'); }
+            else if (a === 'move') { closeSheet(); ntMoveSheet(note.id, function (fid) { note.folder = fid; if (saved) ntUpdate(note.id, function (x) { x.folder = fid; }); }); }
+            else if (a === 'share' || a === 'copy') {
+              closeSheet();
+              var txt = note.text || '';
+              if (a === 'share' && navigator.share) navigator.share({ title: ntTitleOf(note), text: txt }).catch(function () {});
+              else if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function () { showToast('Kopyalandı'); }, function () { showToast('Kopyalanamadı'); });
+              else showToast('Bu cihaz paylaşımı desteklemiyor');
+            } else if (a === 'del') {
+              closeSheet();
+              confirmDialog({ title: 'Not silinsin mi?', message: 'Son Silinenler\u2019de 30 gün kalır.', danger: true, confirmText: 'Sil' }).then(function (ok) {
+                if (!ok) return;
+                if (saved) ntUpdate(note.id, function (x) { x.deletedAt = new Date().toISOString(); x.pinned = false; });
+                deleted = true; close(false); showToast('Son Silinenler\u2019e taşındı');
+              });
+            }
+          });
+        });
+      }
+    });
+  });
+  ntEd = { close: close };
+  try { history.pushState({ nt: 1 }, ''); } catch (e) {}
+  if (isNew) { body.focus(); var r = document.createRange(); r.selectNodeContents(body); r.collapse(true); var sl = window.getSelection(); sl.removeAllRanges(); sl.addRange(r); }
+}
+window.addEventListener('popstate', function () { if (ntEd) ntEd.close(true); });
+
 
 /* ---- achievements.js ---- */
 /* ==========================================================================
@@ -8984,7 +9499,7 @@ function renderYearReport() {
   // ---- Seviye & Notlar ----
   var xp = get('xp', 0);
   var level = levelFromXP(xp);
-  var notes = get('notes', []).filter(function (n) { return n.createdAt && n.createdAt.slice(0, 4) === yPrefix; });
+  var notes = get('notes', []).filter(function (n) { return !n.deletedAt && n.createdAt && n.createdAt.slice(0, 4) === yPrefix; });
   document.getElementById('yr-misc').innerHTML =
     '<div class="list-row"><span class="row-main"><span class="row-title">Toplam XP</span></span><span class="muted">' + xp + ' (Seviye ' + level + ')</span></div>' +
     '<div class="list-row"><span class="row-main"><span class="row-title">Bu yıl eklenen not</span></span><span class="muted">' + notes.length + '</span></div>';
