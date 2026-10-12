@@ -193,6 +193,8 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
   font-size: .65rem; font-weight: 500; font-family: var(--font-body); padding-top: .35rem;
   position: relative;
 }
+.tabbar a, .tabbar button { min-width: 0; }
+.tabbar a span, .tabbar button span { max-width: 100%; padding: 0 .1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tabbar a svg, .tabbar button svg { width: 22px; height: 22px; }
 .tabbar a.active, .tabbar button.active { color: var(--accent); }
 .tabbar a.active::before, .tabbar button.active::before {
@@ -2280,14 +2282,14 @@ var PAGES = {
   goals:        { title: 'Hedef Takibi',href: 'hedefler.html',    tab: false, icon: 'target' },
   learning:     { title: 'Öğrenme',     href: 'ogrenme.html',     tab: false, icon: 'book' },
   worship:      { title: 'İbadet',      href: 'ibadet.html',      tab: false, icon: 'moon' },
-  finance:      { title: 'Finans',      href: 'finans.html',      tab: false, icon: 'wallet' },
+  finance:      { title: 'Finans',      href: 'finans.html',      tab: true,  icon: 'wallet' },
   notes:        { title: 'Notlar',      href: 'notlar.html',      tab: false, icon: 'note' },
   achievements: { title: 'Başarılarım', href: 'basarilarim.html', tab: false, icon: 'trophy' },
   yearreport:   { title: 'Yıl Özeti',   href: 'yilozeti.html',    tab: false, icon: 'calendar' },
   admin:        { title: 'Yönetici Paneli', href: 'yonetici.html', tab: false, icon: 'lock' },
   settings:     { title: 'Ayarlar', href: 'ayarlar.html', tab: false, icon: 'gear' }
 };
-var TAB_ORDER = ['today', 'tasks', 'routines', 'calendar'];
+var TAB_ORDER = ['today', 'tasks', 'routines', 'calendar', 'finance'];
 
 function refreshXPChip() {
   var chip = document.getElementById('xp-chip');
@@ -2349,7 +2351,7 @@ function buildTabbar(pageKey) {
 }
 
 function openMoreSheet() {
-  var moreKeys = ['goals', 'learning', 'worship', 'finance', 'notes', 'achievements', 'yearreport'];
+  var moreKeys = ['goals', 'learning', 'worship', 'notes', 'achievements', 'yearreport'];
   var html = '<div class="stack">';
   moreKeys.forEach(function (key) {
     var p = PAGES[key];
