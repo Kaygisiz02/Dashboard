@@ -409,6 +409,12 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 
 .switch:disabled { opacity: .45; cursor: default; }
 
+/* ---- Ana sayfa: hızlı eylemler, geri al ---- */
+.td-row .checkbox { position: relative; }
+.td-row .checkbox::after { content: ""; position: absolute; inset: -.55rem; }
+.toast.has-action, .toast.has-action button { pointer-events: auto; }
+.toast button { margin-left: .8rem; padding: .2rem .1rem; background: none; border: 0; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+
 /* ---- Toast ---------------------------------------------------------------*/
 .toast-stack { position: fixed; top: calc(var(--header-h) + .6rem); left: 0; right: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; gap: .4rem; pointer-events: none; }
 .toast {
@@ -1007,6 +1013,7 @@ button,[role="button"],a,label,input,select,textarea,.prayer-toggle,.checkbox{-w
     <div id="dash-ritual"></div>
     <section id="dash-hero"></section>
     <section id="dash-agenda"></section>
+    <section id="dash-tomorrow"></section>
     <div id="dash-suggestions"></div>
     <div id="dash-cards"></div>
   </div>
@@ -2064,18 +2071,24 @@ function wireCategoryDropdown(inputId, dropdownId, getOptions) {
   input.addEventListener('input', filter);
 }
 
-function showToast(msg) {
+function showToast(msg, action) {
   ensureOverlayRoot();
   var stack = document.getElementById('toast-stack');
   var t = document.createElement('div');
   t.className = 'toast';
   t.textContent = msg;
+  if (action) {
+    var ab = document.createElement('button');
+    ab.type = 'button'; ab.textContent = action.label;
+    ab.addEventListener('click', function () { action.onClick(); t.remove(); });
+    t.appendChild(ab); t.classList.add('has-action');
+  }
   stack.appendChild(t);
   requestAnimationFrame(function () { t.classList.add('show'); });
   setTimeout(function () {
     t.classList.remove('show');
     setTimeout(function () { t.remove(); }, 220);
-  }, 2200);
+  }, action ? 5000 : 2200);
 }
 
 /* wireCategoryDropdown ile aynı görsel .cat-dropdown mekanizması, ama ÇOKLU
@@ -2193,6 +2206,7 @@ function closeSheet() {
   if (overlay) overlay.classList.remove('open');
   if (_sheetOpener && document.contains(_sheetOpener) && _sheetOpener.focus) _sheetOpener.focus({ preventScroll: true });
   _sheetOpener = null;
+  if (document.getElementById('dash-agenda') && typeof tdRefresh === 'function') tdRefresh();
 }
 
 /* Kategori/etiket filtreleri için ortak sheet: "Tümü" + verilen seçenekler,
@@ -3194,7 +3208,7 @@ function tdItems() {
   return { timed: timed, untimed: untimed, overdue: overdue };
 }
 function tdRowHTML(it, now) {
-  var past = it.m != null && it.m < now, ctrl = (it.kind === 'event' || it.kind === 'note') ? '' : '<button type="button" class="checkbox' + (it.done ? ' checked' : '') + '" data-td-toggle aria-label="Tamamlandı">' + icon('check') + '</button>';
+  var past = it.m != null && it.m < now, ctrl = (it.kind === 'event' || it.kind === 'note') ? '' : '<button type="button" class="checkbox' + (it.done ? ' checked' : '') + '" data-td-toggle aria-pressed="' + (it.done ? 'true' : 'false') + '" aria-label="' + esc(it.title) + ' tamamlandı">' + icon('check') + '</button>';
   return '<div class="td-row' + (it.done ? ' done' : '') + (past ? ' past' : '') + '" data-td-kind="' + it.kind + '" data-td-id="' + esc(it.id) + '" style="--c:hsl(' + TD_HUE[it.kind] + ' 68% 46%)">' +
     '<span class="td-time">' + (it.m != null ? tdFmtMin(it.m) : '') + '</span><span class="td-dot"></span>' +
     '<div class="td-body" data-td-open><div class="td-t">' + (it.kind === 'task' ? '<span class="priority-dot priority-' + (it.priority || 'medium') + '"></span> ' : '') + esc(it.title) + '</div>' + (it.sub ? '<div class="td-s">' + esc(it.sub) + '</div>' : '') + '</div>' + ctrl + '</div>';
@@ -3223,7 +3237,30 @@ function renderTodayAgenda() {
   if (!html) html = '<div class="card"><div class="card-sub">Bugün için planlanmış bir şey yok. Yukarıdaki kutuya yazarak hızlıca ekleyebilirsin.</div></div>';
   el.innerHTML = html;
 }
-function tdRefresh() { renderHero(); renderNext(); renderRitual(); renderTodayAgenda(); renderTdChips(); }
+var tdDay = null;
+function tdRefresh() { renderHero(); renderNext(); renderRitual(); renderTodayAgenda(); renderTomorrow(); renderTdChips(); renderSuggestions(); renderCards(); }
+function tdRollover() { tdDay = todayISO(); renderGreeting(); tdRefresh(); }
+/* Uygulama arka plandan dönünce ya da gün değişince ekran güncel kalsın. */
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden || !document.getElementById('dash-agenda')) return;
+  if (tdDay && tdDay !== todayISO()) tdRollover(); else tdRefresh();
+});
+function renderTomorrow() {
+  var el = document.getElementById('dash-tomorrow');
+  if (!el) return;
+  var tm = addDays(todayISO(), 1), items = [];
+  getEvents().filter(function (e) { return occursOn(e, tm); }).forEach(function (e) {
+    items.push({ kind: 'event', id: e.id, title: e.title, m: tdMin(e.time), sub: e.time ? (e.location || '') : 'Tüm gün' });
+  });
+  getTasks().filter(function (t) { return t.due === tm && t.status !== 'done'; }).forEach(function (t) {
+    items.push({ kind: 'task', id: t.id, title: t.title, priority: t.priority, m: null, sub: '' });
+  });
+  if (!items.length) { el.innerHTML = ''; return; }
+  items.sort(function (a, b) { return (a.m == null ? 1e4 : a.m) - (b.m == null ? 1e4 : b.m); });
+  el.innerHTML = '<div class="td-sec"><h2>Yarın</h2><button type="button" data-nav="calendar">Takvim</button></div><div class="td-line">' +
+    items.slice(0, 3).map(function (it) { return tdRowHTML(it, 0); }).join('') + '</div>' +
+    (items.length > 3 ? '<div class="td-sec" style="margin-top:.3rem"><span></span><button type="button" data-nav="calendar">+' + (items.length - 3) + ' madde daha</button></div>' : '');
+}
 function renderNext() {
   var el = document.getElementById('dash-next');
   if (!el) return;
@@ -3372,6 +3409,7 @@ function tdStartTimer() {
   if (tdTimer) clearInterval(tdTimer);
   tdTimer = setInterval(function () {
     if (!document.getElementById('dash-agenda') || (document.body && document.body.getAttribute('data-page') !== 'today')) { clearInterval(tdTimer); tdTimer = null; return; }
+    if (tdDay && tdDay !== todayISO()) { tdRollover(); return; }
     renderTdChips(); renderNext(); renderTodayAgenda();
   }, 30000);
 }
@@ -3384,8 +3422,14 @@ function tdInitEvents() {
     if ((x = c('[data-td-toggle]'))) {
       e.stopPropagation();
       var row = x.closest('[data-td-kind]'), k = row.getAttribute('data-td-kind'), id = row.getAttribute('data-td-id');
-      if (k === 'prayer') togglePrayer(id); else if (k === 'routine') toggleRoutineToday(id); else if (k === 'task') toggleTaskDone(id);
-      tdRefresh(); return;
+      var wasDone = x.classList.contains('checked');
+      var flip = function () {
+        if (k === 'prayer') togglePrayer(id); else if (k === 'routine') toggleRoutineToday(id); else if (k === 'task') toggleTaskDone(id);
+        tdRefresh();
+      };
+      flip();
+      if (!wasDone) showToast('Tamamlandı', { label: 'Geri al', onClick: flip });
+      return;
     }
     if ((x = c('[data-td-open]'))) { var r = x.closest('[data-td-kind]'); tdOpen(r.getAttribute('data-td-kind'), r.getAttribute('data-td-id')); return; }
     if ((x = c('[data-td-next]'))) { tdOpen(x.getAttribute('data-td-next'), x.getAttribute('data-td-id')); return; }
@@ -3551,6 +3595,7 @@ function initDashboard() {
 }
 
 function startDashboard() {
+  tdDay = todayISO();
   renderGreeting();
   tdInitQuick();
   tdInitEvents();
@@ -3558,6 +3603,7 @@ function startDashboard() {
   renderRitual();
   renderHero();
   renderTodayAgenda();
+  renderTomorrow();
   renderSuggestions();
   renderCards();
   tdStartTimer();
