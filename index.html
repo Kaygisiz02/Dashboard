@@ -874,6 +874,65 @@ button,[role="button"],a,label,input,select,textarea,.prayer-toggle,.checkbox{-w
 .nt-ed-bar button{border:0;background:none;color:var(--accent);min-width:2.8rem;height:2.6rem;border-radius:.6rem;font:inherit;font-weight:700;font-size:1.05rem;cursor:pointer;display:grid;place-items:center}
 .nt-ed-bar button svg{width:1.4rem;height:1.4rem}
 .nt-ed-bar button.on{background:var(--accent-soft)}
+
+/* ---- Bugün (ana sayfa): zaman çizelgesi, sıradaki, günü planla/kapat, hızlı ekle ---- */
+.td-eb{display:flex;align-items:center;justify-content:space-between;gap:.6rem}
+.td-wxbtn{display:inline-flex;align-items:center;gap:.3rem;border:0;background:var(--accent-soft);color:var(--accent);border-radius:99px;padding:.25rem .65rem;font:inherit;font-size:.74rem;font-weight:700;cursor:pointer;text-transform:none;letter-spacing:normal}
+.td-wxbtn svg{width:.9rem;height:.9rem}
+.td-chips{display:flex;flex-wrap:wrap;gap:.4rem;margin:.6rem 0 .9rem}
+.td-chip{display:inline-flex;align-items:center;gap:.35rem;background:rgba(120,120,128,.14);color:var(--ink);border-radius:99px;padding:.3rem .75rem;font-size:.78rem;font-weight:600;text-decoration:none}
+.td-chip svg{width:.9rem;height:.9rem;color:var(--accent)}
+.td-quick{position:relative}
+.td-quick .ic{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:var(--accent);display:grid;pointer-events:none}
+.td-quick .ic svg{width:1.1rem;height:1.1rem}
+.td-quick input{width:100%;background:var(--paper-raised);border:1px solid var(--rule-strong);border-radius:99px;padding:.75rem 1rem .75rem 2.6rem;font:inherit;font-size:1rem;color:var(--ink)}
+.td-quick input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.td-qhint{min-height:1.1rem;font-size:.76rem;color:var(--ink-soft);margin:.35rem .6rem .7rem}
+.td-qhint b{color:var(--accent)}
+.td-next{display:flex;align-items:center;gap:.8rem;background:var(--paper-raised);border:1px solid var(--rule);border-left:4px solid var(--c);border-radius:var(--radius-l);padding:.75rem .9rem;margin-bottom:.8rem;cursor:pointer;text-decoration:none;color:inherit}
+.td-next .ic{flex:none;width:2.4rem;height:2.4rem;border-radius:.8rem;display:grid;place-items:center;color:var(--c);background:var(--accent-soft);background:color-mix(in srgb,var(--c) 14%,transparent)}
+.td-next .ic svg{width:1.2rem;height:1.2rem}
+.td-next .tx{flex:1;min-width:0;display:flex;flex-direction:column}
+.td-next .lb{font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--c)}
+.td-next b{font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.td-next i{font-style:normal;font-size:.8rem;color:var(--ink-soft)}
+.td-ritual{display:flex;align-items:center;gap:.8rem;width:100%;text-align:left;font:inherit;color:var(--accent-ink);background:var(--accent);border:0;border-radius:var(--radius-l);padding:.85rem 1rem;margin-bottom:.8rem;cursor:pointer}
+.td-ritual .tx{flex:1;display:flex;flex-direction:column}
+.td-ritual b{font-size:1rem}
+.td-ritual i{font-style:normal;font-size:.8rem;opacity:.9}
+.td-ritual .go{flex:none;background:rgba(255,255,255,.22);border-radius:99px;padding:.3rem .8rem;font-size:.8rem;font-weight:700}
+.td-sec{display:flex;justify-content:space-between;align-items:baseline;margin:1.1rem .15rem .4rem}
+.td-sec h2{margin:0;font-size:1rem}
+.td-sec span,.td-sec button{font-size:.76rem;color:var(--ink-soft);background:none;border:0;font-family:inherit}
+.td-sec button{color:var(--accent);font-weight:600;cursor:pointer}
+.td-line{position:relative;background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--radius-l);padding:.25rem .8rem .25rem .3rem}
+.td-line.tl::before{content:'';position:absolute;left:calc(.3rem + 3.1rem + .55rem + .35rem - 1px);top:1rem;bottom:1rem;width:2px;background:var(--rule)}
+.td-row{--c:var(--accent);display:flex;align-items:center;gap:.55rem;padding:.5rem 0;position:relative}
+.td-time{flex:none;width:3.1rem;text-align:right;font-family:var(--font-mono);font-size:.74rem;color:var(--ink-soft)}
+.td-dot{flex:none;width:.7rem;height:.7rem;border-radius:50%;background:var(--c);position:relative;z-index:1;box-shadow:0 0 0 3px var(--paper-raised)}
+.td-line:not(.tl) .td-dot{display:none}
+.td-line:not(.tl) .td-time{display:none}
+.td-body{flex:1;min-width:0;cursor:pointer}
+.td-t{font-weight:600;font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.td-s{font-size:.74rem;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.td-row.done .td-t{text-decoration:line-through;color:var(--ink-soft)}
+.td-row.past:not(.done){opacity:.72}
+.td-row .checkbox{flex:none}
+.td-now{display:flex;align-items:center;gap:.55rem;padding:.1rem 0;color:var(--danger);font-size:.7rem;font-weight:700;position:relative;z-index:2}
+.td-now span{flex:none;width:3.1rem;text-align:right;font-family:var(--font-mono)}
+.td-now i{flex:1;height:2px;background:var(--danger);border-radius:1px}
+.pl-row{display:flex;flex-direction:column;gap:.45rem;padding:.65rem 0;border-bottom:1px solid var(--rule)}
+.pl-row:last-child{border-bottom:0}
+.pl-row b{font-size:.92rem;font-weight:600}
+.pl-row i{font-style:normal;font-size:.74rem;color:var(--ink-soft)}
+.pl-btns{display:flex;gap:.4rem;flex-wrap:wrap}
+.pl-btns button{border:0;border-radius:99px;padding:.35rem .8rem;font:inherit;font-size:.78rem;font-weight:700;cursor:pointer;background:var(--accent-soft);color:var(--accent)}
+.pl-btns button.ok{background:var(--accent);color:var(--accent-ink)}
+.pl-h{font-size:.74rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);margin:.9rem 0 .1rem}
+.pl-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:.4rem}
+.pl-sum div{background:var(--paper);border:1px solid var(--rule);border-radius:var(--radius-m);padding:.55rem .6rem;text-align:center}
+.pl-sum b{display:block;font-family:var(--font-mono);font-size:1.25rem}
+.pl-sum span{font-size:.7rem;color:var(--ink-soft)}
 </style>
 <script>
   (function () {
@@ -891,9 +950,12 @@ button,[role="button"],a,label,input,select,textarea,.prayer-toggle,.checkbox{-w
 <main class="page" id="page-root">
   <div id="dash-content">
     <section id="dash-greeting"></section>
+    <div id="dash-quick"><div class="td-quick"><span class="ic" id="td-qic"></span><input type="text" id="td-q" placeholder="Hızlı ekle: yarın market · 15:00 diş hekimi" enterkeyhint="done" autocomplete="off" autocapitalize="sentences" aria-label="Hızlı ekle"></div><div class="td-qhint" id="td-qhint"></div></div>
+    <div id="dash-next"></div>
+    <div id="dash-ritual"></div>
+    <section id="dash-hero"></section>
     <section id="dash-agenda"></section>
     <div id="dash-suggestions"></div>
-    <section id="dash-hero"></section>
     <div id="dash-cards"></div>
   </div>
 </main>
@@ -2814,13 +2876,65 @@ function renderGreeting() {
   var user = get('user', {});
   var el = document.getElementById('dash-greeting');
   el.innerHTML =
-    '<div class="eyebrow" style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">' +
-      '<span>' + esc(formatDateTR(todayISO(), { weekday: true })) + '</span>' +
-      '<span id="dash-weather" style="text-transform:none;letter-spacing:normal;font-weight:500"></span>' +
-    '</div>' +
+    '<div class="eyebrow td-eb"><span>' + esc(formatDateTR(todayISO(), { weekday: true })) + '</span><span id="dash-weather" style="text-transform:none;letter-spacing:normal;font-weight:500"></span></div>' +
     '<h1>' + esc(greetingWord()) + (user.name ? ', ' + esc(user.name) : '') + '</h1>' +
-    (user.goal ? '<p class="muted">Hedefin: ' + esc(user.goal) + '</p>' : '');
+    (user.goal ? '<p class="muted">Hedefin: ' + esc(user.goal) + '</p>' : '') + '<div class="td-chips" id="td-chips"></div>';
+  renderTdChips();
   fetchWeather();
+}
+function tdShort(ms) {
+  var m = Math.max(0, Math.round(ms / 60000));
+  if (m < 1) return 'şimdi';
+  if (m < 60) return m + ' dk';
+  return Math.floor(m / 60) + ' sa' + (m % 60 ? ' ' + (m % 60) + ' dk' : '');
+}
+function renderTdChips() {
+  var el = document.getElementById('td-chips');
+  if (!el) return;
+  var now = ibNowD(), h = ibHijri(now), chips = [];
+  if (ibLoc()) {
+    var st = ibStatus(now);
+    if (st) chips.push('<a href="javascript:void(0)" data-nav="worship" class="td-chip">' + icon('moon') + esc(ibLabel(st.next.k)) + ' ' + ibFmt(st.next.t) + ' \u00b7 ' + tdShort(st.next.t - now) + '</a>');
+  }
+  if (h) chips.push('<span class="td-chip">' + icon('calendar') + esc(h.text) + '</span>');
+  el.innerHTML = chips.join('');
+}
+/* Hava durumu: konum izni otomatik istenmez. Namaz konumu ya da önceden verilen konum kullanılır; sonuç 30 dk önbelleğe alınır. */
+function tdWxShow(w) {
+  var el = document.getElementById('dash-weather');
+  if (!el) return;
+  el.innerHTML = '<span class="mono" style="font-size:1.15rem;font-weight:600">' + Math.round(w.temp) + '\u00b0C</span> <span class="muted">' + esc(w.desc || '') + '</span>';
+}
+function tdWxFetch(lat, lon) {
+  fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,weather_code')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var c = data.current || {}, w = { lat: lat, lon: lon, t: Date.now(), temp: c.temperature_2m, desc: WEATHER_CODES[c.weather_code] || '' };
+      try { localStorage.setItem('ajandam_wx', JSON.stringify(w)); } catch (e) {}
+      tdWxShow(w);
+    })
+    .catch(function () { renderWeatherRetry('Hava durumu şu an alınamadı.'); });
+}
+function fetchWeather() {
+  var el = document.getElementById('dash-weather');
+  if (!el) return;
+  var wx = null;
+  try { wx = JSON.parse(localStorage.getItem('ajandam_wx') || 'null'); } catch (e) {}
+  var loc = ibLoc(), lat = loc ? loc.lat : (wx ? wx.lat : null), lon = loc ? loc.lng : (wx ? wx.lon : null);
+  if (lat == null || lon == null) { renderWeatherRetry(''); return; }
+  if (wx && wx.t && Date.now() - wx.t < 30 * 60000 && Math.abs(wx.lat - lat) < 0.2 && Math.abs(wx.lon - lon) < 0.2 && isFinite(wx.temp)) { tdWxShow(wx); return; }
+  if (wx && isFinite(wx.temp)) tdWxShow(wx);
+  tdWxFetch(lat, lon);
+}
+function renderWeatherRetry(message) {
+  var el = document.getElementById('dash-weather');
+  if (!el) return;
+  el.innerHTML = (message ? '<span class="muted">' + esc(message) + '</span> ' : '') + '<button type="button" class="td-wxbtn" id="weather-btn">' + icon('pin') + (message ? ' Tekrar dene' : ' Hava durumu') + '</button>';
+  document.getElementById('weather-btn').addEventListener('click', function () {
+    if (!navigator.geolocation) { showToast('Bu tarayıcı konumu desteklemiyor'); return; }
+    this.disabled = true;
+    navigator.geolocation.getCurrentPosition(function (pos) { tdWxFetch(pos.coords.latitude, pos.coords.longitude); }, function () { renderWeatherRetry('Konum izni verilmedi.'); }, { timeout: 10000, maximumAge: 3600000 });
+  });
 }
 
 function renderHero() {
@@ -2836,33 +2950,6 @@ function renderHero() {
       '<div class="progress"><div style="width:' + stats.pct + '%"></div></div>' +
       '<div class="card-sub" style="margin-top:.5rem">' + stats.numer + ' / ' + stats.denom + ' tamamlandı</div>' +
     '</div>';
-}
-
-function fetchWeather() {
-  var el = document.getElementById('dash-weather');
-  if (!el) return;
-  el.innerHTML = '<span class="muted">Konum isteniyor…</span>';
-  if (!navigator.geolocation) { el.innerHTML = '<span class="muted">Bu tarayıcı konumu desteklemiyor.</span>'; return; }
-  navigator.geolocation.getCurrentPosition(function (pos) {
-    var lat = pos.coords.latitude, lon = pos.coords.longitude;
-    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,weather_code')
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        var c = data.current || {};
-        var desc = WEATHER_CODES[c.weather_code] || '';
-        el.innerHTML = '<span class="mono" style="font-size:1.15rem;font-weight:600">' + Math.round(c.temperature_2m) + '°C</span> <span class="muted">' + esc(desc) + '</span>';
-      })
-      .catch(function () { renderWeatherRetry('Hava durumu şu an alınamadı.'); });
-  }, function () {
-    renderWeatherRetry('Konum izni verilmedi.');
-  }, { timeout: 8000 });
-}
-
-function renderWeatherRetry(message) {
-  var el = document.getElementById('dash-weather');
-  if (!el) return;
-  el.innerHTML = '<span class="muted">' + esc(message) + '</span> <button class="chip accent" id="weather-btn" style="cursor:pointer;border:none;margin-left:.4rem">' + icon('info') + ' Tekrar dene</button>';
-  document.getElementById('weather-btn').addEventListener('click', fetchWeather);
 }
 
 function noteMiniRowHTML(n) {
@@ -2911,37 +2998,235 @@ function computeTodayAgenda() {
   return { events: events, overdue: overdue, tasks: tasks, notes: notes, hasRoutinesToday: hasRoutinesToday };
 }
 
+/* ---- Bugün: zaman çizelgesi (etkinlik + namaz + rutin + görev tek akışta) ---- */
+var tdTimer = null;
+var TD_HUE = { prayer: 160, event: 215, routine: 265, task: 28, note: 45 };
+var TD_ICON = { prayer: 'moon', event: 'calendar', routine: 'routines', task: 'tasks', note: 'note' };
+function tdMin(hhmm) { var m = /^(\d{1,2}):(\d{2})/.exec(hhmm || ''); return m ? Number(m[1]) * 60 + Number(m[2]) : null; }
+function tdNowMin() { var d = ibNowD(); return d.getHours() * 60 + d.getMinutes(); }
+function tdFmtMin(m) { return pad2(Math.floor(m / 60)) + ':' + pad2(m % 60); }
+function tdItems() {
+  var today = todayISO(), p = getPrayers(), T = ibDayTimes(ibNowD()), timed = [], untimed = [];
+  getEvents().filter(function (e) { return occursOn(e, today); }).forEach(function (e) {
+    var m = tdMin(e.time), it = { kind: 'event', id: e.id, title: e.title, m: m, end: tdMin(e.endTime), sub: (e.endTime ? '\u2013' + e.endTime : '') + (e.location ? (e.endTime ? ' \u00b7 ' : '') + e.location : '') };
+    (m == null ? untimed : timed).push(it);
+    if (m == null) it.sub = 'Tüm gün' + (e.location ? ' \u00b7 ' + e.location : '');
+  });
+  getRoutines().filter(function (r) { return !r.archived && isRoutineDue(r, today); }).forEach(function (r) {
+    var m = tdMin(r.reminderTime), st = computeRoutineStats(r), it = { kind: 'routine', id: r.id, title: r.title, m: m, done: !!(r.log && r.log[today]), sub: 'Rutin' + (st.current ? ' \u00b7 ' + st.current + ' gün seri' : '') };
+    (m == null ? untimed : timed).push(it);
+  });
+  if (T) PRAYER_KEYS.forEach(function (k) {
+    timed.push({ kind: 'prayer', id: k, title: PRAYER_LABELS[k], m: T[k].getHours() * 60 + T[k].getMinutes(), done: !!(p.dailyLog[today] && p.dailyLog[today][k]), sub: 'Namaz vakti' });
+  });
+  getTasks().filter(function (t) { return t.due === today || (!t.due && ntLocalISO(t.createdAt) === today); }).forEach(function (t) {
+    untimed.push({ kind: 'task', id: t.id, title: t.title, done: t.status === 'done', priority: t.priority, sub: t.status === 'done' ? 'Tamamlandı' : '' });
+  });
+  getNotes().filter(function (n) { return ntLocalISO(n.createdAt) === today; }).forEach(function (n) { untimed.push({ kind: 'note', id: n.id, title: ntTitleOf(n), sub: 'Not' }); });
+  timed.sort(function (a, b) { return (a.m - b.m) || (a.kind === 'prayer' ? -1 : 1); });
+  var order = { event: 0, task: 1, routine: 2, note: 3, prayer: 4 };
+  untimed.sort(function (a, b) { return ((a.done ? 1 : 0) - (b.done ? 1 : 0)) || (order[a.kind] - order[b.kind]); });
+  var overdue = getTasks().filter(function (t) { return t.due && t.due < today && t.status !== 'done'; }).sort(function (a, b) { return a.due < b.due ? -1 : a.due > b.due ? 1 : 0; });
+  return { timed: timed, untimed: untimed, overdue: overdue };
+}
+function tdRowHTML(it, now) {
+  var past = it.m != null && it.m < now, ctrl = (it.kind === 'event' || it.kind === 'note') ? '' : '<button type="button" class="checkbox' + (it.done ? ' checked' : '') + '" data-td-toggle aria-label="Tamamlandı">' + icon('check') + '</button>';
+  return '<div class="td-row' + (it.done ? ' done' : '') + (past ? ' past' : '') + '" data-td-kind="' + it.kind + '" data-td-id="' + esc(it.id) + '" style="--c:hsl(' + TD_HUE[it.kind] + ' 68% 46%)">' +
+    '<span class="td-time">' + (it.m != null ? tdFmtMin(it.m) : '') + '</span><span class="td-dot"></span>' +
+    '<div class="td-body" data-td-open><div class="td-t">' + (it.kind === 'task' ? '<span class="priority-dot priority-' + (it.priority || 'medium') + '"></span> ' : '') + esc(it.title) + '</div>' + (it.sub ? '<div class="td-s">' + esc(it.sub) + '</div>' : '') + '</div>' + ctrl + '</div>';
+}
 function renderTodayAgenda() {
   var el = document.getElementById('dash-agenda');
   if (!el) return;
-  var agenda = computeTodayAgenda();
-  var total = agenda.overdue.length + agenda.events.length + agenda.tasks.length + agenda.notes.length;
-  if (!total) {
-    el.innerHTML = agenda.hasRoutinesToday
-      ? ''
-      : '<div class="card"><div class="card-sub">Bugün için planlanmış görev, etkinlik ya da not yok.</div></div>';
-    return;
+  var I = tdItems(), now = tdNowMin(), html = '', i, placed = false;
+  if (I.overdue.length) {
+    html += '<div class="td-sec"><h2 style="color:var(--danger)">Gecikmiş</h2><span>' + I.overdue.length + ' görev</span></div><div class="td-line">' +
+      I.overdue.slice(0, 3).map(function (t) { var d = Math.max(1, Math.round((parseISO(todayISO()) - parseISO(t.due)) / 864e5)); return tdRowHTML({ kind: 'task', id: t.id, title: t.title, priority: t.priority, sub: d + ' gün gecikti' }, now); }).join('') + '</div>' +
+      (I.overdue.length > 3 ? '<div class="td-sec" style="margin-top:.3rem"><span></span><button type="button" data-nav="tasks">+' + (I.overdue.length - 3) + ' görev daha</button></div>' : '');
   }
-  var html = '';
-  if (agenda.overdue.length) {
-    html += '<div class="eyebrow" style="margin-top:.3rem;color:var(--danger)">Gecikmiş</div>' +
-      '<div class="card" style="padding:.2rem .8rem">' + agenda.overdue.map(function (t) { return agendaTaskRowHTML(t, true); }).join('') + '</div>';
+  if (I.timed.length) {
+    html += '<div class="td-sec"><h2>Günün akışı</h2><span>' + I.timed.length + ' madde</span></div><div class="td-line tl">';
+    for (i = 0; i < I.timed.length; i++) {
+      if (!placed && I.timed[i].m > now) { html += '<div class="td-now"><span>' + tdFmtMin(now) + '</span><i></i></div>'; placed = true; }
+      html += tdRowHTML(I.timed[i], now);
+    }
+    if (!placed) html += '<div class="td-now"><span>' + tdFmtMin(now) + '</span><i></i></div>';
+    html += '</div>';
   }
-  if (agenda.events.length) {
-    html += '<div class="eyebrow" style="margin-top:.9rem">Etkinlikler</div>' +
-      '<div class="card" style="padding:.2rem .8rem">' + agenda.events.map(eventRowHTML).join('') + '</div>';
+  if (I.untimed.length) {
+    html += '<div class="td-sec"><h2>Gün boyu</h2><span>' + I.untimed.filter(function (x) { return !x.done; }).length + ' açık</span></div><div class="td-line">' + I.untimed.map(function (it) { return tdRowHTML(it, now); }).join('') + '</div>';
   }
-  if (agenda.tasks.length) {
-    html += '<div class="eyebrow" style="margin-top:.9rem">Görevler</div>' +
-      '<div class="card" style="padding:.2rem .8rem">' + agenda.tasks.map(function (t) { return agendaTaskRowHTML(t, false); }).join('') + '</div>';
-  }
-  if (agenda.notes.length) {
-    html += '<div class="eyebrow" style="margin-top:.9rem">Notlar</div>' +
-      '<div class="card" style="padding:.2rem .8rem">' + agenda.notes.map(noteMiniRowHTML).join('') + '</div>';
-  }
+  if (!html) html = '<div class="card"><div class="card-sub">Bugün için planlanmış bir şey yok. Yukarıdaki kutuya yazarak hızlıca ekleyebilirsin.</div></div>';
   el.innerHTML = html;
-  wireEventOpen(el);
-  wireAgendaTasks(el);
+}
+function tdRefresh() { renderHero(); renderNext(); renderRitual(); renderTodayAgenda(); renderTdChips(); }
+function renderNext() {
+  var el = document.getElementById('dash-next');
+  if (!el) return;
+  var I = tdItems(), now = tdNowMin(), cur = I.timed.filter(function (it) { return it.kind === 'event' && it.m <= now && it.end != null && it.end > now; })[0];
+  var nxt = I.timed.filter(function (it) { return it.m > now && !it.done; })[0], it = cur || nxt;
+  if (!it) { el.innerHTML = ''; return; }
+  var when = cur ? 'Şimdi \u00b7 bitişe ' + (cur.end - now) + ' dk' : tdFmtMin(it.m) + ' \u00b7 ' + (it.m - now < 60 ? (it.m - now) + ' dk sonra' : Math.floor((it.m - now) / 60) + ' sa' + ((it.m - now) % 60 ? ' ' + ((it.m - now) % 60) + ' dk' : '') + ' sonra');
+  el.innerHTML = '<a href="javascript:void(0)" class="td-next" data-td-next="' + it.kind + '" data-td-id="' + esc(it.id) + '" style="--c:hsl(' + TD_HUE[it.kind] + ' 68% 46%)"><span class="ic">' + icon(TD_ICON[it.kind]) + '</span><span class="tx"><span class="lb">' + (cur ? 'Şu an' : 'Sıradaki') + '</span><b>' + esc(it.title) + '</b><i>' + esc(when) + '</i></span></a>';
+}
+function tdOpen(kind, id) {
+  if (kind === 'event') openEventSheet(id);
+  else if (kind === 'task') openTaskSheet(id);
+  else if (kind === 'routine') navigateTo('routines');
+  else if (kind === 'prayer') navigateTo('worship');
+  else if (kind === 'note') navigateTo('notes');
+}
+/* ---- günü planla / günü kapat (Sunsama tarzı) ---- */
+function tdRitualKey(k) { return 'ajandam_ritual_' + k + '_' + todayISO(); }
+function tdRitualDone(k) { try { return !!localStorage.getItem(tdRitualKey(k)); } catch (e) { return false; } }
+function tdRitualMark(k) { try { localStorage.setItem(tdRitualKey(k), '1'); } catch (e) {} }
+function tdPlanLists() {
+  var today = todayISO(), open = getTasks().filter(function (t) { return t.status !== 'done'; });
+  return {
+    overdue: open.filter(function (t) { return t.due && t.due < today; }).sort(function (a, b) { return a.due < b.due ? -1 : 1; }),
+    undated: open.filter(function (t) { return !t.due; }).slice(0, 8),
+    today: open.filter(function (t) { return t.due === today; })
+  };
+}
+function renderRitual() {
+  var el = document.getElementById('dash-ritual');
+  if (!el) return;
+  var h = ibNowD().getHours(), L = tdPlanLists(), kind = h < 12 ? 'plan' : (h >= 17 ? 'close' : null);
+  if (!kind || tdRitualDone(kind)) { el.innerHTML = ''; return; }
+  if (kind === 'plan') {
+    var n = L.overdue.length + L.undated.length;
+    if (!n && !L.today.length) { el.innerHTML = ''; return; }
+    el.innerHTML = '<button type="button" class="td-ritual" data-td-ritual="plan"><span class="tx"><b>Günü planla</b><i>' + (L.overdue.length ? L.overdue.length + ' gecikmiş' : '') + (L.overdue.length && L.undated.length ? ' \u00b7 ' : '') + (L.undated.length ? L.undated.length + ' tarihsiz' : '') + (n && L.today.length ? ' \u00b7 ' : '') + (L.today.length ? L.today.length + ' bugünkü görev' : '') + '</i></span><span class="go">Başla</span></button>';
+  } else {
+    var st = computeTodayStats();
+    if (!st.denom && !L.today.length) { el.innerHTML = ''; return; }
+    el.innerHTML = '<button type="button" class="td-ritual" data-td-ritual="close"><span class="tx"><b>Günü kapat</b><i>Bugün ' + st.numer + '/' + st.denom + ' tamamlandı' + (L.today.length ? ' \u00b7 ' + L.today.length + ' görev açık' : ' \u00b7 hepsi tamam') + '</i></span><span class="go">Gözden geçir</span></button>';
+  }
+}
+function tdMoveTask(id, due) { var l = getTasks(); l.forEach(function (t) { if (t.id === id) t.due = due; }); saveTasks(l); }
+function tdPlanSheet() {
+  function rows(arr, kind) {
+    return arr.map(function (t) {
+      return '<div class="pl-row" data-pl-id="' + t.id + '"><div><b>' + esc(t.title) + '</b>' + (t.due ? '<br><i>' + esc(formatDateTR(t.due, { year: false })) + '</i>' : '') + '</div><div class="pl-btns">' +
+        (kind !== 'today' ? '<button type="button" class="ok" data-pl="today">Bugüne al</button>' : '') + '<button type="button" data-pl="tom">Yarın</button><button type="button" data-pl="done">Tamamlandı</button></div></div>';
+    }).join('');
+  }
+  function body() {
+    var L = tdPlanLists(), h = '';
+    if (L.overdue.length) h += '<div class="pl-h">Gecikmiş</div>' + rows(L.overdue, 'overdue');
+    if (L.undated.length) h += '<div class="pl-h">Tarihsiz</div>' + rows(L.undated, 'undated');
+    if (L.today.length) h += '<div class="pl-h">Bugün</div>' + rows(L.today, 'today');
+    return h || '<p class="muted" style="text-align:center;margin:1rem 0">Her şey yerli yerinde \u2713</p>';
+  }
+  openSheet({
+    title: 'Günü planla',
+    bodyHTML: '<p class="muted" style="margin:0 0 .3rem;font-size:.85rem">Her görevi bugüne al, yarına at ya da bitir. Sonra güne başla.</p><div id="pl-list">' + body() + '</div><div class="stack" style="margin-top:.9rem"><button class="btn btn-primary btn-block" id="pl-done">Planı tamamla</button></div>',
+    onOpen: function (b) {
+      var list = b.querySelector('#pl-list');
+      list.addEventListener('click', function (e) {
+        var btn = e.target.closest && e.target.closest('[data-pl]'), row = btn && btn.closest('[data-pl-id]');
+        if (!btn) return;
+        var id = row.getAttribute('data-pl-id'), a = btn.getAttribute('data-pl');
+        if (a === 'today') tdMoveTask(id, todayISO()); else if (a === 'tom') tdMoveTask(id, addDays(todayISO(), 1)); else toggleTaskDone(id);
+        list.innerHTML = body();
+      });
+      b.querySelector('#pl-done').addEventListener('click', function () { tdRitualMark('plan'); closeSheet(); tdRefresh(); showToast('Gün planlandı'); });
+    }
+  });
+}
+function tdCloseSheet() {
+  var L = tdPlanLists(), st = computeTodayStats(), open = L.today.length;
+  openSheet({
+    title: 'Günü kapat',
+    bodyHTML: '<div class="pl-sum"><div><b>' + st.doneTasks + '</b><span>görev bitti</span></div><div><b>' + st.doneRoutines + '/' + st.routinesToday.length + '</b><span>rutin</span></div><div><b>' + open + '</b><span>açık görev</span></div></div>' +
+      (open ? '<label class="rep-switch" style="margin:.7rem 0"><input type="checkbox" id="cl-move" checked><span>Açık ' + open + ' görevi yarına taşı</span></label>' : '') +
+      '<div class="field"><label>Bugün nasıl geçti? (isteğe bağlı, not olarak kaydedilir)</label><textarea id="cl-note" rows="3" placeholder="Bir iki cümle…"></textarea></div>' +
+      '<div class="stack"><button class="btn btn-primary btn-block" id="cl-ok">Günü kapat</button></div>',
+    onOpen: function (b) {
+      b.querySelector('#cl-ok').addEventListener('click', function () {
+        var mv = b.querySelector('#cl-move'), txt = b.querySelector('#cl-note').value.trim();
+        if (mv && mv.checked) L.today.forEach(function (t) { tdMoveTask(t.id, addDays(todayISO(), 1)); });
+        if (txt) {
+          var nowISO = new Date().toISOString(), head = 'Gün sonu \u00b7 ' + formatDateTR(todayISO());
+          var all = ntAll(); all.push({ id: uid(), text: head + '\n' + txt, html: '<div>' + esc(head) + '</div><div>' + esc(txt) + '</div>', createdAt: nowISO, updatedAt: nowISO, folder: null, pinned: false }); saveNotes(all);
+        }
+        tdRitualMark('close'); addXP(3, { silent: true }); closeSheet(); tdRefresh(); showToast('Gün kapandı. İyi geceler');
+      });
+    }
+  });
+}
+/* ---- hızlı ekle: doğal dil ---- */
+var TD_WD = { pazartesi: 1, 'salı': 2, 'sali': 2, 'çarşamba': 3, 'carsamba': 3, 'perşembe': 4, 'persembe': 4, cuma: 5, cumartesi: 6, pazar: 0 };
+var TD_MON = { ocak: 1, 'şubat': 2, subat: 2, mart: 3, nisan: 4, 'mayıs': 5, mayis: 5, haziran: 6, temmuz: 7, 'ağustos': 8, agustos: 8, 'eylül': 9, eylul: 9, ekim: 10, 'kasım': 11, kasim: 11, 'aralık': 12, aralik: 12 };
+function tdParse(text) {
+  var s = ' ' + String(text || '').trim() + ' ', date = null, time = null, today = todayISO(), m;
+  function cut(re) { var r = re.exec(s.toLocaleLowerCase('tr')); if (!r) return null; var st = r.index, len = r[0].length; s = s.slice(0, st) + ' ' + s.slice(st + len); return r; }
+  if ((m = cut(/(?:^|\s)(?:saat\s+)?([01]?\d|2[0-3]):([0-5]\d)(?=\s|$)/))) time = pad2(Number(m[1])) + ':' + m[2];
+  else if ((m = cut(/(?:^|\s)saat\s+([01]?\d|2[0-3])\.([0-5]\d)(?=\s|$)/))) time = pad2(Number(m[1])) + ':' + m[2];
+  else if ((m = cut(/(?:^|\s)saat\s+([01]?\d|2[0-3])(?=\s|$)/))) time = pad2(Number(m[1])) + ':00';
+  else if ((m = /(?:^|\s)([01]?\d|2[0-3])\.([0-5]\d)(?=\s|$)/.exec(s)) && Number(m[2]) > 12) { cut(/(?:^|\s)([01]?\d|2[0-3])\.([0-5]\d)(?=\s|$)/); time = pad2(Number(m[1])) + ':' + m[2]; }
+  if (cut(/(?:^|\s)bugün(?=\s|$)/)) date = today;
+  else if (cut(/(?:^|\s)yarın(?=\s|$)/)) date = addDays(today, 1);
+  else if (cut(/(?:^|\s)(?:öbür gün|ertesi gün|obur gun)(?=\s|$)/)) date = addDays(today, 2);
+  else if (cut(/(?:^|\s)haftaya(?=\s|$)/)) date = addDays(today, 7);
+  else if ((m = cut(/(?:^|\s)(\d{1,2})\s+(ocak|şubat|subat|mart|nisan|mayıs|mayis|haziran|temmuz|ağustos|agustos|eylül|eylul|ekim|kasım|kasim|aralık|aralik)(?=\s|$)/))) {
+    var y = Number(today.slice(0, 4)), mo = TD_MON[m[2]], dd = Number(m[1]);
+    date = y + '-' + pad2(mo) + '-' + pad2(dd); if (date < today) date = (y + 1) + '-' + pad2(mo) + '-' + pad2(dd);
+  } else if ((m = cut(/(?:^|\s)(\d{1,2})[./](\d{1,2})(?=\s|$)/))) {
+    var y2 = Number(today.slice(0, 4)); date = y2 + '-' + pad2(Number(m[2])) + '-' + pad2(Number(m[1])); if (date < today) date = (y2 + 1) + '-' + pad2(Number(m[2])) + '-' + pad2(Number(m[1]));
+  } else if ((m = cut(/(?:^|\s)(pazartesi|salı|sali|çarşamba|carsamba|perşembe|persembe|cumartesi|cuma|pazar)(?=\s|$)/))) {
+    var wd = TD_WD[m[1]], cur = parseISO(today).getDay(), diff = (wd - cur + 7) % 7 || 7; date = addDays(today, diff);
+  }
+  var title = s.replace(/\s+/g, ' ').replace(/^[\s,:\-\u2013\u2014]+|[\s,:\-\u2013\u2014]+$/g, '').trim();
+  if (time && !date) date = today;
+  return { title: title, date: date, time: time, kind: time ? 'event' : 'task' };
+}
+function tdDateLabel(d) { var t = todayISO(); return d === t ? 'Bugün' : d === addDays(t, 1) ? 'Yarın' : formatDateTR(d, { year: false }); }
+function tdInitQuick() {
+  var inp = document.getElementById('td-q'), hint = document.getElementById('td-qhint'), ic = document.getElementById('td-qic');
+  if (!inp) return;
+  ic.innerHTML = icon('plus');
+  function show() {
+    var v = inp.value.trim();
+    if (!v) { hint.innerHTML = ''; return; }
+    var r = tdParse(v);
+    hint.innerHTML = r.title ? '\u2192 <b>' + (r.kind === 'event' ? 'Etkinlik' : 'Görev') + '</b>' + (r.date ? ' \u00b7 ' + esc(tdDateLabel(r.date)) : (r.kind === 'task' ? ' \u00b7 tarihsiz' : '')) + (r.time ? ' ' + r.time : '') + ' \u00b7 \u201c' + esc(r.title) + '\u201d' : '';
+  }
+  inp.addEventListener('input', show);
+  inp.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    var r = tdParse(inp.value);
+    if (!r.title) return;
+    e.preventDefault();
+    if (r.kind === 'event') { var ev = getEvents(); ev.push({ id: uid(), title: r.title, date: r.date, time: r.time, endTime: '', location: '', note: '', recurrence: { type: 'none' }, amount: '', paid: false }); saveEvents(ev); }
+    else { var ts = getTasks(); ts.push({ id: uid(), title: r.title, status: 'todo', priority: 'medium', due: r.date || '', tags: [], subtasks: [], createdAt: new Date().toISOString() }); saveTasks(ts); }
+    showToast((r.kind === 'event' ? 'Etkinlik eklendi' : 'Görev eklendi') + (r.date ? ' \u00b7 ' + tdDateLabel(r.date) : '') + (r.time ? ' ' + r.time : ''));
+    inp.value = ''; hint.innerHTML = ''; inp.blur(); tdRefresh();
+  });
+}
+function tdStartTimer() {
+  if (tdTimer) clearInterval(tdTimer);
+  tdTimer = setInterval(function () {
+    if (!document.getElementById('dash-agenda') || (document.body && document.body.getAttribute('data-page') !== 'today')) { clearInterval(tdTimer); tdTimer = null; return; }
+    renderTdChips(); renderNext(); renderTodayAgenda();
+  }, 30000);
+}
+function tdInitEvents() {
+  var root = document.getElementById('dash-content');
+  if (!root || root.__tdBound) return;
+  root.__tdBound = true;
+  root.addEventListener('click', function (e) {
+    var t = e.target, c = function (sel) { return t.closest && t.closest(sel); }, x;
+    if ((x = c('[data-td-toggle]'))) {
+      e.stopPropagation();
+      var row = x.closest('[data-td-kind]'), k = row.getAttribute('data-td-kind'), id = row.getAttribute('data-td-id');
+      if (k === 'prayer') togglePrayer(id); else if (k === 'routine') toggleRoutineToday(id); else if (k === 'task') toggleTaskDone(id);
+      tdRefresh(); return;
+    }
+    if ((x = c('[data-td-open]'))) { var r = x.closest('[data-td-kind]'); tdOpen(r.getAttribute('data-td-kind'), r.getAttribute('data-td-id')); return; }
+    if ((x = c('[data-td-next]'))) { tdOpen(x.getAttribute('data-td-next'), x.getAttribute('data-td-id')); return; }
+    if ((x = c('[data-td-ritual]'))) { if (x.getAttribute('data-td-ritual') === 'plan') tdPlanSheet(); else tdCloseSheet(); }
+  });
 }
 
 function renderSuggestions() {
@@ -3072,10 +3357,15 @@ function initDashboard() {
 
 function startDashboard() {
   renderGreeting();
+  tdInitQuick();
+  tdInitEvents();
+  renderNext();
+  renderRitual();
+  renderHero();
   renderTodayAgenda();
   renderSuggestions();
-  renderHero();
   renderCards();
+  tdStartTimer();
 }
 
 /* ---- tasks.js ---- */
