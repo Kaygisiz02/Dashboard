@@ -357,6 +357,56 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .8rem; }
 .sheet-head h3 { font-size: 1.08rem; }
 
+/* ---- Ayarlar paneli ---------------------------------------------------- */
+.sheet { max-height: 88dvh; overscroll-behavior: contain; }
+.sheet:focus { outline: none; }
+.set-sec { margin: 0 0 1.5rem; }
+.set-h { font-size: .95rem; margin: 0 0 .15rem; }
+.set-desc { font-size: .8rem; color: var(--ink-soft); margin: 0 0 .65rem; }
+.set-status { min-height: 1.1rem; font-size: .78rem; color: var(--success); margin: -.4rem 0 0; }
+.set-pair { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+.set-danger { border-top: 1px solid var(--rule-strong); padding-top: 1.1rem; }
+.set-foot { text-align: center; font-size: .76rem; color: var(--ink-soft); margin: 0; }
+.set-sec .segmented button, .set-sec .pill-select button { min-height: 2.75rem; }
+.swatch { display: inline-block; width: .8rem; height: .8rem; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1.5px var(--rule-strong); margin-right: .45rem; vertical-align: -.1rem; }
+.pill-select button.active .swatch { box-shadow: 0 0 0 1.5px #fff; }
+#dash-card-config-list button.icon-btn { width: 2.5rem; height: 2.5rem; }
+#dash-card-config-list button.icon-btn:disabled { opacity: .3; cursor: default; }
+.switch { position: relative; width: 2.9rem; height: 2.75rem; flex: none; border: 0; background: none; padding: 0; cursor: pointer; }
+.switch::before { content: ""; position: absolute; left: 0; top: 50%; width: 2.9rem; height: 1.6rem; margin-top: -.8rem; border-radius: 999px; background: var(--rule-strong); transition: background .15s ease; }
+.switch::after { content: ""; position: absolute; left: .15rem; top: 50%; width: 1.3rem; height: 1.3rem; margin-top: -.65rem; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .15s ease; }
+.switch[aria-checked="true"]::before { background: var(--accent); }
+.switch[aria-checked="true"]::after { transform: translateX(1.3rem); }
+/* Koyu temada düşük kontrastlı vurgu renkleri */
+[data-theme="dark"][data-accent="graphite"] { --accent: #A8ADB3; --accent-ink: #000; --accent-soft: rgba(168,173,179,.18); }
+[data-theme="dark"][data-accent="ochre"] { --accent: #E2A23B; --accent-ink: #000; --accent-soft: rgba(226,162,59,.18); }
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"][data-accent="graphite"] { --accent: #A8ADB3; --accent-ink: #000; --accent-soft: rgba(168,173,179,.18); }
+  [data-theme="auto"][data-accent="ochre"] { --accent: #E2A23B; --accent-ink: #000; --accent-soft: rgba(226,162,59,.18); }
+}
+
+/* ---- Ayarlar sayfası: gruplanmış satırlar ------------------------------ */
+.set-back { display: inline-flex; align-items: center; gap: .15rem; min-height: 2.75rem; margin: 0 0 .2rem -.5rem; padding: 0 .6rem 0 .3rem; border: 0; background: none; color: var(--accent); font-weight: 600; cursor: pointer; border-radius: var(--radius-s); }
+.set-back svg { width: 20px; height: 20px; }
+.set-group { background: var(--paper-raised); border: 1px solid var(--rule); border-radius: var(--radius-m); overflow: hidden; margin: 0 0 1.25rem; }
+.set-item { display: flex; align-items: center; gap: .8rem; width: 100%; min-height: 3.4rem; padding: .55rem .9rem; border: 0; background: none; text-align: left; cursor: pointer; color: var(--ink); }
+.set-item + .set-item { border-top: 1px solid var(--rule); }
+.set-item:active { background: var(--rule); }
+.set-item:focus-visible { outline-offset: -2px; }
+.set-ic { width: 2rem; height: 2rem; border-radius: 9px; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; flex: none; }
+.set-lbl { flex: 1; min-width: 0; display: flex; flex-direction: column; font-weight: 500; }
+.set-val { color: var(--ink-soft); font-size: .88rem; max-width: 45%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.set-avatar { width: 3.1rem; height: 3.1rem; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 700; flex: none; }
+.set-avatar svg { width: 22px; height: 22px; }
+.set-profile { min-height: 4.6rem; }
+.set-profile strong { font-size: 1.05rem; }
+.set-panel { background: var(--paper-raised); border: 1px solid var(--rule); border-radius: var(--radius-m); padding: .9rem; }
+.set-panel + .set-desc { margin: .35rem .4rem 1.4rem; }
+#settings-main h1 { margin-bottom: 1rem; }
+#settings-main h1:focus { outline: none; }
+
+.switch:disabled { opacity: .45; cursor: default; }
+
 /* ---- Toast ---------------------------------------------------------------*/
 .toast-stack { position: fixed; top: calc(var(--header-h) + .6rem); left: 0; right: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; gap: .4rem; pointer-events: none; }
 .toast {
@@ -1351,6 +1401,10 @@ button,[role="button"],a,label,input,select,textarea,.prayer-toggle,.checkbox{-w
 </main>
 </div>
 
+<div id="view-settings" style="display:none">
+<main class="page" id="settings-main"></main>
+</div>
+
 <div id="view-admin" style="display:none">
 <main class="page">
   <button class="btn btn-secondary" id="admin-exit-btn" style="margin-bottom:.9rem">◂ Ayarlara dön</button>
@@ -1816,7 +1870,13 @@ function applyTheme() {
   var accent = get('accent', 'ink-blue');
   document.documentElement.setAttribute('data-theme', theme);
   document.documentElement.setAttribute('data-accent', accent);
+  var dark = theme === 'dark' || (theme === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', dark ? '#000000' : '#F7F8FA');
 }
+try {
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { if (get('theme', 'auto') === 'auto') applyTheme(); });
+} catch (e) { /* eski tarayici */ }
 function setTheme(t) { set('theme', t); applyTheme(); }
 function setAccent(a) { set('accent', a); applyTheme(); }
 
@@ -2088,6 +2148,21 @@ function wireTagDropdown(inputId, dropdownId, getOptions, getCurrent, onToggle) 
   input.addEventListener('input', render);
 }
 
+var _sheetOpener = null;
+document.addEventListener('keydown', function (e) {
+  var sheet = document.getElementById('dlg-sheet');
+  if (!sheet || !sheet.classList.contains('open')) return;
+  var modal = document.getElementById('dlg-modal');
+  if (modal && modal.classList.contains('open')) return;
+  if (e.key === 'Escape') { closeSheet(); return; }
+  if (e.key !== 'Tab') return;
+  var f = sheet.querySelectorAll('button:not([disabled]), input:not(.sr-only), select, textarea, a[href]');
+  if (!f.length) return;
+  var first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && (document.activeElement === first || document.activeElement === sheet)) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+
 function openSheet(opts) {
   ensureOverlayRoot();
   var sheet = document.getElementById('dlg-sheet');
@@ -2095,9 +2170,16 @@ function openSheet(opts) {
   var html = '';
   if (opts.title) html += '<div class="sheet-head"><h3>' + esc(opts.title) + '</h3><button class="icon-btn" id="dlg-sheet-close" aria-label="Kapat">' + icon('x') + '</button></div>';
   html += opts.bodyHTML || '';
+  var wasOpen = sheet.classList.contains('open');
+  if (!wasOpen) _sheetOpener = document.activeElement;
   body.innerHTML = html;
   document.getElementById('dlg-overlay').classList.add('open');
   sheet.classList.add('open');
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-modal', 'true');
+  sheet.setAttribute('tabindex', '-1');
+  if (opts.title) sheet.setAttribute('aria-label', opts.title); else sheet.removeAttribute('aria-label');
+  if (!wasOpen) { sheet.scrollTop = 0; sheet.focus({ preventScroll: true }); }
   var closeBtn = document.getElementById('dlg-sheet-close');
   if (closeBtn) closeBtn.addEventListener('click', closeSheet);
   if (opts.onOpen) opts.onOpen(body);
@@ -2107,6 +2189,8 @@ function closeSheet() {
   var overlay = document.getElementById('dlg-overlay');
   if (sheet) sheet.classList.remove('open');
   if (overlay) overlay.classList.remove('open');
+  if (_sheetOpener && document.contains(_sheetOpener) && _sheetOpener.focus) _sheetOpener.focus({ preventScroll: true });
+  _sheetOpener = null;
 }
 
 /* Kategori/etiket filtreleri için ortak sheet: "Tümü" + verilen seçenekler,
@@ -2200,7 +2284,8 @@ var PAGES = {
   notes:        { title: 'Notlar',      href: 'notlar.html',      tab: false, icon: 'note' },
   achievements: { title: 'Başarılarım', href: 'basarilarim.html', tab: false, icon: 'trophy' },
   yearreport:   { title: 'Yıl Özeti',   href: 'yilozeti.html',    tab: false, icon: 'calendar' },
-  admin:        { title: 'Yönetici Paneli', href: 'yonetici.html', tab: false, icon: 'lock' }
+  admin:        { title: 'Yönetici Paneli', href: 'yonetici.html', tab: false, icon: 'lock' },
+  settings:     { title: 'Ayarlar', href: 'ayarlar.html', tab: false, icon: 'gear' }
 };
 var TAB_ORDER = ['today', 'tasks', 'routines', 'calendar'];
 
@@ -2234,7 +2319,7 @@ function buildHeader(pageKey) {
     document.getElementById('xp-chip').addEventListener('click', function () {
       if (window.SINGLE_FILE_APP) navigateTo('achievements'); else window.location.href = 'basarilarim.html';
     });
-    document.getElementById('settings-btn').addEventListener('click', openSettingsSheet);
+    document.getElementById('settings-btn').addEventListener('click', openSettingsPage);
   }
   var dateEl = header.querySelector('.date');
   dateEl.textContent = formatDateTR(todayISO(), { weekday: true });
@@ -2259,7 +2344,7 @@ function buildTabbar(pageKey) {
     document.getElementById('more-tab').addEventListener('click', openMoreSheet);
   }
   bar.querySelectorAll('a[data-tabkey]').forEach(function (a) { a.classList.toggle('active', a.dataset.tabkey === pageKey); });
-  var moreActive = !!pageKey && TAB_ORDER.indexOf(pageKey) === -1;
+  var moreActive = !!pageKey && TAB_ORDER.indexOf(pageKey) === -1 && pageKey !== 'settings';
   document.getElementById('more-tab').classList.toggle('active', moreActive);
 }
 
@@ -2280,91 +2365,163 @@ function openMoreSheet() {
 /* ---------------------------------------------------------------------- */
 /* Ayarlar / Sistem paneli                                                 */
 /* ---------------------------------------------------------------------- */
-function openSettingsSheet() {
+function backupLabel() {
+  var lb = '';
+  try { lb = localStorage.getItem('gunlukAjandam_lastBackup') || ''; } catch (e) { /* depolama kapali */ }
+  return lb ? 'Son yedek: ' + formatDateTR(lb) + '.' : 'Henüz yedek almadın. Verilerin yalnızca bu cihazda saklanır, yedek almak onları korur.';
+}
+function markBackup() {
+  try { localStorage.setItem('gunlukAjandam_lastBackup', todayISO()); } catch (e) { /* depolama kapali */ }
+  var el = document.getElementById('set-backup');
+  if (el) el.textContent = backupLabel();
+}
+
+var settingsSub = null, settingsLast = null, settingsReturn = 'today';
+
+function openSettingsPage() {
+  var cur = document.body.getAttribute('data-page');
+  if (cur === 'settings') { settingsSub = null; renderSettings(); return; }
+  settingsReturn = cur || 'today';
+  navigateTo('settings');
+}
+function initSettings() { settingsSub = null; settingsLast = null; renderSettings(); }
+
+function setSec(id, title, desc, inner) {
+  return '<section class="set-sec" aria-labelledby="h-' + id + '"><h2 class="set-h" id="h-' + id + '">' + title + '</h2>' +
+    (desc ? '<p class="set-desc">' + desc + '</p>' : '') + inner + '</section>';
+}
+function setPressed(on) { return ' aria-pressed="' + (on ? 'true' : 'false') + '"' + (on ? ' class="active"' : ''); }
+
+var SETTINGS_SUBS = {
+  profile: { title: 'Profil', render: settingsProfile },
+  appearance: { title: 'Görünüm', render: settingsAppearance },
+  cards: { title: 'Ana sayfa kartları', render: settingsCards },
+  notif: { title: 'Bildirimler', render: settingsNotif },
+  data: { title: 'Yedekleme ve veri', render: settingsData }
+};
+
+function renderSettings() {
+  var main = document.getElementById('settings-main');
+  if (!main) return;
+  var sub = settingsSub && SETTINGS_SUBS[settingsSub];
+  main.innerHTML = '<button type="button" class="set-back" id="set-back">' + icon('chevronL') + (sub ? 'Ayarlar' : 'Geri') + '</button>' +
+    '<h1 id="set-title" tabindex="-1">' + (sub ? sub.title : 'Ayarlar') + '</h1><div id="set-body"></div>';
+  document.getElementById('set-back').addEventListener('click', function () {
+    if (sub) { settingsSub = null; renderSettings(); } else navigateTo(settingsReturn);
+  });
+  var body = document.getElementById('set-body');
+  if (sub) sub.render(body); else settingsRoot(body);
+  window.scrollTo(0, 0);
+  var back = !sub && settingsLast && body.querySelector('[data-sub="' + settingsLast + '"]');
+  (back || document.getElementById('set-title')).focus({ preventScroll: true });
+}
+
+function settingsRoot(body) {
   var user = get('user', { name: '', goal: '' });
-  var theme = get('theme', 'auto');
-  var accent = get('accent', 'ink-blue');
-  var html = '';
-
-  html += '<div class="eyebrow">Profil</div>';
-  html += '<div class="field"><label>Ad</label><input type="text" id="set-name" value="' + esc(user.name || '') + '"></div>';
-  html += '<div class="field"><label>Hedef (opsiyonel)</label><input type="text" id="set-goal" value="' + esc(user.goal || '') + '"></div>';
-
-  html += '<div class="eyebrow" style="margin-top:1.2rem">Tema</div>';
-  html += '<div class="segmented" id="theme-seg">' +
-    ['auto', 'light', 'dark'].map(function (t) {
-      var label = t === 'auto' ? 'Otomatik' : t === 'light' ? 'Açık' : 'Koyu';
-      return '<button data-v="' + t + '" class="' + (theme === t ? 'active' : '') + '">' + label + '</button>';
-    }).join('') + '</div>';
-
-  html += '<div class="eyebrow" style="margin-top:1.2rem">Vurgu rengi</div>';
-  html += '<div class="pill-select" id="accent-pills">' +
-    ACCENTS.map(function (a) {
-      return '<button data-v="' + a.id + '" class="' + (accent === a.id ? 'active' : '') + '">' + esc(a.label) + '</button>';
-    }).join('') + '</div>';
-
-  html += '<div class="eyebrow" style="margin-top:1.2rem">Ana sayfa kartları</div>';
-  html += '<div class="card mt0" id="dash-card-config-list" style="padding:.2rem .8rem"></div>';
-
-  html += '<div class="eyebrow" style="margin-top:1.2rem">Seviye</div>';
   var p = xpProgress(get('xp', 0));
-  html += '<div class="card mt0" style="margin-top:.4rem"><div class="card-head"><h3>Seviye ' + p.level + '</h3><span class="mono muted">' + p.into + '/' + p.span + ' XP</span></div><div class="progress"><div style="width:' + p.pct + '%"></div></div></div>';
+  var theme = { auto: 'Otomatik', light: 'Açık', dark: 'Koyu' }[get('theme', 'auto')];
+  var acc = ACCENTS.filter(function (a) { return a.id === get('accent', 'ink-blue'); })[0];
+  var cfg = getDashCardConfig();
+  var perm = notifPermission();
+  var lb = ''; try { lb = localStorage.getItem('gunlukAjandam_lastBackup') || ''; } catch (e) { /* depolama kapali */ }
+  var chev = '<span class="muted" aria-hidden="true">' + icon('chevronR') + '</span>';
+  function row(key, ic, label, val) {
+    return '<button type="button" class="set-item" data-sub="' + key + '"><span class="set-ic" aria-hidden="true">' + icon(ic) + '</span><span class="set-lbl">' + label + '</span><span class="set-val">' + esc(val) + '</span>' + chev + '</button>';
+  }
+  body.innerHTML =
+    '<div class="set-group"><button type="button" class="set-item set-profile" data-sub="profile">' +
+      '<span class="set-avatar" aria-hidden="true">' + (user.name ? esc(user.name.charAt(0).toLocaleUpperCase('tr')) : icon('user')) + '</span>' +
+      '<span class="set-lbl"><strong>' + esc(user.name || 'Adını ekle') + '</strong><span class="row-sub">Seviye ' + p.level + (user.goal ? ', ' + esc(user.goal) : '') + '</span></span>' + chev + '</button></div>' +
+    '<div class="set-group">' +
+      row('appearance', 'moon', 'Görünüm', theme + ', ' + (acc ? acc.label : '')) +
+      row('cards', 'page', 'Ana sayfa kartları', cfg.filter(function (c) { return c.visible; }).length + ' / ' + cfg.length + ' açık') +
+      row('notif', 'bell', 'Bildirimler', perm === 'granted' ? 'Açık' : perm === 'unsupported' ? 'Desteklenmiyor' : 'Kapalı') +
+    '</div>' +
+    '<div class="set-group">' + row('data', 'download', 'Yedekleme ve veri', lb ? 'Son yedek ' + formatDateTR(lb, { year: false }) : 'Yedek yok') + '</div>' +
+    '<div class="set-group"><button type="button" class="set-item" id="set-admin"><span class="set-ic" aria-hidden="true">' + icon('lock') + '</span><span class="set-lbl">Yönetici erişimi</span>' + chev + '</button></div>' +
+    '<p class="set-foot">Günlük Ajandam verilerini yalnızca bu cihazda saklar.</p>';
+  body.querySelectorAll('[data-sub]').forEach(function (b) {
+    b.addEventListener('click', function () { settingsSub = settingsLast = b.dataset.sub; renderSettings(); });
+  });
+  document.getElementById('set-admin').addEventListener('click', openAdminLoginSheet);
+}
 
-  html += '<div class="eyebrow" style="margin-top:1.2rem">Bildirimler</div>';
-  html += '<div class="card mt0" style="padding:.8rem .9rem">' +
-    '<div class="row-sub" id="notif-status" style="margin-bottom:.6rem"></div>' +
-    '<button class="btn btn-secondary btn-block" id="notif-enable">' + icon('info') + ' Bütçe aşımı bildirimlerini aç</button>' +
-    '<p class="hint" style="margin-top:.5rem">Bir kategoride bütçeni aştığında, bu sekme açık veya arka planda olduğu sürece tarayıcı bildirimi gösterilir. Sekme tamamen kapalıyken bildirim gelmez.</p>' +
-    '</div>';
+function settingsProfile(body) {
+  var user = get('user', { name: '', goal: '' });
+  var p = xpProgress(get('xp', 0));
+  body.innerHTML =
+    '<div class="set-panel"><div class="field"><label for="set-name">Ad</label><input type="text" id="set-name" maxlength="40" autocomplete="given-name" enterkeyhint="done" value="' + esc(user.name || '') + '"></div>' +
+    '<div class="field" style="margin-bottom:0"><label for="set-goal">Hedef <span class="muted">(isteğe bağlı)</span></label><input type="text" id="set-goal" maxlength="120" autocomplete="off" enterkeyhint="done" value="' + esc(user.goal || '') + '"></div></div>' +
+    '<p class="set-desc" id="set-saved" role="status" aria-live="polite">Değişiklikler yazdıkça kaydedilir.</p>' +
+    setSec('level', 'Seviye ' + p.level, p.into + ' / ' + p.span + ' XP',
+      '<div class="progress" role="progressbar" aria-labelledby="h-level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(p.pct) + '"><div style="width:' + p.pct + '%"></div></div>');
+  var nameEl = document.getElementById('set-name'), goalEl = document.getElementById('set-goal'), savedEl = document.getElementById('set-saved'), t;
+  function save() {
+    set('user', Object.assign({}, user, { name: nameEl.value.trim(), goal: goalEl.value.trim(), createdAt: user.createdAt || todayISO() }));
+    clearTimeout(t);
+    t = setTimeout(function () { savedEl.textContent = 'Kaydedildi'; }, 600);
+  }
+  nameEl.addEventListener('input', save);
+  goalEl.addEventListener('input', save);
+}
 
-  html += '<div class="eyebrow" style="margin-top:1.2rem">Veri</div>';
-  html += '<div class="stack">' +
-    '<button class="btn btn-secondary btn-block" id="set-export">' + icon('download') + ' Dışa aktar (JSON)</button>' +
-    '<button class="btn btn-secondary btn-block" id="set-import">' + icon('upload') + ' İçe aktar</button>' +
-    '<input type="file" id="set-import-file" accept="application/json" class="sr-only">' +
-    '<button class="btn btn-danger btn-block" id="set-reset">' + icon('trash') + ' Tüm verileri sıfırla</button>' +
-    '</div>';
+function settingsAppearance(body) {
+  var theme = get('theme', 'auto'), accent = get('accent', 'ink-blue');
+  var labels = { auto: 'Otomatik', light: 'Açık', dark: 'Koyu' };
+  body.innerHTML =
+    setSec('theme', 'Tema', 'Otomatik, cihazının açık ya da koyu ayarını izler.',
+      '<div class="segmented" id="theme-seg" role="group" aria-label="Tema">' +
+      ['auto', 'light', 'dark'].map(function (t) { return '<button type="button" data-v="' + t + '"' + setPressed(theme === t) + '>' + labels[t] + '</button>'; }).join('') + '</div>') +
+    '<div style="height:1.4rem"></div>' +
+    setSec('accent', 'Vurgu rengi', '',
+      '<div class="pill-select" id="accent-pills" role="group" aria-label="Vurgu rengi">' +
+      ACCENTS.map(function (a) { return '<button type="button" data-v="' + a.id + '"' + setPressed(accent === a.id) + '><span class="swatch" data-accent="' + a.id + '" aria-hidden="true"></span>' + esc(a.label) + '</button>'; }).join('') + '</div>');
+  function group(sel, fn) {
+    var btns = body.querySelectorAll(sel + ' button');
+    btns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        fn(btn.dataset.v);
+        btns.forEach(function (b) { var on = b === btn; b.classList.toggle('active', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+      });
+    });
+  }
+  group('#theme-seg', setTheme);
+  group('#accent-pills', setAccent);
+}
 
-  html += '<div class="eyebrow" style="margin-top:1.2rem">Yetkili Erişim</div>';
-  html += '<div class="stack">' +
-    '<button class="btn btn-secondary btn-block" id="set-admin">' + icon('lock') + ' Yönetici Paneli</button>' +
-    '</div>';
+function settingsCards(body) {
+  body.innerHTML = '<div class="set-panel" id="dash-card-config-list" style="padding:.2rem .8rem"></div>' +
+    '<p class="set-desc">Uygulamadaki tüm sayfalar burada. Açtıkların ana sayfada kart olarak görünür, sırayı oklarla değiştirebilirsin.</p>';
+  renderDashCardConfigList(body);
+}
 
-  openSheet({
-    title: 'Ayarlar', bodyHTML: html, onOpen: function (body) {
-      body.querySelectorAll('#theme-seg button').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          setTheme(btn.dataset.v);
-          body.querySelectorAll('#theme-seg button').forEach(function (b) { b.classList.toggle('active', b === btn); });
-        });
-      });
-      body.querySelectorAll('#accent-pills button').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          setAccent(btn.dataset.v);
-          body.querySelectorAll('#accent-pills button').forEach(function (b) { b.classList.toggle('active', b === btn); });
-        });
-      });
-      renderDashCardConfigList(body);
-      var nameEl = document.getElementById('set-name'), goalEl = document.getElementById('set-goal');
-      function saveProfile() { set('user', { name: nameEl.value.trim(), goal: goalEl.value.trim(), createdAt: user.createdAt || todayISO() }); }
-      nameEl.addEventListener('change', saveProfile);
-      goalEl.addEventListener('change', saveProfile);
-      document.getElementById('set-export').addEventListener('click', function () { exportData(); });
-      document.getElementById('set-import').addEventListener('click', function () { document.getElementById('set-import-file').click(); });
-      document.getElementById('set-import-file').addEventListener('change', function (e) {
-        if (e.target.files[0]) importDataFile(e.target.files[0]);
-      });
-      document.getElementById('set-reset').addEventListener('click', function () {
-        confirmDialog({ title: 'Tüm veriler silinsin mi?', message: 'Bu işlem geri alınamaz. Önce dışa aktarmanı öneririz.', confirmText: 'Sıfırla', danger: true })
-          .then(function (ok) { if (ok) resetAllData(); });
-      });
-      document.getElementById('set-admin').addEventListener('click', function () {
-        closeSheet();
-        setTimeout(openAdminLoginSheet, 220);
-      });
-      renderNotifStatus();
-      document.getElementById('notif-enable').addEventListener('click', requestNotifPermission);
-    }
+function settingsNotif(body) {
+  body.innerHTML = '<div class="set-panel"><p class="row-sub" id="notif-status" role="status" aria-live="polite" style="margin:0 0 .6rem"></p>' +
+    '<button type="button" class="btn btn-secondary btn-block" id="notif-enable">' + icon('bell') + ' Bütçe aşımı bildirimlerini aç</button></div>' +
+    '<p class="set-desc">Bütçeni aştığında tarayıcı bildirimi gösterilir. Sekme tamamen kapalıyken bildirim gelmez.</p>';
+  renderNotifStatus();
+  document.getElementById('notif-enable').addEventListener('click', requestNotifPermission);
+}
+
+function settingsData(body) {
+  body.innerHTML =
+    setSec('backup', 'Yedekleme', '<span id="set-backup">' + esc(backupLabel()) + '</span>',
+      '<div class="set-pair"><button type="button" class="btn btn-secondary" id="set-export">' + icon('download') + ' Dışa aktar</button>' +
+      '<button type="button" class="btn btn-secondary" id="set-import">' + icon('upload') + ' İçe aktar</button></div>' +
+      '<input type="file" id="set-import-file" accept=".json,application/json" class="sr-only" tabindex="-1" aria-label="Yedek dosyası seç">') +
+    '<section class="set-sec set-danger" aria-labelledby="h-reset"><h2 class="set-h" id="h-reset">Verileri sıfırla</h2>' +
+    '<p class="set-desc">Görevlerin, rutinlerin, notların ve ayarların bu cihazdan silinir. Bu işlem geri alınamaz.</p>' +
+    '<button type="button" class="btn btn-danger btn-block" id="set-reset">' + icon('trash') + ' Tüm verileri sıfırla</button></section>';
+  var fileEl = document.getElementById('set-import-file');
+  document.getElementById('set-export').addEventListener('click', function () { exportData(); });
+  document.getElementById('set-import').addEventListener('click', function () { fileEl.click(); });
+  fileEl.addEventListener('change', function (e) {
+    if (e.target.files[0]) importDataFile(e.target.files[0]);
+    e.target.value = '';
+  });
+  document.getElementById('set-reset').addEventListener('click', function () {
+    confirmDialog({ title: 'Tüm veriler silinsin mi?', message: 'Bu işlem geri alınamaz. Önce dışa aktarmanı öneririz.', confirmText: 'Sıfırla', danger: true })
+      .then(function (ok) { if (ok) resetAllData(); });
   });
 }
 
@@ -2373,38 +2530,36 @@ function renderDashCardConfigList(sheetBody) {
   if (!list) return;
   var cfg = getDashCardConfig();
   list.innerHTML = cfg.map(function (c, i) {
-    var meta = CARD_META[c.key];
+    var meta = CARD_META[c.key], t = esc(meta.title);
     return '<div class="list-row" data-key="' + c.key + '">' +
-      '<span class="icon-btn" style="pointer-events:none">' + icon(meta.ic) + '</span>' +
-      '<span class="row-main"><span class="row-title">' + esc(meta.title) + '</span></span>' +
-      '<button class="icon-btn" data-move-up ' + (i === 0 ? 'disabled' : '') + ' aria-label="Yukarı taşı">' + icon('arrowUp') + '</button>' +
-      '<button class="icon-btn" data-move-down ' + (i === cfg.length - 1 ? 'disabled' : '') + ' aria-label="Aşağı taşı">' + icon('arrowDown') + '</button>' +
-      '<button class="checkbox' + (c.visible ? ' checked' : '') + '" data-toggle-visible aria-label="Göster/gizle">' + (c.visible ? icon('check') : '') + '</button>' +
+      '<span class="icon-btn" aria-hidden="true" style="pointer-events:none">' + icon(meta.ic) + '</span>' +
+      '<span class="row-main"><span class="row-title">' + t + '</span></span>' +
+      '<button type="button" class="icon-btn" data-act="up"' + (i === 0 ? ' disabled' : '') + ' aria-label="' + t + ' kartını yukarı taşı">' + icon('arrowUp') + '</button>' +
+      '<button type="button" class="icon-btn" data-act="down"' + (i === cfg.length - 1 ? ' disabled' : '') + ' aria-label="' + t + ' kartını aşağı taşı">' + icon('arrowDown') + '</button>' +
+      '<button type="button" class="switch" role="switch" data-act="toggle" aria-checked="' + (c.visible ? 'true' : 'false') + '" aria-label="' + t + ' kartını göster"></button>' +
       '</div>';
   }).join('');
-  list.querySelectorAll('[data-move-up]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var key = btn.closest('[data-key]').dataset.key;
-      var idx = cfg.findIndex(function (c) { return c.key === key; });
-      if (idx > 0) { var tmp = cfg[idx - 1]; cfg[idx - 1] = cfg[idx]; cfg[idx] = tmp; setDashCardConfig(cfg); renderDashCardConfigList(sheetBody); renderCards(); }
-    });
-  });
-  list.querySelectorAll('[data-move-down]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var key = btn.closest('[data-key]').dataset.key;
-      var idx = cfg.findIndex(function (c) { return c.key === key; });
-      if (idx < cfg.length - 1) { var tmp = cfg[idx + 1]; cfg[idx + 1] = cfg[idx]; cfg[idx] = tmp; setDashCardConfig(cfg); renderDashCardConfigList(sheetBody); renderCards(); }
-    });
-  });
-  list.querySelectorAll('[data-toggle-visible]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var key = btn.closest('[data-key]').dataset.key;
-      var item = cfg.find(function (c) { return c.key === key; });
-      item.visible = !item.visible;
-      setDashCardConfig(cfg);
-      renderDashCardConfigList(sheetBody);
-      renderCards();
-    });
+  if (list._wired) return;
+  list._wired = true;
+  list.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-act]');
+    if (!b || b.disabled) return;
+    var key = b.closest('[data-key]').dataset.key, act = b.dataset.act;
+    var cfg = getDashCardConfig();
+    var i = cfg.findIndex(function (c) { return c.key === key; });
+    if (act === 'toggle') {
+      cfg[i].visible = !cfg[i].visible;
+    } else {
+      var j = act === 'up' ? i - 1 : i + 1;
+      if (j < 0 || j >= cfg.length) return;
+      var tmp = cfg[j]; cfg[j] = cfg[i]; cfg[i] = tmp;
+    }
+    setDashCardConfig(cfg);
+    renderCards();
+    renderDashCardConfigList(sheetBody);
+    var row = list.querySelector('[data-key="' + key + '"]');
+    var again = row.querySelector('[data-act="' + act + '"]');
+    (again && !again.disabled ? again : row.querySelector('[data-act="toggle"]')).focus();
   });
 }
 
@@ -2422,22 +2577,29 @@ function exportData(userId) {
   a.click();
   a.remove();
   setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  if (!userId) markBackup();
   showToast('Yedek indirildi');
 }
 
 function importDataFile(file, userId) {
+  if (file.size > 10 * 1024 * 1024) { showToast('Dosya çok büyük (en fazla 10 MB)'); return; }
   var reader = new FileReader();
+  reader.onerror = function () { showToast('Dosya okunamadı'); };
   reader.onload = function () {
-    try {
-      var data = JSON.parse(reader.result);
-      Object.keys(STORAGE_KEYS).forEach(function (k) {
-        if (Object.prototype.hasOwnProperty.call(data, k) && data[k] !== null) set(k, data[k], userId);
+    var data = null;
+    try { data = JSON.parse(reader.result); } catch (e) { data = null; }
+    var keys = (data && typeof data === 'object' && !Array.isArray(data))
+      ? Object.keys(STORAGE_KEYS).filter(function (k) { return Object.prototype.hasOwnProperty.call(data, k) && data[k] !== null; })
+      : [];
+    if (!keys.length) { showToast('Geçerli bir Günlük Ajandam yedeği değil'); return; }
+    var when = data._exportedAt ? ' (' + String(data._exportedAt).slice(0, 10) + ')' : '';
+    confirmDialog({ title: 'Yedek geri yüklensin mi?', message: 'Mevcut verilerin yedekteki verilerle değiştirilecek' + when + '. Bu işlem geri alınamaz.', confirmText: 'Geri yükle', danger: true })
+      .then(function (ok) {
+        if (!ok) return;
+        try { keys.forEach(function (k) { set(k, data[k], userId); }); } catch (e) { showToast('Yedek yüklenemedi'); return; }
+        showToast('Yedek yüklendi, sayfa yenileniyor');
+        setTimeout(function () { window.location.reload(); }, 700);
       });
-      showToast('İçe aktarıldı — sayfa yenileniyor');
-      setTimeout(function () { window.location.reload(); }, 700);
-    } catch (e) {
-      showToast('Dosya okunamadı — geçerli bir yedek değil');
-    }
   };
   reader.readAsText(file);
 }
@@ -3246,8 +3408,15 @@ var CARD_META = {
   routines: { title: 'Rutinler', ic: 'routines' },
   calendar: { title: 'Takvim', ic: 'calendar' },
   finance: { title: 'Finans', ic: 'wallet' },
-  notes: { title: 'Notlar', ic: 'note' }
+  notes: { title: 'Notlar', ic: 'note' },
+  goals: { title: 'Hedef Takibi', ic: 'target' },
+  learning: { title: 'Öğrenme', ic: 'book' },
+  worship: { title: 'İbadet', ic: 'moon' },
+  achievements: { title: 'Başarılarım', ic: 'trophy' },
+  yearreport: { title: 'Yıl Özeti', ic: 'calendar' }
 };
+/* Varsayılan olarak kapalı gelen, ayarlardan açılabilen ek kartlar. */
+var EXTRA_CARD_ORDER = ['goals', 'learning', 'worship', 'achievements', 'yearreport'];
 
 function categoryRowHTML(key) {
   var today = todayISO();
@@ -3308,6 +3477,28 @@ function categoryRowHTML(key) {
     } else {
       stat = 0; sub = 'not yok';
     }
+  } else if (key === 'goals') {
+    var goals = getGoals();
+    if (goals.length) {
+      var goalsDone = goals.filter(function (g) { return ((g.progress || {})[periodKeyFor(g)] || 0) >= g.target; }).length;
+      stat = goalsDone + '/' + goals.length; sub = 'hedef bu dönem tamamlandı';
+      if (goalsDone === goals.length) statColor = 'var(--success)';
+    } else { stat = 0; sub = 'hedef yok'; }
+  } else if (key === 'learning') {
+    var vocabN = get('vocab', []).length;
+    var readingNow = getReading().filter(function (b) { return !b.finished; }).length;
+    stat = vocabN; sub = 'kelime' + (readingNow ? ', ' + readingNow + ' kitap okunuyor' : '');
+  } else if (key === 'worship') {
+    var prayerToday = getPrayers().dailyLog[today] || {};
+    var prayerDone = PRAYER_KEYS.filter(function (k) { return prayerToday[k]; }).length;
+    stat = prayerDone + '/' + PRAYER_KEYS.length; sub = 'vakit bugün kılındı';
+    if (prayerDone === PRAYER_KEYS.length) statColor = 'var(--success)';
+  } else if (key === 'achievements') {
+    var badgeList = computeBadges();
+    stat = badgeList.filter(function (b) { return b.unlocked; }).length + '/' + badgeList.length;
+    sub = 'rozet, Seviye ' + xpProgress(get('xp', 0)).level;
+  } else if (key === 'yearreport') {
+    stat = new Date().getFullYear(); sub = 'finans ve üretkenlik özeti';
   }
   return '<a href="javascript:void(0)" data-nav="' + key + '" class="card clickable" style="display:flex;align-items:center;gap:.8rem;text-decoration:none;color:inherit">' +
     '<div class="tile-icon" style="margin-bottom:0;flex:none">' + icon(meta.ic) + '</div>' +
@@ -3322,15 +3513,17 @@ function categoryRowHTML(key) {
 
 function getDashCardConfig() {
   var saved = get('dashCards', null);
-  if (!saved || !Array.isArray(saved)) {
-    return DEFAULT_CARD_ORDER.map(function (k) { return { key: k, visible: true }; });
-  }
-  // Geriye dönük uyumluluk: kayıtlı listede olmayan (ör. sonradan eklenen) bir
-  // kart varsa, listenin sonuna görünür olarak ekle; artık var olmayan
-  // (CARD_META'da tanımsız) kartları at.
-  var known = saved.filter(function (c) { return CARD_META[c.key]; });
-  var missing = DEFAULT_CARD_ORDER.filter(function (k) { return !known.some(function (c) { return c.key === k; }); });
-  missing.forEach(function (k) { known.push({ key: k, visible: true }); });
+  var known = Array.isArray(saved)
+    ? saved.filter(function (c) { return CARD_META[c.key]; })
+    : DEFAULT_CARD_ORDER.map(function (k) { return { key: k, visible: true }; });
+  // Kayıtlı listede olmayan temel kartlar görünür, ek kartlar kapalı olarak
+  // sona eklenir; böylece mevcut seçim ve sıralama değişmez.
+  DEFAULT_CARD_ORDER.forEach(function (k) {
+    if (!known.some(function (c) { return c.key === k; })) known.push({ key: k, visible: true });
+  });
+  EXTRA_CARD_ORDER.forEach(function (k) {
+    if (!known.some(function (c) { return c.key === k; })) known.push({ key: k, visible: false });
+  });
   return known;
 }
 function setDashCardConfig(cfg) { set('dashCards', cfg); }
@@ -5081,6 +5274,7 @@ var IB_CITIES = [['Adana',37.00,35.32],['Adıyaman',37.76,38.28],['Afyonkarahisa
 var IB_HIJRI_MONTHS = ['Muharrem', 'Safer', 'Rebiülevvel', 'Rebiülahir', 'Cemaziyelevvel', 'Cemaziyelahir', 'Recep', 'Şaban', 'Ramazan', 'Şevval', 'Zilkade', 'Zilhicce'];
 var IB_ALL = ['sabah', 'gunes', 'ogle', 'ikindi', 'aksam', 'yatsi'];
 var ibTab = 'namaz', ibTimer = null, ibNext = null, ibHFmt = null, ibPhaseId = '';
+ICON_PATHS.bell = '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>';
 ICON_PATHS.compass = '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>';
 ICON_PATHS.pin = '<path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>';
 
@@ -9798,8 +9992,9 @@ function renderYearReport() {
 </script>
 <script>
 window.SINGLE_FILE_APP = true;
-var PAGE_VIEWS = ['today','tasks','routines','calendar','goals','learning','worship','finance','notes','achievements','yearreport','admin'];
+var PAGE_VIEWS = ['today','tasks','routines','calendar','goals','learning','worship','finance','notes','achievements','yearreport','admin','settings'];
 var PAGE_INIT_FN = {
+  settings: 'initSettings',
   today: 'initDashboard', tasks: 'initTasks', routines: 'initRoutines', calendar: 'initCalendar',
   goals: 'initGoals', learning: 'initLearning', worship: 'initWorship', finance: 'initFinance',
   notes: 'initNotes', achievements: 'initAchievements', yearreport: 'initYearReport', admin: 'initAdmin'
@@ -9871,8 +10066,88 @@ function roleLabel(key) {
   var r = ADMIN_ROLES.find(function (x) { return x.key === key; });
   return r ? r.label : key;
 }
-function canAccessAdminPanel(user) { return user && (user.role === 'yonetici' || user.role === 'moderator'); }
-function canEditInAdminPanel(user) { return user && user.role === 'yonetici'; }
+/* Yetkiler: her rolün varsayılan yetki listesi vardır. Bir kişiye özel liste
+   (user.perms) verilirse rolün varsayılanı yerine o geçerli olur. */
+var ADMIN_PERMISSIONS = [
+  { group: 'Panel', items: [
+    { key: 'panel.access', label: 'Yönetici paneline girebilir' },
+    { key: 'logs.view', label: 'Aktivite kaydını görebilir' },
+    { key: 'system.settings', label: 'Cihaz ayarlarını sıfırlayabilir' }
+  ] },
+  { group: 'Kullanıcılar', items: [
+    { key: 'users.view', label: 'Kullanıcıları ve özetlerini görebilir' },
+    { key: 'users.viewPin', label: 'PIN\'leri görebilir' },
+    { key: 'users.add', label: 'Kişi ekleyebilir' },
+    { key: 'users.remove', label: 'Kişiyi kaldırabilir' },
+    { key: 'users.role', label: 'Rol değiştirebilir' },
+    { key: 'users.status', label: 'Durumu (aktif, pasif, engelli) değiştirebilir' },
+    { key: 'users.pin', label: 'PIN değiştirebilir' },
+    { key: 'users.switch', label: 'Kullanıcı olarak devam edebilir' },
+    { key: 'perms.manage', label: 'Yetkileri düzenleyebilir' }
+  ] },
+  { group: 'Veri', items: [
+    { key: 'data.view', label: 'Görev, rutin ve notları görebilir' },
+    { key: 'data.delete', label: 'Kayıt silebilir' },
+    { key: 'data.export', label: 'Veriyi dışa aktarabilir' },
+    { key: 'data.import', label: 'Veriyi içe aktarabilir' },
+    { key: 'data.reset', label: 'Bir kullanıcının verisini sıfırlayabilir' },
+    { key: 'system.resetAll', label: 'Tüm kullanıcıların verisini sıfırlayabilir' }
+  ] }
+];
+var PERM_LABELS = {}, ALL_PERMS = [];
+ADMIN_PERMISSIONS.forEach(function (g) { g.items.forEach(function (it) { PERM_LABELS[it.key] = it.label; ALL_PERMS.push(it.key); }); });
+var ROLE_PERMISSIONS = {
+  yonetici: ALL_PERMS.slice(),
+  moderator: ['panel.access', 'users.view', 'data.view', 'data.export', 'logs.view', 'system.settings'],
+  uye: []
+};
+var ADMIN_TAB_PERM = { overview: 'users.view', users: 'users.view', logs: 'logs.view', settings: 'system.settings' };
+function userPermissions(u) { return !u ? [] : (Array.isArray(u.perms) ? u.perms : (ROLE_PERMISSIONS[u.role] || [])); }
+function hasPerm(u, p) { return userPermissions(u).indexOf(p) !== -1; }
+function can(p) { return hasPerm(adminSessionUser, p); }
+function canAccessAdminPanel(user) { return hasPerm(user, 'panel.access'); }
+
+function permsSectionHTML(u, editable) {
+  var cur = userPermissions(u), custom = Array.isArray(u.perms);
+  var h = '<div class="eyebrow" style="margin-top:1.2rem">Yetkiler</div>';
+  h += '<p class="hint" style="margin:0 0 .3rem">' + (custom ? 'Bu kişiye özel yetkiler.' : esc(roleLabel(u.role)) + ' rolünün varsayılan yetkileri.') + ' ' + (editable ? 'Anahtarlarla değiştirebilirsin.' : 'Değiştirmek için yetkin yok.') + '</p>';
+  ADMIN_PERMISSIONS.forEach(function (g) {
+    h += '<div class="muted" style="font-size:.8rem;font-weight:600;margin:.8rem 0 .25rem">' + g.group + '</div><div class="card" style="padding:.1rem .8rem">';
+    g.items.forEach(function (it) {
+      h += '<div class="list-row"><span class="row-main"><span class="row-title" style="font-weight:400">' + esc(it.label) + '</span></span>' +
+        '<button type="button" class="switch" role="switch" data-perm="' + it.key + '" aria-checked="' + (cur.indexOf(it.key) !== -1) + '" aria-label="' + esc(u.name) + ': ' + esc(it.label) + '"' + (editable ? '' : ' disabled') + '></button></div>';
+    });
+    h += '</div>';
+  });
+  if (editable && custom) h += '<button type="button" class="btn btn-secondary btn-block" id="admin-perm-reset" style="margin-top:.8rem">Rolün varsayılanına dön</button>';
+  return h;
+}
+function wireAdminPerms(u, isSelf, rerender) {
+  function done(key) {
+    saveAuthorizedUsers();
+    rerender();
+    var nb = key && document.querySelector('[data-perm="' + key + '"]');
+    if (nb) nb.focus({ preventScroll: true });
+  }
+  document.querySelectorAll('[data-perm]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var key = b.dataset.perm, cur = userPermissions(u).slice(), idx = cur.indexOf(key);
+      if (isSelf && idx !== -1 && (key === 'perms.manage' || key === 'panel.access')) { showToast('Kendi panel erişimini ya da yetki yönetimini kapatamazsın'); return; }
+      if (idx !== -1) cur.splice(idx, 1); else cur.push(key);
+      u.perms = cur;
+      logAdminActivity('perms', esc(u.name) + ': "' + PERM_LABELS[key] + '" yetkisi ' + (idx !== -1 ? 'kaldırıldı' : 'verildi'));
+      done(key);
+    });
+  });
+  var rb = document.getElementById('admin-perm-reset');
+  if (rb) rb.addEventListener('click', function () {
+    var def = ROLE_PERMISSIONS[u.role] || [];
+    if (isSelf && (def.indexOf('perms.manage') === -1 || def.indexOf('panel.access') === -1)) { showToast('Bu işlem kendi erişimini kapatırdı'); return; }
+    delete u.perms;
+    logAdminActivity('perms', esc(u.name) + ' yetkileri ' + roleLabel(u.role) + ' varsayılanına döndürüldü');
+    done(null);
+  });
+}
 
 function normalizeAdminName(s) {
   return String(s || '').trim().toLocaleUpperCase('tr-TR').replace(/\s+/g, ' ');
@@ -9946,8 +10221,8 @@ function openAdminLoginSheet() {
           return;
         }
         if (result.blocked === 'role') {
-          errEl.textContent = 'Bu hesabın (Üye) Yönetici Paneline erişimi yok.';
-          logAdminActivity('login_failed', esc(result.user.name) + ' giriş denemesi reddedildi (Üye rolü)', result.user.name);
+          errEl.textContent = 'Bu hesabın Yönetici Paneline erişimi yok.';
+          logAdminActivity('login_failed', esc(result.user.name) + ' giriş denemesi reddedildi (panel yetkisi yok)', result.user.name);
           return;
         }
         errEl.textContent = '';
@@ -9975,11 +10250,15 @@ function initAdmin() {
     navigateTo('today');
     return;
   }
-  adminActiveTab = 'overview';
+  adminActiveTab = ['overview', 'users', 'logs', 'settings'].filter(function (t) { return can(ADMIN_TAB_PERM[t]); })[0] || 'overview';
+  document.querySelectorAll('#admin-tabs button').forEach(function (b) {
+    b.style.display = can(ADMIN_TAB_PERM[b.dataset.v]) ? '' : 'none';
+    b.classList.toggle('active', b.dataset.v === adminActiveTab);
+  });
   document.getElementById('admin-session-info').textContent = 'Giriş yapan: ' + adminSessionUser.name + ' (' + roleLabel(adminSessionUser.role) + ')';
   document.getElementById('admin-exit-btn').addEventListener('click', function () {
     adminSessionUser = null;
-    navigateTo('today');
+    navigateTo('settings');
   });
   document.querySelectorAll('#admin-tabs button').forEach(function (b) {
     b.addEventListener('click', function () {
@@ -9993,6 +10272,7 @@ function initAdmin() {
 }
 
 function renderAdminStats() {
+  if (!can('users.view')) { document.getElementById('admin-stats').innerHTML = ''; return; }
   var totalUsers = AUTHORIZED_USERS.length;
   var totalTasks = 0, totalXP = 0, openTasks = 0;
   AUTHORIZED_USERS.forEach(function (u) {
@@ -10014,6 +10294,7 @@ function renderAdminStats() {
 
 function renderAdminTabBody() {
   var el = document.getElementById('admin-tab-body');
+  if (!can(ADMIN_TAB_PERM[adminActiveTab])) { el.innerHTML = '<div class="empty"><p>Bu bölüm için yetkin yok</p></div>'; return; }
   if (adminActiveTab === 'overview') {
     el.innerHTML = renderAdminOverviewTab();
     wireAdminOverviewTab(el);
@@ -10074,7 +10355,7 @@ function wireAdminOverviewTab() {
 }
 
 function renderAdminUsersTab() {
-  var canEdit = canEditInAdminPanel(adminSessionUser);
+  var canEdit = can('users.add');
   var html = '<p class="muted" style="margin-top:0">Uygulamanın tüm kullanıcıları ve rolleri. En az bir Yönetici kalmalı.</p>';
   html += '<div class="stack" id="admin-users-list"></div>';
   if (canEdit) {
@@ -10089,14 +10370,14 @@ function renderAdminUsersTab() {
     html += '<button class="btn btn-primary btn-block" id="admin-newuser-add" style="margin-bottom:.9rem">Kişi ekle</button>';
     html += '</div>';
   } else {
-    html += '<p class="muted" style="font-size:.85rem">Kişi ekleme/çıkarma ve rol değiştirme yalnızca Yönetici rolünde yapılabilir.</p>';
+    html += '<p class="muted" style="font-size:.85rem">Kişi eklemek için yetkin yok.</p>';
   }
   return html;
 }
 
 function wireAdminUsersTab(root) {
   renderAdminUsersList();
-  var canEdit = canEditInAdminPanel(adminSessionUser);
+  var canEdit = can('users.add');
   if (!canEdit) return;
   var newRole = 'uye';
   document.querySelectorAll('#admin-newuser-role button').forEach(function (b) {
@@ -10126,14 +10407,14 @@ function wireAdminUsersTab(root) {
 function renderAdminUsersList() {
   var list = document.getElementById('admin-users-list');
   if (!list) return;
-  var canEdit = canEditInAdminPanel(adminSessionUser);
+  var canEdit = can('users.remove'), showPin = can('users.viewPin');
   var yoneticiCount = AUTHORIZED_USERS.filter(function (u) { return u.role === 'yonetici'; }).length;
   list.innerHTML = '<div class="card" style="padding:.2rem .8rem">' + AUTHORIZED_USERS.map(function (u, i) {
     var statusBadge = u.status === 'banned' ? ' · <span style="color:var(--danger)">Engelli</span>' : (u.status === 'inactive' ? ' · Pasif' : '');
     var isSelfRow = adminSessionUser && adminSessionUser.id === u.id;
     var canRemoveThis = AUTHORIZED_USERS.length > 1 && !isSelfRow && !(u.role === 'yonetici' && yoneticiCount <= 1);
     return '<div class="list-row" data-idx="' + i + '" data-admin-user-id="' + esc(u.id) + '" data-open-admin-user style="cursor:pointer">' +
-      '<span class="row-main"><span class="row-title">' + esc(u.name) + ' <span class="muted" style="font-weight:400">· ' + esc(roleLabel(u.role)) + '</span></span><span class="row-sub">PIN: ' + esc(u.pin) + statusBadge + '</span></span>' +
+      '<span class="row-main"><span class="row-title">' + esc(u.name) + ' <span class="muted" style="font-weight:400">· ' + esc(roleLabel(u.role)) + '</span></span><span class="row-sub">' + (showPin ? 'PIN: ' + esc(u.pin) : 'PIN gizli') + statusBadge + '</span></span>' +
       (canEdit && canRemoveThis ? '<button class="icon-btn admin-user-del" aria-label="Kaldır">' + icon('trash') + '</button>' : '') +
       '</div>';
   }).join('') + '</div>';
@@ -10170,7 +10451,7 @@ var adminLogTypeFilter = 'all';
 var ADMIN_LOG_TYPE_LABELS = {
   login: 'Giriş', login_failed: 'Başarısız giriş', create: 'Kişi ekleme', remove: 'Kişi kaldırma', role: 'Rol değişikliği',
   status: 'Durum değişikliği', pin: 'PIN değişikliği', delete: 'Veri silme', reset: 'Veri sıfırlama',
-  switch: 'Kullanıcı geçişi'
+  switch: 'Kullanıcı geçişi', perms: 'Yetki değişikliği'
 };
 
 function renderAdminLogsTab() {
@@ -10216,7 +10497,7 @@ function wireAdminLogsTab() {
 }
 
 function renderAdminSettingsTab() {
-  var canEdit = canEditInAdminPanel(adminSessionUser);
+  var canEdit = can('system.resetAll');
   var html = '<div class="section-title" style="margin-top:0"><h2>Cihaz ayarları</h2></div>';
   html += '<p class="muted">Bunlar bu cihazdaki görsel tercihlerdir; kullanıcı verilerine (görev/rutin/not) dokunmaz.</p>';
   html += '<div class="card" style="padding:.2rem .8rem">' +
@@ -10281,7 +10562,8 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
   var reading = get('reading', [], uid);
   var xp = get('xp', 0, uid);
   var appUser = get('user', {}, uid);
-  var canEdit = canEditInAdminPanel(adminSessionUser);
+  var P = { role: can('users.role'), status: can('users.status'), pin: can('users.pin'), sw: can('users.switch'), exp: can('data.export'), imp: can('data.import'), reset: can('data.reset'), perms: can('perms.manage') };
+  var canEdit = can('data.delete');
   var isSelf = adminSessionUser && adminSessionUser.id === targetUser.id;
 
   var doneTasks = tasks.filter(function (t) { return t.status === 'done'; }).length;
@@ -10292,16 +10574,16 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
   html += '<div class="eyebrow" style="margin-top:.6rem">Hesap</div>';
   html += '<div class="stack">';
   html += '<div class="field"><label>Rol</label>';
-  if (canEdit) {
+  if (P.role) {
     html += '<div class="segmented" id="admin-role-select">' + ADMIN_ROLES.map(function (r) {
       return '<button data-v="' + r.key + '" class="' + (targetUser.role === r.key ? 'active' : '') + '">' + r.label + '</button>';
     }).join('') + '</div>';
   } else {
-    html += '<p class="muted" style="margin:.2rem 0 0">' + esc(roleLabel(targetUser.role)) + ' <span style="font-size:.8em">(düzenlemek için Yönetici olman gerekir)</span></p>';
+    html += '<p class="muted" style="margin:.2rem 0 0">' + esc(roleLabel(targetUser.role)) + ' <span style="font-size:.8em">(değiştirmek için yetkin yok)</span></p>';
   }
   html += '</div>';
   html += '<div class="field"><label>Durum</label>';
-  if (canEdit) {
+  if (P.status) {
     html += '<div class="segmented" id="admin-status-select">' +
       '<button data-v="active" class="' + ((targetUser.status || 'active') === 'active' ? 'active' : '') + '">Aktif</button>' +
       '<button data-v="inactive" class="' + (targetUser.status === 'inactive' ? 'active' : '') + '">Pasif</button>' +
@@ -10311,11 +10593,11 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
     html += '<p class="muted" style="margin:.2rem 0 0">' + (targetUser.status === 'banned' ? 'Engelli' : targetUser.status === 'inactive' ? 'Pasif' : 'Aktif') + '</p>';
   }
   html += '</div>';
-  if (canEdit) {
+  if (P.pin) {
     html += '<div class="field"><label>Yeni PIN (opsiyonel)</label><input type="text" id="admin-pin-change" inputmode="numeric" maxlength="12" placeholder="Değiştirmek için yaz"></div>' +
       '<button class="btn btn-secondary btn-block" id="admin-pin-save">PIN\'i güncelle</button>';
   }
-  if (canEdit && !isSelf && uid !== getActiveUserId()) {
+  if (P.sw && !isSelf && uid !== getActiveUserId()) {
     html += '<button class="btn btn-secondary btn-block" id="admin-switch-user">' + icon('user') + ' Bu kullanıcı olarak devam et</button>' +
       '<p class="hint" style="margin-top:.3rem">Uygulamayı bu kişinin verisiyle açar. Panelden tekrar kendi hesabına dönebilirsin.</p>';
   }
@@ -10344,26 +10626,28 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
   html += '<div id="admin-data-list" style="margin-top:.8rem" data-readonly="' + (canEdit ? '0' : '1') + '"></div>';
 
   html += '<div class="eyebrow" style="margin-top:1.2rem">Bu kullanıcı için veri işlemleri</div>';
-  html += '<div class="stack">' +
-    '<button class="btn btn-secondary btn-block" id="admin-export">' + icon('download') + ' Bu kullanıcının verisini dışa aktar</button>';
-  if (canEdit && uid === getActiveUserId()) {
+  html += '<div class="stack">';
+  if (P.exp) html += '<button class="btn btn-secondary btn-block" id="admin-export">' + icon('download') + ' Bu kullanıcının verisini dışa aktar</button>';
+  if (P.imp && uid === getActiveUserId()) {
     html += '<button class="btn btn-secondary btn-block" id="admin-import">' + icon('upload') + ' Bu kullanıcıya veri içe aktar</button>' +
       '<input type="file" id="admin-import-file" accept="application/json" class="sr-only">';
   }
-  if (canEdit) {
+  if (P.reset) {
     html += '<button class="btn btn-danger btn-block" id="admin-reset-user">' + icon('trash') + ' Bu kullanıcının verisini sıfırla</button>';
   } else {
-    html += '<p class="muted" style="font-size:.85rem">Veri silme ve içe aktarma yalnızca Yönetici rolünde yapılabilir.</p>';
+    html += '<p class="muted" style="font-size:.85rem">Bu kullanıcının verisini sıfırlama yetkin yok.</p>';
   }
   html += '</div>';
+  html += permsSectionHTML(targetUser, P.perms);
 
   openSheet({
     title: targetUser.name, bodyHTML: html, onOpen: function () {
       renderAdminDataList(uid, activeTab, canEdit);
+      wireAdminPerms(targetUser, isSelf, function () { renderAdminUserDetailBody(targetUser, activeTab); });
       document.querySelectorAll('#admin-data-tabs button').forEach(function (btn) {
         btn.addEventListener('click', function () { renderAdminUserDetailBody(targetUser, btn.dataset.v); });
       });
-      if (canEdit) {
+      {
         document.querySelectorAll('#admin-role-select button').forEach(function (btn) {
           btn.addEventListener('click', function () {
             if (isSelf && btn.dataset.v !== 'yonetici') {
@@ -10372,6 +10656,7 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
             }
             var oldRole = targetUser.role;
             targetUser.role = btn.dataset.v;
+            delete targetUser.perms;
             var all = AUTHORIZED_USERS.map(function (u) { return u.id === targetUser.id ? targetUser : u; });
             AUTHORIZED_USERS = all;
             saveAuthorizedUsers();
@@ -10396,7 +10681,8 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
             renderAdminUserDetailBody(targetUser, activeTab);
           });
         });
-        document.getElementById('admin-pin-save').addEventListener('click', function () {
+        var pinSave = document.getElementById('admin-pin-save');
+        if (pinSave) pinSave.addEventListener('click', function () {
           var newPin = document.getElementById('admin-pin-change').value.trim();
           if (!newPin) { showToast('Yeni PIN gir'); return; }
           if (!/^[0-9]{4,12}$/.test(newPin)) { showToast('PIN sadece rakam olmalı (4-12 hane)'); return; }
@@ -10424,7 +10710,8 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
             });
         });
       }
-      document.getElementById('admin-export').addEventListener('click', function () { exportData(uid); });
+      var expBtn = document.getElementById('admin-export');
+      if (expBtn) expBtn.addEventListener('click', function () { exportData(uid); });
       var importBtn = document.getElementById('admin-import');
       if (importBtn) {
         importBtn.addEventListener('click', function () { document.getElementById('admin-import-file').click(); });
@@ -10450,6 +10737,7 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
 function renderAdminDataList(uid, activeTab, canEdit) {
   var list = document.getElementById('admin-data-list');
   if (!list) return;
+  if (!can('data.view')) { list.innerHTML = '<div class="empty"><p>Bu içerikleri görme yetkin yok</p></div>'; return; }
   var items, renderRow, storeKey;
   var delBtn = canEdit ? '<button class="icon-btn admin-del" aria-label="Sil">' + icon('trash') + '</button>' : '';
 
@@ -10510,9 +10798,21 @@ function renderAdminDataList(uid, activeTab, canEdit) {
 
 /* ---- Yetkili kişi listesi kalıcılığı ----------------------------------- */
 var ADMIN_USERS_STORAGE_KEY = 'gunlukAjandam_authorizedUsers';
+var ADMIN_USERS_VERSION_KEY = 'gunlukAjandam_authorizedUsersVersion';
+/* Dosyadaki AUTHORIZED_USERS listesini (ad, PIN, rol) değiştirdiğinde bu
+   numarayı bir artır. Tarayıcıda daha eski bir sürümle kaydedilmiş liste
+   varsa yok sayılır ve dosyadaki liste geçerli olur. Numara aynıysa panelden
+   yapılan değişiklikler (PIN, kullanıcı ekleme) kalıcı olarak korunur. */
+var AUTHORIZED_USERS_VERSION = 2;
 
 function loadAuthorizedUsersOverride() {
   try {
+    var storedVersion = parseInt(localStorage.getItem(ADMIN_USERS_VERSION_KEY), 10) || 0;
+    if (storedVersion < AUTHORIZED_USERS_VERSION) {
+      localStorage.removeItem(ADMIN_USERS_STORAGE_KEY);
+      localStorage.setItem(ADMIN_USERS_VERSION_KEY, String(AUTHORIZED_USERS_VERSION));
+      return;
+    }
     var raw = localStorage.getItem(ADMIN_USERS_STORAGE_KEY);
     if (raw) {
       var parsed = JSON.parse(raw);
@@ -10521,7 +10821,10 @@ function loadAuthorizedUsersOverride() {
   } catch (e) { console.warn('Yetkili kullanıcı listesi okunamadı', e); }
 }
 function saveAuthorizedUsers() {
-  localStorage.setItem(ADMIN_USERS_STORAGE_KEY, JSON.stringify(AUTHORIZED_USERS));
+  try {
+    localStorage.setItem(ADMIN_USERS_STORAGE_KEY, JSON.stringify(AUTHORIZED_USERS));
+    localStorage.setItem(ADMIN_USERS_VERSION_KEY, String(AUTHORIZED_USERS_VERSION));
+  } catch (e) { console.warn('Yetkili kullanıcı listesi kaydedilemedi', e); }
 }
 function nextAdminUserId() {
   var n = 1;
