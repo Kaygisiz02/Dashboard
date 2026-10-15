@@ -425,6 +425,13 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .rep-ins li:last-child { border-bottom: 0; padding-bottom: 0; }
 .rep-sub { margin: -.2rem 0 .4rem; font-size: .78rem; color: var(--ink-soft); }
 
+/* ---- Finans: tam tarih ve tarih seçici ---- */
+.fin-datepick { position: relative; flex: 1; min-width: 0; min-height: 2.75rem; display: flex; flex-direction: column; justify-content: center; text-align: center; border-radius: var(--radius-s); cursor: pointer; }
+.fin-datepick:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fin-date-main { font-weight: 700; font-size: .95rem; }
+.fin-date-sub { font-size: .75rem; color: var(--ink-soft); }
+.fin-datepick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; border: 0; padding: 0; }
+
 /* ---- Toast ---------------------------------------------------------------*/
 .toast-stack { position: fixed; top: calc(var(--header-h) + .6rem); left: 0; right: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; gap: .4rem; pointer-events: none; }
 .toast {
@@ -1205,13 +1212,16 @@ button,[role="button"],a,label,input,select,textarea,.prayer-toggle,.checkbox{-w
     <div data-monthslot>
       <div class="card" id="fin-monthbar" style="padding:.5rem .8rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem">
         <button class="icon-btn" id="fin-month-prev" aria-label="Önceki ay"></button>
-        <div style="text-align:center;flex:1">
-          <div style="font-weight:700" id="fin-month-label"></div>
+        <div class="fin-datepick">
+          <div class="fin-date-main" id="fin-month-label"></div>
+          <div class="fin-date-sub" id="fin-month-range"></div>
+          <input type="date" id="fin-date-input" aria-label="Tarih seç" title="Tarih seç">
         </div>
         <button class="icon-btn" id="fin-month-next" aria-label="Sonraki ay"></button>
         <button class="link-btn" id="fin-month-today" style="margin-left:.4rem">Bugün</button>
       </div>
     </div>
+    <div id="fin-daycard"></div>
     <div class="fin-hero" id="fin-overview"></div>
     <div class="fin-actions" id="fin-actions"></div>
     <div id="fin-start"></div>
@@ -5835,6 +5845,7 @@ function ibInit() {
 
 var financeTrendPeriod = 'month';
 var historyFilter = { type: 'all', category: null, start: '', end: '' };
+var finSelectedDate = todayISO(), finDayPicked = false;
 var finSelectedMonth = todayISO().slice(0, 7); // "YYYY-MM" — Finans sayfasında gezinilen ay
 
 function getFinance() { return get('finance', []); }
@@ -7456,18 +7467,40 @@ function monthTotals(monthPrefix) {
   return { income: round2(income), expense: round2(expense), net: round2(income - expense), saved: round2(saved) };
 }
 
+/* Seçilen tarihte yapılan işlemler (yalnızca kullanıcı bir gün seçtiyse görünür) */
+function renderFinDay() {
+  var el = document.getElementById('fin-daycard');
+  if (!el) return;
+  if (!finDayPicked) { el.innerHTML = ''; return; }
+  var list = getFinance().filter(function (f) { return f.date === finSelectedDate; });
+  var net = list.reduce(function (a, f) { return isInternalTransfer(f) ? a : a + (f.type === 'income' ? 1 : -1) * Number(f.amount); }, 0);
+  el.innerHTML = '<div class="fin-day" style="margin-top:.2rem"><span>' + esc(formatDateTR(finSelectedDate, { weekday: true })) + '</span><span class="mono">' +
+    (list.length ? (net > 0 ? '+' : net < 0 ? '\u2212' : '') + finMask(formatMoney(Math.abs(net))) : '') + '</span></div>' +
+    (list.length ? '<div class="card" style="padding:.2rem .8rem">' + list.map(function (f) {
+      var pos = f.type === 'income';
+      return '<div class="list-row" data-id="' + f.id + '" data-open style="cursor:pointer"><div class="row-main"><div class="row-title">' + esc(f.title) + '</div><div class="row-sub">' + esc(f.category || '') +
+        '</div></div><span class="mono" style="' + (pos ? 'color:var(--success)' : '') + '">' + (pos ? '+' : '\u2212') + finMask(formatMoney(f.amount)) + '</span></div>';
+    }).join('') + '</div>' : '<div class="card"><p class="muted" style="margin:0">Bu tarihte işlem yok.</p></div>');
+  el.querySelectorAll('[data-open]').forEach(function (r) { r.onclick = function () { openTransactionSheet(r.dataset.id); }; });
+}
 function renderMonthNav() {
   document.getElementById('fin-month-prev').innerHTML = icon('chevronL');
   document.getElementById('fin-month-next').innerHTML = icon('chevronR');
-  var d = parseISO(finSelectedMonth + '-01');
-  document.getElementById('fin-month-label').textContent = MONTHS_TR[d.getMonth()] + ' ' + d.getFullYear();
-  var isCurrent = finSelectedMonth === todayISO().slice(0, 7);
-  document.getElementById('fin-month-today').style.display = isCurrent ? 'none' : '';
+  var d = parseISO(finSelectedMonth + '-01'), lastDay = daysInMonth(finSelectedMonth + '-01');
+  document.getElementById('fin-month-label').textContent = formatDateTR(finSelectedDate, { weekday: true });
+  document.getElementById('fin-month-range').textContent = '1 \u2013 ' + lastDay + ' ' + MONTHS_TR[d.getMonth()] + ' ' + d.getFullYear() + ' verileri';
+  var dateInp = document.getElementById('fin-date-input');
+  if (dateInp) dateInp.value = finSelectedDate;
+  document.getElementById('fin-month-today').style.display = finSelectedDate === todayISO() ? 'none' : '';
+  renderFinDay();
 }
 function shiftFinMonth(delta) {
   var d = parseISO(finSelectedMonth + '-01');
+  var dayN = parseISO(finSelectedDate).getDate();
   d.setMonth(d.getMonth() + delta);
   finSelectedMonth = d.getFullYear() + '-' + pad2(d.getMonth() + 1);
+  finSelectedDate = finSelectedMonth + '-' + pad2(Math.min(dayN, daysInMonth(finSelectedMonth + '-01')));
+  finDayPicked = false;
   renderMonthNav();
   renderAll();
 }
@@ -9532,6 +9565,7 @@ function initFinance() {
   financeTrendPeriod = 'month';
   historyFilter = { type: 'all', category: null, start: '', end: '' };
   finSelectedMonth = todayISO().slice(0, 7);
+  finSelectedDate = todayISO(); finDayPicked = false;
   document.getElementById('fin-add-fab').innerHTML = icon('plus');
   document.getElementById('fin-add-fab').addEventListener('click', function () { openTransactionSheet(null); });
   document.getElementById('fin-budget-btn').addEventListener('click', openBudgetSheet);
@@ -9540,7 +9574,15 @@ function initFinance() {
   document.getElementById('fin-installment-add-btn').addEventListener('click', function () { openInstallmentSheet(); });
   document.getElementById('fin-month-prev').addEventListener('click', function () { shiftFinMonth(-1); checkBudgetOverrunsAndNotify(); });
   document.getElementById('fin-month-next').addEventListener('click', function () { shiftFinMonth(1); checkBudgetOverrunsAndNotify(); });
-  document.getElementById('fin-month-today').addEventListener('click', function () { finSelectedMonth = todayISO().slice(0, 7); renderMonthNav(); renderAll(); checkBudgetOverrunsAndNotify(); });
+  document.getElementById('fin-date-input').addEventListener('change', function (e) {
+    var v = e.target.value;
+    if (!v) return;
+    var monthChanged = v.slice(0, 7) !== finSelectedMonth;
+    finSelectedDate = v; finSelectedMonth = v.slice(0, 7); finDayPicked = true;
+    renderMonthNav();
+    if (monthChanged) { renderAll(); checkBudgetOverrunsAndNotify(); }
+  });
+  document.getElementById('fin-month-today').addEventListener('click', function () { finSelectedMonth = todayISO().slice(0, 7); finSelectedDate = todayISO(); finDayPicked = false; renderMonthNav(); renderAll(); checkBudgetOverrunsAndNotify(); });
   renderMonthNav();
   checkBudgetOverrunsAndNotify();
   document.querySelectorAll('#fin-trend-period button').forEach(function (b) {
