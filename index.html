@@ -742,6 +742,117 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .fin-step i{font-style:normal;font-size:.76rem;color:var(--ink-soft)}
 #fin-recent{margin-bottom:1.2rem}
 
+/* ---- Ana sayfa: profesyonel görünüm ---- */
+.dh-hero{display:flex;align-items:center;gap:1rem}
+.dh-ring{flex:none;width:5.6rem;height:5.6rem;position:relative}
+.dh-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.dh-ring circle{fill:none;stroke-width:8;stroke-linecap:round}
+.dh-ring .bg{stroke:var(--rule)}
+.dh-ring circle.fg{stroke:var(--accent);transition:stroke-dasharray .6s ease}
+.dh-ring.ok circle.fg{stroke:var(--success)}
+.dh-ring b{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--font-mono);font-size:1.25rem;font-variant-numeric:tabular-nums}
+.dh-hlbl{font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+.dh-hbig{font-family:var(--font-mono);font-size:1.6rem;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.dh-hbig small{font-size:.8rem;font-weight:500;color:var(--ink-soft);font-family:inherit;letter-spacing:0}
+.dh-hsub{font-size:.8rem;color:var(--ink-soft);line-height:1.4;margin-top:.1rem}
+.dh-split{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-top:.9rem}
+.dh-split div{background:var(--paper);border-radius:var(--radius-m);padding:.5rem .6rem;min-width:0}
+.dh-split span{display:block;font-size:.68rem;color:var(--ink-soft)}
+.dh-split b{display:block;font-family:var(--font-mono);font-size:.9rem;font-variant-numeric:tabular-nums}
+.dh-week{display:grid;grid-template-columns:repeat(7,1fr);gap:.35rem;margin-top:1rem;align-items:end}
+.dh-day{display:flex;flex-direction:column;align-items:center;gap:.3rem;font-size:.66rem;color:var(--ink-soft)}
+.dh-day .tr{width:100%;max-width:1.7rem;height:3.2rem;background:var(--rule);border-radius:.45rem;display:flex;align-items:flex-end;overflow:hidden}
+.dh-day .tr i{display:block;width:100%;background:var(--accent);opacity:.55;border-radius:.45rem}
+.dh-day.full .tr i{background:var(--success);opacity:.9}
+.dh-day.today{color:var(--ink);font-weight:700}
+.dh-day.today .tr{box-shadow:0 0 0 2px var(--accent)}
+.dh-day.today .tr i{opacity:1}
+/* Ana sayfa: Instagram / YouTube / Facebook tarzı akış */
+#dash-content{--dh-band:color-mix(in srgb, var(--ink) 7%, var(--paper))}
+#dash-content .card,#dash-content a.card.clickable{background:transparent;border:0;border-bottom:1px solid var(--rule);border-radius:0;box-shadow:none;padding:.8rem 0;margin:0}
+#dash-greeting h1{font-size:1.55rem;margin-bottom:.1rem}
+#dash-quick .td-quick{display:flex;align-items:center;gap:.65rem}
+#dash-quick .td-quick::before{content:attr(data-i);flex:none;width:2.6rem;height:2.6rem;border-radius:50%;background:linear-gradient(135deg,var(--accent),#ff7a59);color:#fff;display:grid;place-items:center;font-weight:700;font-size:1.05rem}
+#dash-quick .td-quick .ic{display:none}
+#dash-quick .td-quick input{flex:1;width:auto;min-width:0;padding:.75rem 1.1rem}
+.dh-stories{display:flex;gap:.9rem;overflow-x:auto;margin:0 calc(-1*var(--gutter)) .2rem;padding:.3rem var(--gutter) .6rem;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.dh-stories::-webkit-scrollbar{display:none}
+.dh-st{flex:none;width:4.6rem;display:flex;flex-direction:column;align-items:center;gap:.35rem;position:relative;background:none;border:0;padding:0;font:inherit;color:var(--ink);text-decoration:none;cursor:pointer}
+.dh-st .rg{width:4.3rem;height:4.3rem;border-radius:50%;padding:2.5px;background:var(--rule-strong);display:grid;place-items:center}
+.dh-st .rg.on{background:linear-gradient(45deg,#ffb300,#ff5a5f 55%,var(--accent))}
+.dh-st .in{width:100%;height:100%;border-radius:50%;background:var(--paper-raised);border:3px solid var(--paper);display:grid;place-items:center;color:var(--accent)}
+.dh-st .in svg{width:1.6rem;height:1.6rem}
+.dh-st.add .rg{background:none;border:2px dashed var(--rule-strong)}
+.dh-st b{font-size:.72rem;font-weight:500;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dh-st em{position:absolute;top:-.1rem;right:.15rem;min-width:1.25rem;height:1.25rem;padding:0 .3rem;border-radius:99px;background:var(--danger);color:#fff;font-style:normal;font-size:.68rem;font-weight:700;display:grid;place-items:center;border:2px solid var(--paper)}
+.dh-st:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:.8rem}
+.dh-feed{margin:0 calc(-1*var(--gutter));padding:.9rem var(--gutter) 1rem;border-top:8px solid var(--dh-band)}
+.dh-feed:empty,#dash-content [hidden]{display:none}
+.dh-ph{display:flex;align-items:center;gap:.7rem;margin-bottom:.7rem}
+.dh-ph .av{flex:none;width:2.5rem;height:2.5rem;border-radius:50%;background:linear-gradient(135deg,var(--accent),#ff7a59);color:#fff;display:grid;place-items:center}
+.dh-ph .av svg{width:1.2rem;height:1.2rem}
+.dh-ph .who{flex:1;min-width:0;display:flex;flex-direction:column}
+.dh-ph .who b{font-size:.92rem}
+.dh-ph .who i{font-style:normal;font-size:.74rem;color:var(--ink-soft)}
+.dh-ph .mo{flex:none;color:var(--ink-soft);display:grid;padding:.3rem}
+.dh-ph .mo svg{width:1.1rem;height:1.1rem}
+.dh-ph+.td-sec{margin-top:.2rem}
+.dh-acts{display:flex;gap:1.2rem;margin-top:.8rem;padding-top:.7rem;border-top:1px solid var(--rule)}
+.dh-acts a{font-size:.82rem;font-weight:600;color:var(--accent);text-decoration:none;display:inline-flex;align-items:center;gap:.25rem}
+.dh-acts a svg{width:.9rem;height:.9rem}
+.dh-big{font-family:var(--font-mono);font-size:1.9rem;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.dh-big small{font-family:inherit;font-size:.85rem;font-weight:500;color:var(--ink-soft);letter-spacing:0}
+.dh-txt{font-size:.9rem;line-height:1.5;margin:.2rem 0 0}
+.dh-muted{font-size:.78rem;color:var(--ink-soft);margin-top:.2rem}
+.dh-empty{font-size:.88rem;color:var(--ink-soft);margin:.2rem 0 0}
+.dh-pr{display:grid;grid-template-columns:repeat(5,1fr);gap:.3rem;text-align:center}
+.dh-pr div{display:flex;flex-direction:column;align-items:center;gap:.3rem;font-size:.7rem;color:var(--ink-soft)}
+.dh-pr .d{width:2rem;height:2rem;border-radius:50%;border:2px solid var(--rule-strong);display:grid;place-items:center;color:#fff}
+.dh-pr .d svg{width:1rem;height:1rem}
+.dh-pr .on .d{background:var(--success);border-color:var(--success)}
+.dh-warn{display:block;margin-top:.7rem;font-size:.8rem;font-weight:600;color:var(--danger);text-decoration:none}
+.dh-gl{padding:.4rem 0}
+.dh-gl .r{display:flex;justify-content:space-between;gap:.5rem;font-size:.86rem}
+.dh-gl .r span{font-family:var(--font-mono);font-size:.76rem;color:var(--ink-soft)}
+.dh-gl .bar{height:.4rem;border-radius:99px;background:var(--rule);margin-top:.3rem;overflow:hidden}
+.dh-gl .bar i{display:block;height:100%;background:var(--accent);border-radius:99px;max-width:100%}
+.dh-gl.ok .bar i{background:var(--success)}
+#dash-content .td-next{background:var(--accent-soft);border:0;border-radius:var(--radius-l);box-shadow:none;padding:.8rem .9rem;margin:.4rem 0 .8rem}
+#dash-content .td-sec{margin:1rem 0 .2rem;padding-bottom:.4rem;border-bottom:1px solid var(--rule)}
+#dash-content .td-sec h2{font-size:.74rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-soft)}
+#dash-content .td-sec h2[style*="danger"]{color:var(--danger)}
+#dash-content .td-line{background:transparent;border:0;border-radius:0;box-shadow:none;padding:0}
+#dash-content .td-row{padding:.65rem 0;border-bottom:1px solid var(--rule)}
+#dash-content .td-row:last-child{border-bottom:0}
+#dash-content .dh-split{gap:0;margin-top:.9rem;border-top:1px solid var(--rule)}
+#dash-content .dh-split div{background:none;border-radius:0;padding:.6rem .2rem 0;text-align:center}
+#dash-content .dh-split div+div{border-left:1px solid var(--rule)}
+#dash-content #dash-ritual:not(:empty){margin:.6rem 0 .9rem}
+#dash-content .dh-fin{background:none;border:0;border-bottom:1px solid var(--rule);border-radius:0;padding:1rem 0;margin:0}
+#dash-content .dh-fin .two{gap:0;margin-top:.8rem;border-top:1px solid var(--rule)}
+#dash-content .dh-fin .two div{background:none;border-radius:0;padding:.6rem .2rem 0}
+#dash-content .dh-fin .two div+div{border-left:1px solid var(--rule);padding-left:.8rem}
+.dh-fin{display:block;background:var(--paper-raised);border:1px solid var(--rule);border-radius:var(--radius-l);padding:1rem;margin-bottom:.65rem;color:inherit;text-decoration:none}
+.dh-fin:active{transform:scale(.99)}
+.dh-fin:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dh-fin .hd{display:flex;align-items:center;justify-content:space-between;font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+.dh-fin .big{font-family:var(--font-mono);font-size:1.8rem;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin:.25rem 0 .1rem}
+.dh-fin .nt{display:inline-block;font-size:.74rem;font-weight:600;border-radius:99px;padding:.1rem .55rem;background:var(--accent-soft);color:var(--accent)}
+.dh-fin .nt.pos{background:rgba(0,168,107,.14);color:var(--success)}
+.dh-fin .nt.neg{background:rgba(224,36,94,.12);color:var(--danger)}
+.dh-fin .two{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.8rem}
+.dh-fin .two div{background:var(--paper);border-radius:var(--radius-m);padding:.5rem .6rem;min-width:0}
+.dh-fin .two span{display:block;font-size:.68rem;color:var(--ink-soft)}
+.dh-fin .two b{display:block;font-family:var(--font-mono);font-size:.88rem;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dh-fin .two i{font-style:normal;font-size:.66rem;color:var(--ink-soft)}
+.dh-fin .mt{height:.5rem;border-radius:99px;background:var(--rule);overflow:hidden;margin-top:.8rem}
+.dh-fin .mt i{display:block;height:100%;background:var(--accent);border-radius:99px;max-width:100%}
+.dh-fin .mt.over i{background:var(--danger)}
+.dh-fin .mtl{font-size:.72rem;color:var(--ink-soft);margin-top:.3rem}
+.dh-fin .fin-spark{color:var(--accent);margin-top:.7rem}
+.dh-fin .fin-spark .chip{background:var(--accent-soft)}
+@media (prefers-reduced-motion:no-preference){#dash-content>*{animation:dhIn .35s ease both}#dash-content>*:nth-child(2){animation-delay:.04s}#dash-content>*:nth-child(3){animation-delay:.08s}#dash-content>*:nth-child(4){animation-delay:.12s}@keyframes dhIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}}
+@media (prefers-reduced-motion:reduce){.dh-ring circle.fg{transition:none}}
 /* ---- Finans: profesyonel görünüm (harcanabilir, dağılım, nakit akışı, bütçe durumu) ---- */
 #fin-pro:empty{display:none}
 #fin-pro .card{margin-bottom:.9rem}
@@ -1089,11 +1200,12 @@ button,[role="button"],a,label,input,select,textarea,.prayer-toggle,.checkbox{-w
   <div id="dash-content">
     <section id="dash-greeting"></section>
     <div id="dash-quick"><div class="td-quick"><span class="ic" id="td-qic"></span><input type="text" id="td-q" placeholder="Hızlı ekle: yarın market · 15:00 diş hekimi" enterkeyhint="done" autocomplete="off" autocapitalize="sentences" aria-label="Hızlı ekle"></div><div class="td-qhint" id="td-qhint"></div></div>
+    <div id="dash-stories"></div>
     <div id="dash-next"></div>
     <div id="dash-ritual"></div>
-    <section id="dash-hero"></section>
-    <section id="dash-agenda"></section>
-    <section id="dash-tomorrow"></section>
+    <section id="dash-hero" class="dh-feed"></section>
+    <section id="dash-agenda" class="dh-feed"></section>
+    <section id="dash-tomorrow" class="dh-feed"></section>
     <div id="dash-suggestions"></div>
     <div id="dash-cards"></div>
   </div>
@@ -3283,19 +3395,41 @@ function renderWeatherRetry(message) {
   });
 }
 
-function renderHero() {
-  var stats = computeTodayStats();
-  var el = document.getElementById('dash-hero');
-  if (stats.pct === null || stats.numer === 0) {
-    el.innerHTML = '';
-    return;
+function dhDayStats(iso) {
+  var tasks = get('tasks', []).filter(function (t) { return t.due === iso; });
+  var routines = get('routines', []).filter(function (r) { return !r.archived && isRoutineDue(r, iso); });
+  var dt = tasks.filter(function (t) { return t.status === 'done'; }).length;
+  var dr = routines.filter(function (r) { return r.log && r.log[iso]; }).length;
+  var den = tasks.length + routines.length;
+  return { den: den, num: dt + dr, pct: den ? Math.round((dt + dr) / den * 100) : null, tt: tasks.length, dt: dt, rt: routines.length, dr: dr };
+}
+function dhStreak() {
+  var today = todayISO(), n = 0, i;
+  for (i = 0; i < 60; i++) {
+    var d = addDays(today, -i), st = dhDayStats(d);
+    if (st.den === 0) continue;
+    if (st.pct === 100) n++; else if (i === 0) continue; else break;
   }
-  el.innerHTML =
-    '<div class="card">' +
-      '<div class="card-head"><h3>Bugünkü başarı</h3><span class="card-stat">%' + stats.pct + '</span></div>' +
-      '<div class="progress"><div style="width:' + stats.pct + '%"></div></div>' +
-      '<div class="card-sub" style="margin-top:.5rem">' + stats.numer + ' / ' + stats.denom + ' tamamlandı</div>' +
-    '</div>';
+  return n;
+}
+function renderHero() {
+  var el = document.getElementById('dash-hero');
+  if (!el) return;
+  var today = todayISO(), st = dhDayStats(today), week = [], i, any = false;
+  for (i = 6; i >= 0; i--) { var d = addDays(today, -i), ds = i === 0 ? st : dhDayStats(d); if (ds.den) any = true; week.push({ d: d, s: ds, t: i === 0 }); }
+  if (!st.den && !any) { el.innerHTML = ''; return; }
+  var C = 2 * Math.PI * 34, pct = st.pct === null ? 0 : st.pct, streak = dhStreak();
+  var msg = st.pct === null ? 'Bugün için planlı madde yok.' : pct === 100 ? 'Harika, bugünkü her şeyi tamamladın.' : pct >= 50 ? 'Yarıyı geçtin, böyle devam.' : pct > 0 ? 'İyi bir başlangıç yaptın.' : 'Henüz başlamadın, ilk adımı at.';
+  var html = dhPostHead('today', 'Bugünün özeti', 'Bugün ve son 7 gün') + '<div class="dh-hero"><div class="dh-ring' + (pct === 100 ? ' ok' : '') + '" role="img" aria-label="Bugünkü başarı yüzde ' + pct + '"><svg viewBox="0 0 80 80"><circle class="bg" cx="40" cy="40" r="34"/><circle class="fg" cx="40" cy="40" r="34" stroke-dasharray="' + (C * pct / 100).toFixed(1) + ' ' + C.toFixed(1) + '"/></svg><b>' + (st.pct === null ? '\u2014' : '%' + pct) + '</b></div>' +
+    '<div><div class="dh-hlbl">Bugünün ilerlemesi</div><div class="dh-hbig">' + st.num + '<small> / ' + st.den + ' tamamlandı</small></div><div class="dh-hsub">' + msg + '</div></div></div>' +
+    '<div class="dh-split"><div><span>Görev</span><b>' + st.dt + '/' + st.tt + '</b></div><div><span>Rutin</span><b>' + st.dr + '/' + st.rt + '</b></div><div><span>Seri</span><b>' + streak + ' gün</b></div></div>';
+  if (any) {
+    html += '<div class="dh-week" role="img" aria-label="Son 7 günün tamamlanma oranı">' + week.map(function (w) {
+      var pc = w.s.pct === null ? 0 : w.s.pct, wd = parseISO(w.d).getDay();
+      return '<div class="dh-day' + (w.t ? ' today' : '') + (w.s.pct === 100 ? ' full' : '') + '"><div class="tr"><i style="height:' + pc + '%"></i></div><span>' + WEEKDAYS_SHORT_TR[(wd + 6) % 7] + '</span></div>';
+    }).join('') + '</div>';
+  }
+  el.innerHTML = html;
 }
 
 function noteMiniRowHTML(n) {
@@ -3402,11 +3536,11 @@ function renderTodayAgenda() {
   if (I.untimed.length) {
     html += '<div class="td-sec"><h2>Gün boyu</h2><span>' + I.untimed.filter(function (x) { return !x.done; }).length + ' açık</span></div><div class="td-line">' + I.untimed.map(function (it) { return tdRowHTML(it, now); }).join('') + '</div>';
   }
-  if (!html) html = '<div class="card"><div class="card-sub">Bugün için planlanmış bir şey yok. Yukarıdaki kutuya yazarak hızlıca ekleyebilirsin.</div></div>';
-  el.innerHTML = html;
+  if (!html) html = '<p class="dh-empty">Bugün için planlanmış bir şey yok. Yukarıdaki kutuya yazarak hızlıca ekleyebilirsin.</p>';
+  el.innerHTML = dhPostHead('calendar', 'Bugünün planı', (I.overdue.length + I.timed.length + I.untimed.length) + ' madde') + html;
 }
 var tdDay = null;
-function tdRefresh() { renderHero(); renderNext(); renderRitual(); renderTodayAgenda(); renderTomorrow(); renderTdChips(); renderSuggestions(); renderCards(); }
+function tdRefresh() { renderHero(); renderNext(); renderRitual(); renderTodayAgenda(); renderTomorrow(); renderTdChips(); renderSuggestions(); renderCards(); renderStories(); }
 function tdRollover() { tdDay = todayISO(); renderGreeting(); tdRefresh(); }
 /* Uygulama arka plandan dönünce ya da gün değişince ekran güncel kalsın. */
 document.addEventListener('visibilitychange', function () {
@@ -3425,7 +3559,7 @@ function renderTomorrow() {
   });
   if (!items.length) { el.innerHTML = ''; return; }
   items.sort(function (a, b) { return (a.m == null ? 1e4 : a.m) - (b.m == null ? 1e4 : b.m); });
-  el.innerHTML = '<div class="td-sec"><h2>Yarın</h2><button type="button" data-nav="calendar">Takvim</button></div><div class="td-line">' +
+  el.innerHTML = dhPostHead('calendar', 'Yarın', items.length + ' madde', 'calendar') + '<div class="td-line">' +
     items.slice(0, 3).map(function (it) { return tdRowHTML(it, 0); }).join('') + '</div>' +
     (items.length > 3 ? '<div class="td-sec" style="margin-top:.3rem"><span></span><button type="button" data-nav="calendar">+' + (items.length - 3) + ' madde daha</button></div>' : '');
 }
@@ -3469,7 +3603,7 @@ function renderRitual() {
   } else {
     var st = computeTodayStats();
     if (!st.denom && !L.today.length) { el.innerHTML = ''; return; }
-    el.innerHTML = '<button type="button" class="td-ritual" data-td-ritual="close"><span class="tx"><b>Günü kapat</b><i>Bugün ' + st.numer + '/' + st.denom + ' tamamlandı' + (L.today.length ? ' \u00b7 ' + L.today.length + ' görev açık' : ' \u00b7 hepsi tamam') + '</i></span><span class="go">Gözden geçir</span></button>';
+    el.innerHTML = '<button type="button" class="td-ritual" data-td-ritual="close"><span class="tx"><b>Günü kapat</b><i>' + (L.today.length ? L.today.length + ' açık görevi gözden geçir' : 'Hepsi tamam, günü değerlendir') + '</i></span><span class="go">Gözden geçir</span></button>';
   }
 }
 function tdMoveTask(id, due) { var l = getTasks(); l.forEach(function (t) { if (t.id === id) t.due = due; }); saveTasks(l); }
@@ -3629,14 +3763,7 @@ function tdInitEvents() {
 
 function renderSuggestions() {
   var el = document.getElementById('dash-suggestions');
-  var tips = computeSuggestions().slice(0, 2);
-  var nudge = backupNudgeHTML();
-  if (!tips.length && !nudge) { el.innerHTML = ''; return; }
-  el.innerHTML = nudge + tips.map(function (t) {
-    return '<a href="javascript:void(0)" data-nav="' + t.page + '"' + (t.sub ? ' data-fin-sub="' + t.sub + '"' : '') + ' class="card clickable" style="display:flex;align-items:center;gap:.6rem;text-decoration:none;color:inherit;border-left:3px solid var(--accent)">' +
-      icon(t.icon) + '<span class="card-sub" style="margin:0">' + esc(t.text) + '</span>' +
-      '<span class="muted" style="margin-left:auto">' + icon('chevronR') + '</span></a>';
-  }).join('');
+  if (el) el.innerHTML = backupNudgeHTML();
 }
 
 var DEFAULT_CARD_ORDER = ['tasks', 'routines', 'calendar', 'finance', 'notes'];
@@ -3737,15 +3864,9 @@ function categoryRowHTML(key) {
   } else if (key === 'yearreport') {
     stat = new Date().getFullYear(); sub = 'finans ve üretkenlik özeti';
   }
-  return '<a href="javascript:void(0)" data-nav="' + key + '" class="card clickable" style="display:flex;align-items:center;gap:.8rem;text-decoration:none;color:inherit">' +
-    '<div class="tile-icon" style="margin-bottom:0;flex:none">' + icon(meta.ic) + '</div>' +
-    '<div style="flex:1;min-width:0">' +
-      '<div style="font-weight:600;font-size:.95rem">' + esc(meta.title) + '</div>' +
-      '<div class="card-sub" style="margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(sub) + '</div>' +
-    '</div>' +
-    '<div class="card-stat" style="font-size:1rem;flex:none;text-align:right' + (statColor ? ';color:' + statColor : '') + '">' + esc(String(stat)) + '</div>' +
-    '<span class="muted" style="flex:none">' + icon('chevronR') + '</span>' +
-  '</a>';
+  return '<a href="javascript:void(0)" data-nav="' + key + '" class="dh-row"><span class="ic">' + icon(meta.ic) + '</span>' +
+    '<span class="tx"><b>' + esc(meta.title) + '</b><i>' + esc(sub) + '</i></span>' +
+    '<span class="st"' + (statColor ? ' style="color:' + statColor + '"' : '') + '>' + esc(String(stat)) + '</span><span class="go">' + icon('chevronR') + '</span></a>';
 }
 
 function getDashCardConfig() {
@@ -3765,12 +3886,106 @@ function getDashCardConfig() {
 }
 function setDashCardConfig(cfg) { set('dashCards', cfg); }
 
+/* ---- Ana sayfa: Instagram / YouTube / Facebook tarzı akış ---- */
+function dhPostHead(ic, title, meta, nav) {
+  return '<div class="dh-ph"><span class="av">' + icon(ic) + '</span><div class="who"><b>' + esc(title) + '</b>' + (meta ? '<i>' + esc(meta) + '</i>' : '') + '</div>' +
+    (nav ? '<a class="mo" href="javascript:void(0)" data-nav="' + nav + '" aria-label="' + esc(title) + ' sayfasını aç">' + icon('chevronR') + '</a>' : '') + '</div>';
+}
+function dhActs(nav, label) { return '<div class="dh-acts"><a href="javascript:void(0)" data-nav="' + nav + '">' + esc(label) + icon('chevronR') + '</a></div>'; }
+function dhPost(ic, title, meta, body, nav, label) {
+  return '<article class="dh-feed">' + dhPostHead(ic, title, meta) + body + dhActs(nav, label) + '</article>';
+}
+function dhVisibleKeys() { return getDashCardConfig().filter(function (c) { return c.visible; }).map(function (c) { return c.key; }); }
+function dhStoryCount(key) {
+  var today = todayISO(), n = 0;
+  if (key === 'tasks') n = get('tasks', []).filter(function (t) { return t.status !== 'done' && t.due && t.due <= today; }).length;
+  else if (key === 'routines') n = get('routines', []).filter(function (r) { return !r.archived && isRoutineDue(r, today) && !(r.log && r.log[today]); }).length;
+  else if (key === 'calendar') n = getEvents().filter(function (e) { return occursOn(e, today); }).length;
+  else if (key === 'finance') {
+    var bud = getBudget(), mk = today.slice(0, 7), fin = get('finance', []);
+    n = Object.keys(bud).filter(function (c) {
+      return bud[c] > 0 && fin.filter(function (f) { return f.type === 'expense' && f.category === c && f.date && f.date.slice(0, 7) === mk; }).reduce(function (a, f) { return a + (Number(f.amount) || 0); }, 0) > bud[c];
+    }).length;
+  } else if (key === 'worship') { var pl = getPrayers().dailyLog[today] || {}; n = PRAYER_KEYS.filter(function (k) { return !pl[k]; }).length; }
+  else if (key === 'goals') n = getGoals().filter(function (g) { return ((g.progress || {})[periodKeyFor(g)] || 0) < g.target; }).length;
+  else if (key === 'learning') n = get('vocab', []).filter(function (v) { return v.srs && v.srs.dueDate && v.srs.dueDate <= today; }).length;
+  return n;
+}
+function renderStories() {
+  var el = document.getElementById('dash-stories');
+  if (!el) return;
+  var keys = dhVisibleKeys();
+  el.innerHTML = '<div class="dh-stories" role="list">' +
+    '<button type="button" class="dh-st add" data-dh-add role="listitem"><span class="rg"><span class="in">' + icon('plus') + '</span></span><b>Ekle</b></button>' +
+    keys.map(function (k) {
+      var m = CARD_META[k], n = 0; try { n = dhStoryCount(k); } catch (err) { n = 0; }
+      return '<a href="javascript:void(0)" class="dh-st" data-nav="' + k + '" role="listitem"><span class="rg' + (n > 0 ? ' on' : '') + '"><span class="in">' + icon(m.ic) + '</span></span>' + (n > 0 ? '<em>' + (n > 9 ? '9+' : n) + '</em>' : '') + '<b>' + esc(m.title) + '</b></a>';
+    }).join('') + '</div>';
+}
+function dhInitFeed() {
+  var q = document.querySelector('#dash-quick .td-quick');
+  if (q) q.setAttribute('data-i', ((get('user', {}).name || 'A').trim().charAt(0) || 'A').toLocaleUpperCase('tr'));
+  var inp = document.getElementById('td-q'); if (inp) inp.placeholder = 'Aklında ne var? Örn: yarın market';
+  renderStories();
+  var root = document.getElementById('dash-content');
+  if (!root || root.__dhWired) return;
+  root.__dhWired = true;
+  root.addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('[data-dh-add]')) { var i = document.getElementById('td-q'); if (i) { i.scrollIntoView({ block: 'center', behavior: 'smooth' }); i.focus(); } }
+  });
+}
+function dhFinancePost() {
+  var fin = get('finance', []), cur = todayISO().slice(0, 7), d0 = parseISO(cur + '-01');
+  if (!fin.length) return dhPost('wallet', 'Finans', MONTHS_TR[d0.getMonth()], '<p class="dh-empty">Henüz kayıt yok. İlk gelir veya giderini ekleyerek bakiyeni ve aylık özetini burada gör.</p>', 'finance', 'Finansı aç');
+  var mt = monthTotals(cur), pm = monthTotals(prevMonthKey(cur)), net = mt.income - mt.expense, over = 0; try { over = dhStoryCount('finance'); } catch (err) { over = 0; }
+  var body = '<div class="dh-big">' + finMask(formatMoney(currentBalance())) + '</div>' +
+    '<span class="nt ' + (net > 0 ? 'pos' : net < 0 ? 'neg' : '') + '" style="display:inline-block;font-size:.74rem;font-weight:600;border-radius:99px;padding:.1rem .6rem;background:var(--accent-soft);color:' + (net > 0 ? 'var(--success)' : net < 0 ? 'var(--danger)' : 'var(--accent)') + '">Bu ay net ' + (net > 0 ? '+' : net < 0 ? '\u2212' : '') + finMask(formatMoneyCompact(Math.abs(net))) + '</span>' +
+    '<div class="dh-fin" style="padding:0;border:0"><div class="two"><div><span>Gelir</span><b>' + finMask(formatMoneyCompact(mt.income)) + '</b><i>' + finDelta(mt.income, pm.income) + '</i></div><div><span>Gider</span><b>' + finMask(formatMoneyCompact(mt.expense)) + '</b><i>' + finDelta(mt.expense, pm.expense) + '</i></div></div>' +
+    (over ? '<a href="javascript:void(0)" class="dh-warn" data-nav="finance" data-fin-sub="budgets">' + over + ' kategoride bütçe aşıldı</a>' : '') +
+    finSparkHTML(cur) + '</div>';
+  return dhPost('wallet', 'Finans', MONTHS_TR[d0.getMonth()] + ' özeti', body, 'finance', 'Finansı aç');
+}
+function dhWorshipPost() {
+  var pl = getPrayers().dailyLog[todayISO()] || {}, done = PRAYER_KEYS.filter(function (k) { return pl[k]; }).length;
+  var body = '<div class="dh-pr">' + PRAYER_KEYS.map(function (k) { return '<div class="' + (pl[k] ? 'on' : '') + '"><span class="d">' + (pl[k] ? icon('check') : '') + '</span>' + PRAYER_LABELS[k] + '</div>'; }).join('') + '</div>';
+  return dhPost('moon', 'İbadet', done + '/5 vakit bugün', body, 'worship', 'İbadeti aç');
+}
+function dhLearningPost() {
+  var v = get('vocab', []), due = dhStoryCount('learning'), rd = getReading().filter(function (b) { return !b.finished; }).length;
+  if (!v.length && !rd) return '';
+  var body = '<div class="dh-big">' + due + ' <small>kelime tekrar için hazır</small></div><div class="dh-muted">Toplam ' + v.length + ' kelime' + (rd ? ' \u00b7 ' + rd + ' kitap okunuyor' : '') + '</div>';
+  return dhPost('book', 'Öğrenme', due ? 'Bugünkü tekrar seni bekliyor' : 'Bugün tekrar yok', body, 'learning', due ? 'Tekrara başla' : 'Öğrenmeyi aç');
+}
+function dhGoalsPost() {
+  var gs = getGoals();
+  if (!gs.length) return '';
+  var body = gs.length ? gs.slice(0, 3).map(function (g) {
+    var cur = (g.progress || {})[periodKeyFor(g)] || 0, pc = g.target ? Math.min(100, Math.round(cur / g.target * 100)) : 0;
+    return '<div class="dh-gl' + (pc >= 100 ? ' ok' : '') + '"><div class="r"><b style="font-weight:600">' + esc(g.title) + '</b><span>' + cur + '/' + g.target + '</span></div><div class="bar"><i style="width:' + pc + '%"></i></div></div>';
+  }).join('') : '<p class="dh-empty">Henüz hedef yok.</p>';
+  return dhPost('target', 'Hedefler', gs.length + ' hedef', body, 'goals', 'Hedefleri aç');
+}
+function dhNotesPost() {
+  var today = todayISO(), ns = getNotes().filter(function (n) { return ntLocalISO(n.createdAt) !== today; }).sort(function (a, b) { return (b.createdAt || '').localeCompare(a.createdAt || ''); });
+  if (!ns.length) return '';
+  return dhPost('note', 'Notlar', 'Son not \u00b7 ' + relativeDayLabel(ns[0].createdAt), '<p class="dh-txt">' + esc((ns[0].text || '').trim().slice(0, 220)) + '</p>', 'notes', 'Notlara git');
+}
+function dhAchPost() {
+  var xp = xpProgress(get('xp', 0)), b = computeBadges(), un = b.filter(function (x) { return x.unlocked; }).length;
+  var body = '<div class="dh-big">Seviye ' + xp.level + ' <small>' + un + '/' + b.length + ' rozet</small></div><div class="dh-gl"><div class="bar"><i style="width:' + Math.round(xp.pct) + '%"></i></div><div class="dh-muted">' + Math.round(xp.into) + ' / ' + Math.round(xp.span) + ' XP</div></div>';
+  return dhPost('trophy', 'Başarılar', 'Seviye ilerlemen', body, 'achievements', 'Başarıları aç');
+}
+function dhYearPost() {
+  return dhPost('calendar', 'Yıl raporu', String(new Date().getFullYear()), '<p class="dh-txt">Finans ve üretkenlik özetini yıl bazında gör.</p>', 'yearreport', 'Raporu aç');
+}
 function renderCards() {
   var el = document.getElementById('dash-cards');
-  var cfg = getDashCardConfig().filter(function (c) { return c.visible; });
-  if (!cfg.length) { el.innerHTML = '<div class="card"><div class="card-sub">Ayarlar\'dan en az bir kart açman gerekiyor.</div></div>'; return; }
-  el.innerHTML = cfg.map(function (c) { return categoryRowHTML(c.key); }).join('');
+  var keys = dhVisibleKeys();
+  if (!keys.length) { el.innerHTML = '<p class="dh-empty" style="margin-top:1rem">Ayarlar\'dan en az bir bölüm açman gerekiyor.</p>'; return; }
+  var map = { finance: dhFinancePost, worship: dhWorshipPost, learning: dhLearningPost, goals: dhGoalsPost, notes: dhNotesPost, achievements: dhAchPost, yearreport: dhYearPost };
+  el.innerHTML = keys.map(function (k) { try { return map[k] ? map[k]() : ''; } catch (err) { return ''; } }).join('');
 }
+
 
 function initDashboard() {
   var root = document.getElementById('page-root');
@@ -3797,6 +4012,7 @@ function startDashboard() {
   renderTomorrow();
   renderSuggestions();
   renderCards();
+  dhInitFeed();
   tdStartTimer();
 }
 
@@ -8920,9 +9136,9 @@ function finMonthEndBalances(keys) {
   });
   return out.map(function (x) { return round2(x + base); });
 }
-function finSparkHTML() {
+function finSparkHTML(endM) {
   if (!getFinance().length) return '';
-  var keys = [], i; for (i = 5; i >= 0; i--) keys.push(finMonthAdd(finSelectedMonth, -i));
+  var keys = [], i; for (i = 5; i >= 0; i--) keys.push(finMonthAdd(endM || finSelectedMonth, -i));
   var vals = finMonthEndBalances(keys), mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals), rng = (mx - mn) || 1;
   var W = 300, H = 44, pad = 4, pts = vals.map(function (v, k) { return [pad + k * (W - 2 * pad) / 5, H - pad - (v - mn) / rng * (H - 2 * pad - 6)]; });
   var line = pts.map(function (q, k) { return (k ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1); }).join(' ');
