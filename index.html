@@ -1331,7 +1331,7 @@ button,[role="button"],a,label,input,select,textarea,.prayer-toggle,.checkbox{-w
 </div>
 <div id="view-goals" style="display:none">
 <main class="page">
-  <div class="eyebrow">Hedef Takibi</div>
+  <div class="eyebrow">Hedefler</div>
   <h1>Hedefler</h1>
   <button class="pill-select-trigger" id="goal-cat-filter-btn" type="button" style="margin-bottom:.6rem"></button>
   <div id="goal-list"></div>
@@ -1635,8 +1635,8 @@ button,[role="button"],a,label,input,select,textarea,.prayer-toggle,.checkbox{-w
 </div>
 <div id="view-achievements" style="display:none">
 <main class="page">
-  <div class="eyebrow">Başarılarım</div>
-  <h1>Başarılarım</h1>
+  <div class="eyebrow">Başarılar</div>
+  <h1>Başarılar</h1>
   <div class="card" id="level-block"></div>
   <div class="section-title"><h2>Rozetler</h2><span class="muted mono" id="badge-summary"></span></div>
   <div class="badge-grid" id="badge-grid"></div>
@@ -2157,9 +2157,9 @@ function setAccent(a) { set('accent', a); applyTheme(); }
 /* İkonlar — basit, tek stilde çizgi ikonlar (bağımlılık yok)              */
 /* ---------------------------------------------------------------------- */
 var ICON_PATHS = {
-  today: '<circle cx="12" cy="13" r="8"/><path d="M12 5V3M8 4l1 2M16 4l-1 2"/>',
+  today: '<path d="M3.5 11.2L12 4l8.5 7.2"/><path d="M5.8 9.8v9.7h12.4V9.8"/><path d="M10 19.5v-5h4v5"/>',
   tasks: '<path d="M4 6h11M4 12h11M4 18h7"/><path d="M18 5l1.6 1.6L22 4"/><path d="M18 11l1.6 1.6L22 10"/>',
-  routines: '<path d="M4 12a8 8 0 0 1 14-5.3L20 8"/><path d="M20 4v4h-4"/><path d="M20 12a8 8 0 0 1-14 5.3L4 16"/><path d="M4 20v-4h4"/>',
+  routines: '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
   calendar: '<rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
   more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
   gear: '<path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z"/><path d="M19.4 12a7.4 7.4 0 0 0-.12-1.33l2.03-1.58-2-3.46-2.4.96a7.5 7.5 0 0 0-2.3-1.33L14.2 2.8H9.8l-.41 2.46a7.5 7.5 0 0 0-2.3 1.33l-2.4-.96-2 3.46 2.03 1.58A7.4 7.4 0 0 0 4.6 12c0 .45.04.89.12 1.33l-2.03 1.58 2 3.46 2.4-.96a7.5 7.5 0 0 0 2.3 1.33l.41 2.46h4.4l.41-2.46a7.5 7.5 0 0 0 2.3-1.33l2.4.96 2-3.46-2.03-1.58c.08-.44.12-.88.12-1.33Z"/>',
@@ -2171,7 +2171,6 @@ var ICON_PATHS = {
   chevronR: '<path d="M9 5l7 7-7 7"/>',
   tm_timer: '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 2M9.5 2.5h5"/>',
   tm_mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>',
-  tm_search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
   chevronL: '<path d="M15 5l-7 7 7 7"/>',
   trash: '<path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/>',
   pencil: '<path d="M4 20l1-4 11-11 3 3-11 11-4 1z"/>',
@@ -2556,17 +2555,17 @@ function promptDialog(opts) {
 /* Header / Tabbar kabuğu                                                  */
 /* ---------------------------------------------------------------------- */
 var PAGES = {
-  today:        { title: 'Bugün',       href: 'index.html',       tab: true,  icon: 'today' },
+  today:        { title: 'Ana Sayfa',   href: 'index.html',       tab: true,  icon: 'today' },
   tasks:        { title: 'Görevler',    href: 'gorevler.html',    tab: true,  icon: 'tasks' },
   routines:     { title: 'Rutinler',    href: 'rutinler.html',    tab: true,  icon: 'routines' },
   calendar:     { title: 'Takvim',      href: 'takvim.html',      tab: true,  icon: 'calendar' },
-  goals:        { title: 'Hedef Takibi',href: 'hedefler.html',    tab: false, icon: 'target' },
+  goals:        { title: 'Hedefler',    href: 'hedefler.html',    tab: false, icon: 'target' },
   learning:     { title: 'Öğrenme',     href: 'ogrenme.html',     tab: false, icon: 'book' },
   worship:      { title: 'İbadet',      href: 'ibadet.html',      tab: false, icon: 'moon' },
   finance:      { title: 'Finans',      href: 'finans.html',      tab: true,  icon: 'wallet' },
   notes:        { title: 'Notlar',      href: 'notlar.html',      tab: false, icon: 'note' },
-  achievements: { title: 'Başarılarım', href: 'basarilarim.html', tab: false, icon: 'trophy' },
-  yearreport:   { title: 'Yıl Özeti',   href: 'yilozeti.html',    tab: false, icon: 'calendar' },
+  achievements: { title: 'Başarılar',   href: 'basarilarim.html', tab: false, icon: 'trophy' },
+  yearreport:   { title: 'Yıl Özeti',   href: 'yilozeti.html',    tab: false, icon: 'chart' },
   admin:        { title: 'Yönetici Paneli', href: 'yonetici.html', tab: false, icon: 'lock' },
   settings:     { title: 'Ayarlar', href: 'ayarlar.html', tab: false, icon: 'gear' }
 };
@@ -2593,8 +2592,8 @@ function buildHeader(pageKey) {
         '<span class="page-title"></span>' +
       '</div>' +
       '<div class="header-actions">' +
-        '<button class="icon-btn" id="search-btn" aria-label="Ara">' + icon('tm_search') + '</button>' +
-        '<button class="xp-chip" id="xp-chip" aria-label="Başarılarım">' +
+        '<button class="icon-btn" id="search-btn" aria-label="Ara">' + icon('search') + '</button>' +
+        '<button class="xp-chip" id="xp-chip" aria-label="Başarılar">' +
           '<span class="lvl-ring">1</span><span class="xp-num">0 XP</span>' +
         '</button>' +
         '<button class="icon-btn" id="settings-btn" aria-label="Ayarlar">' + icon('gear') + '</button>' +
@@ -2718,7 +2717,7 @@ function setPressed(on) { return ' aria-pressed="' + (on ? 'true' : 'false') + '
 var SETTINGS_SUBS = {
   profile: { title: 'Profil', render: settingsProfile },
   appearance: { title: 'Görünüm', render: settingsAppearance },
-  cards: { title: 'Ana sayfa kartları', render: settingsCards },
+  cards: { title: 'Ana sayfa bölümleri', render: settingsCards },
   notif: { title: 'Bildirimler', render: settingsNotif },
   data: { title: 'Yedekleme ve veri', render: settingsData }
 };
@@ -2759,7 +2758,7 @@ function settingsRoot(body) {
       '<span class="set-lbl"><strong>' + esc(user.name || 'Adını ekle') + '</strong><span class="row-sub">Seviye ' + p.level + (user.goal ? ', ' + esc(user.goal) : '') + '</span></span>' + chev + '</button></div>' +
     '<div class="set-group">' +
       row('appearance', 'moon', 'Görünüm', theme + ', ' + (acc ? acc.label : '')) +
-      row('cards', 'page', 'Ana sayfa kartları', cfg.filter(function (c) { return c.visible; }).length + ' / ' + cfg.length + ' açık') +
+      row('cards', 'home', 'Ana sayfa bölümleri', cfg.filter(function (c) { return c.visible; }).length + ' / ' + cfg.length + ' açık') +
       row('notif', 'bell', 'Bildirimler', perm === 'granted' ? 'Açık' : perm === 'unsupported' ? 'Desteklenmiyor' : 'Kapalı') +
     '</div>' +
     '<div class="set-group">' + row('data', 'download', 'Yedekleme ve veri', lb ? 'Son yedek ' + formatDateTR(lb, { year: false }) : 'Yedek yok') + '</div>' +
@@ -2820,7 +2819,7 @@ function settingsAppearance(body) {
 
 function settingsCards(body) {
   body.innerHTML = '<div class="set-panel" id="dash-card-config-list" style="padding:.2rem .8rem"></div>' +
-    '<p class="set-desc">Uygulamadaki tüm sayfalar burada. Açtıkların ana sayfada kart olarak görünür, sırayı oklarla değiştirebilirsin.</p>';
+    '<p class="set-desc">Uygulamadaki tüm sayfalar burada. Açtıkların ana sayfada ayrı bir bölüm olarak görünür, sırayı oklarla değiştirebilirsin.</p>';
   renderDashCardConfigList(body);
 }
 
@@ -2882,9 +2881,9 @@ function renderDashCardConfigList(sheetBody) {
     return '<div class="list-row" data-key="' + c.key + '">' +
       '<span class="icon-btn" aria-hidden="true" style="pointer-events:none">' + icon(meta.ic) + '</span>' +
       '<span class="row-main"><span class="row-title">' + t + '</span></span>' +
-      '<button type="button" class="icon-btn" data-act="up"' + (i === 0 ? ' disabled' : '') + ' aria-label="' + t + ' kartını yukarı taşı">' + icon('arrowUp') + '</button>' +
-      '<button type="button" class="icon-btn" data-act="down"' + (i === cfg.length - 1 ? ' disabled' : '') + ' aria-label="' + t + ' kartını aşağı taşı">' + icon('arrowDown') + '</button>' +
-      '<button type="button" class="switch" role="switch" data-act="toggle" aria-checked="' + (c.visible ? 'true' : 'false') + '" aria-label="' + t + ' kartını göster"></button>' +
+      '<button type="button" class="icon-btn" data-act="up"' + (i === 0 ? ' disabled' : '') + ' aria-label="' + t + ' bölümünü yukarı taşı">' + icon('arrowUp') + '</button>' +
+      '<button type="button" class="icon-btn" data-act="down"' + (i === cfg.length - 1 ? ' disabled' : '') + ' aria-label="' + t + ' bölümünü aşağı taşı">' + icon('arrowDown') + '</button>' +
+      '<button type="button" class="switch" role="switch" data-act="toggle" aria-checked="' + (c.visible ? 'true' : 'false') + '" aria-label="' + t + ' bölümünü göster"></button>' +
       '</div>';
   }).join('');
   if (list._wired) return;
@@ -3846,11 +3845,11 @@ var CARD_META = {
   calendar: { title: 'Takvim', ic: 'calendar' },
   finance: { title: 'Finans', ic: 'wallet' },
   notes: { title: 'Notlar', ic: 'note' },
-  goals: { title: 'Hedef Takibi', ic: 'target' },
+  goals: { title: 'Hedefler', ic: 'target' },
   learning: { title: 'Öğrenme', ic: 'book' },
   worship: { title: 'İbadet', ic: 'moon' },
-  achievements: { title: 'Başarılarım', ic: 'trophy' },
-  yearreport: { title: 'Yıl Özeti', ic: 'calendar' }
+  achievements: { title: 'Başarılar', ic: 'trophy' },
+  yearreport: { title: 'Yıl Özeti', ic: 'chart' }
 };
 /* Varsayılan olarak kapalı gelen, ayarlardan açılabilen ek kartlar. */
 var EXTRA_CARD_ORDER = ['goals', 'learning', 'worship', 'achievements', 'yearreport'];
@@ -4036,7 +4035,7 @@ function dhAchPost() {
   return dhPost('trophy', 'Başarılar', 'Seviye ilerlemen', body, 'achievements', 'Başarıları aç');
 }
 function dhYearPost() {
-  return dhPost('calendar', 'Yıl raporu', String(new Date().getFullYear()), '<p class="dh-txt">Finans ve üretkenlik özetini yıl bazında gör.</p>', 'yearreport', 'Raporu aç');
+  return dhPost('chart', 'Yıl Özeti', String(new Date().getFullYear()), '<p class="dh-txt">Finans ve üretkenlik özetini yıl bazında gör.</p>', 'yearreport', 'Raporu aç');
 }
 function renderCards() {
   var el = document.getElementById('dash-cards');
@@ -6002,8 +6001,8 @@ function openWorshipAddMenu() {
     '<span class="icon-btn">' + icon('book') + '</span>' +
     '<span class="row-main"><span class="row-title">Kur\'an sayfası ekle</span></span>' +
     '</button>' +
-    '<button class="list-row" id="wm-zikir" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="icon-btn">' + icon('refresh') + '</span><span class="row-main"><span class="row-title">Zikir çek</span></span></button>' +
-    '<button class="list-row" id="wm-fast" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="icon-btn">' + icon('flame') + '</span><span class="row-main"><span class="row-title">Oruç işaretle</span></span></button></div>';
+    '<button class="list-row" id="wm-zikir" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="icon-btn">' + icon('repeat') + '</span><span class="row-main"><span class="row-title">Zikir çek</span></span></button>' +
+    '<button class="list-row" id="wm-fast" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="icon-btn">' + icon('calendar') + '</span><span class="row-main"><span class="row-title">Oruç işaretle</span></span></button></div>';
   openSheet({
     title: 'Ne eklemek istersin?', bodyHTML: html, onOpen: function () {
       document.getElementById('wm-kaza').addEventListener('click', function () { closeSheet(); openBulkKazaSheet(); });
@@ -9735,12 +9734,12 @@ function renderFinHub() {
   var rc = getRecurring(), rnet = rc.reduce(function (s, r) { return s + (r.type === 'income' ? 1 : -1) * (Number(r.amount) || 0); }, 0);
   var mt = monthTotals(mk);
   var cards = [
-    { sub: 'history', ic: 'page', hue: 215, wide: true, t: 'İşlemler', v: monthCount + ' işlem', s: last ? esc(String(last.title || '').slice(0, 44)) : 'Henüz kayıt yok · içe aktar veya ekle' },
+    { sub: 'history', ic: 'swap', hue: 215, wide: true, t: 'İşlemler', v: monthCount + ' işlem', s: last ? esc(String(last.title || '').slice(0, 44)) : 'Henüz kayıt yok · içe aktar veya ekle' },
     { sub: 'accounts', ic: 'wallet', hue: 165, t: 'Hesaplar', v: finMoney(assets), s: accs.length + ' hesap' + (debt ? ' · kart borcu ' + finMoney(debt) : '') },
     (function () {
       var PS = planStats(todayISO().slice(0, 7)), pp = planPace(PS);
-      if (PS.flexBudget > 0) { var r = PS.flexBudget - PS.flexSpent; return { sub: 'budgets', ic: 'target', hue: 28, t: 'Bütçe & plan', v: finMoney(Math.abs(r)), s: r < 0 ? 'esnek bütçe aşıldı' : 'esnek kaldı \u00b7 günlük \u2248 ' + finMoney(r / pp.left), bar: Math.min(100, PS.flexSpent / PS.flexBudget * 100), over: r < 0 }; }
-      return { sub: 'budgets', ic: 'target', hue: 28, t: 'Bütçe & plan', v: cats.length ? '%' + Math.round(bp) : '\u2014', s: !cats.length ? 'Plan ve limit belirle' : (over ? over + ' kategori aşıldı' : finMoney(Math.max(0, L - S)) + ' kaldı'), bar: cats.length ? Math.min(100, bp) : null, over: bp > 100 };
+      if (PS.flexBudget > 0) { var r = PS.flexBudget - PS.flexSpent; return { sub: 'budgets', ic: 'checklist', hue: 28, t: 'Bütçe & plan', v: finMoney(Math.abs(r)), s: r < 0 ? 'esnek bütçe aşıldı' : 'esnek kaldı \u00b7 günlük \u2248 ' + finMoney(r / pp.left), bar: Math.min(100, PS.flexSpent / PS.flexBudget * 100), over: r < 0 }; }
+      return { sub: 'budgets', ic: 'checklist', hue: 28, t: 'Bütçe & plan', v: cats.length ? '%' + Math.round(bp) : '\u2014', s: !cats.length ? 'Plan ve limit belirle' : (over ? over + ' kategori aşıldı' : finMoney(Math.max(0, L - S)) + ' kaldı'), bar: cats.length ? Math.min(100, bp) : null, over: bp > 100 };
     })(),
     { sub: 'upcoming', ic: 'clock', hue: 340, t: 'Yaklaşan ödemeler', v: up.length + ' ödeme', s: nx ? esc(String(nx.t || '').slice(0, 22)) + ' · ' + inDaysLabel(daysFromToday(nx.d)).toLowerCase() : 'Önümüzdeki 30 gün boş' },
     { sub: 'installments', ic: 'card', hue: 265, t: 'Taksitler', v: act.length + ' aktif', s: act.length ? finMoney(instLeft) + ' kalan' : 'Taksit yok' },
@@ -11011,7 +11010,7 @@ function computeBadges() {
   var hasAnyContent = get('tasks', []).length > 0 || routines.length > 0 || goals.length > 0;
 
   return [
-    { id: 'first-step', label: 'İlk Adım', icon: 'page', unlocked: hasAnyContent, page: null },
+    { id: 'first-step', label: 'İlk Adım', icon: 'check', unlocked: hasAnyContent, page: null },
     { id: 'streak-7', label: '7 Günlük Seri', icon: 'flame', unlocked: maxRoutineStreak >= 7, page: 'routines' },
     { id: 'streak-30', label: '30 Günlük Seri', icon: 'flame', unlocked: maxRoutineStreak >= 30, page: 'routines' },
     { id: 'routine-consistency', label: 'Rutin Tutarlılığı', icon: 'routines', unlocked: totalDue > 0 && routineConsistency >= 80, page: 'routines' },
