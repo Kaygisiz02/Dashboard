@@ -457,7 +457,7 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .modal .modal-actions .btn { flex: 1; }
 
 /* ---- Heatmap / streak -----------------------------------------------------*/
-.heatmap { display: grid; grid-template-columns: 2.9rem repeat(7, 1fr); gap: .28rem; align-items: center; }
+.heatmap { display: grid; grid-template-columns: 3rem repeat(7, minmax(0, 1fr)); gap: .28rem; align-items: center; }
 .heatmap .hm-dow, .heatmap .hm-wk { font-size: .7rem; color: var(--ink-soft); text-align: center; }
 .heatmap .hm-wk { text-align: left; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .heatmap .cell { aspect-ratio: 1; min-width: 0; padding: 0; border: 0; border-radius: 5px; background: var(--rule); cursor: pointer; }
@@ -468,13 +468,14 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .heatmap .cell[data-level="3"], .hm-legend i[data-level="3"] { background: var(--accent); }
 .heatmap .cell[data-today] { outline: 2px solid var(--ink); outline-offset: 1px; }
 .heatmap .cell.sel { box-shadow: 0 0 0 2px var(--paper-raised), 0 0 0 4px var(--accent); }
-.hm-foot { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-top: .75rem; min-height: 1.2rem; }
+.hm-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem .6rem; margin-top: .75rem; min-height: 1.2rem; }
 .hm-legend { display: inline-flex; align-items: center; gap: .22rem; flex: none; font-size: .7rem; color: var(--ink-soft); }
 .hm-legend i { display: inline-block; width: .7rem; height: .7rem; border-radius: 3px; background: var(--rule); margin: 0; }
 .hm-legend span { margin: 0 .2rem; }
 
 /* ---- Rutin istatistikleri ---------------------------------------------------*/
-.rs-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: .8rem; margin-bottom: .8rem; }
+.rs-hero { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: .6rem .8rem; margin-bottom: .8rem; }
+.rs-hero > * { min-width: 0; }
 .rs-pct { font-family: var(--font-display); font-size: 2.7rem; font-weight: 800; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .rs-pct small { font-size: 1.1rem; font-weight: 700; color: var(--ink-soft); margin-left: .1rem; }
 .rs-cmp { display: flex; flex-direction: column; align-items: flex-end; gap: .25rem; text-align: right; min-width: 0; }
@@ -483,17 +484,20 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .rs-delta.up { background: color-mix(in srgb, var(--success) 18%, transparent); }
 .rs-delta.down { background: color-mix(in srgb, var(--danger) 16%, transparent); }
 .rs-note { margin: .6rem 0 0; }
-.rs-tiles { margin-bottom: .8rem; }
+.rs-tiles { margin-bottom: .8rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.rs-tiles .stat-card { min-width: 0; }
 .rs-tiles .stat-value { font-variant-numeric: tabular-nums; }
 .rs-tiles .stat-value small { font-size: .78rem; font-weight: 600; color: var(--ink-soft); }
 .rs-tiles .stat-sub { font-size: .74rem; color: var(--ink-soft); margin-top: .1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .progress.thin { height: .38rem; }
+#tab-stats-panel, #routine-stats { min-width: 0; max-width: 100%; }
+#tab-stats-panel .card { min-width: 0; overflow-wrap: anywhere; }
 .rs-row { padding: .7rem 0; border-bottom: 1px solid var(--rule); }
 .rs-row:last-child { border-bottom: none; padding-bottom: .1rem; }
 .rs-row-top { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; margin-bottom: .4rem; }
-.rs-row-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; font-weight: 600; }
-.rs-row-pct { font-family: var(--font-mono); font-size: .86rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.rs-row-meta { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-top: .35rem; font-size: .76rem; color: var(--ink-soft); }
+.rs-row-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; font-weight: 600; }
+.rs-row-pct { flex: none; font-family: var(--font-mono); font-size: .86rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rs-row-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .1rem .6rem; margin-top: .35rem; font-size: .76rem; color: var(--ink-soft); }
 .rs-row-meta .streak-flame svg { width: 14px; height: 14px; }
 .streak-flame { display: inline-flex; align-items: center; gap: .3rem; vertical-align: middle; }
 .streak-flame svg { width: 17px; height: 17px; color: var(--warning); }
@@ -1258,6 +1262,47 @@ button,[role="button"],a,label,input,select,textarea,.prayer-toggle,.checkbox{-w
 .pl-sum div{background:var(--paper);border:1px solid var(--rule);border-radius:var(--radius-m);padding:.55rem .6rem;text-align:center}
 .pl-sum b{display:block;font-family:var(--font-mono);font-size:1.25rem}
 .pl-sum span{font-size:.7rem;color:var(--ink-soft)}
+
+/* ==========================================================================
+   Taşma güvenceleri — dar ekran, uzun/boşluksuz metin, büyük tutarlar
+   ========================================================================== */
+.row-title, .row-sub, .card-head h3, .card h3, .section-title h2, .of-body, .of-body .s, .dh-txt,
+.chip, .stat-label, .modal h3, .modal p, .card-sub { overflow-wrap: anywhere; }
+.card-head { min-width: 0; }
+.card-head > h3 { flex: 1 1 auto; min-width: 0; }
+.card-head > .chip, .card-head > .link-btn { flex: none; }
+.section-title > h2 { min-width: 0; }
+.tag-row { min-width: 0; max-width: 100%; }
+.chip { max-width: 100%; min-width: 0; }
+.fin-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fin-flow > div { min-width: 0; }
+.fin-flow b { font-size: clamp(.72rem, 3.5vw, 1rem); overflow-wrap: anywhere; }
+.fin-hero .big { overflow-wrap: anywhere; }
+#dash-card-config-list .list-row { gap: .5rem; }
+@media (max-width: 380px) {
+  #dash-card-config-list button.icon-btn { width: 2.2rem; height: 2.2rem; }
+  #dash-card-config-list .list-row > span.icon-btn { display: none; }
+}
+h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
+/* Finans alt sayfaları: başlık + eylemler dar ekranda alt satıra insin; hesap kartları taşmasın */
+.fin-subhead { flex-wrap: wrap; row-gap: .5rem; }
+.fin-subtitle { flex: 1 1 8rem; }
+.fin-subact { flex: 0 1 auto; flex-wrap: wrap; margin-left: auto; justify-content: flex-end; }
+[data-sub="accounts"] .fin-accs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fin-acc { min-width: 0; }
+.fin-acc .n, .fin-acc .t, .fin-acc .s { overflow-wrap: anywhere; }
+.fin-acc .v { font-size: clamp(.8rem, 3.8vw, 1.15rem); overflow-wrap: anywhere; }
+/* Yan yana alanlar (ör. başlangıç/bitiş tarihi) dar ekranda alt alta geçsin */
+.field-row { flex-wrap: wrap; }
+.field-row .field { flex: 1 1 8rem; min-width: 0; }
+.field-row .field input, .field-row .field select { min-width: 0; max-width: 100%; }
+/* Çok dar ekranlar (≈280 px): süzgeç/sıralama satırı ve finans özet karoları */
+.section-title { flex-wrap: wrap; row-gap: .4rem; }
+#task-sort { min-width: 0; max-width: 100%; }
+.fin-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fin-tile b { font-size: clamp(.72rem, 4vw, .98rem); overflow-wrap: anywhere; }
+/* Son güvence: beklenmeyen bir öğe sayfayı yana kaydırmasın (clip, kaydırma kabı oluşturmaz) */
+[id^="view-"] { overflow-x: clip; }
 </style>
 <script>
   (function () {
@@ -1761,6 +1806,7 @@ var STORAGE_KEYS = {
   prayers: 'gunlukAjandam_prayers',
   finance: 'gunlukAjandam_finance',
   accounts: 'gunlukAjandam_accounts',
+  defaultAccount: 'gunlukAjandam_defaultAccount',
   installments: 'gunlukAjandam_installments',
   notifiedBudgetOverruns: 'gunlukAjandam_notifiedBudgetOverruns',
   budget: 'gunlukAjandam_budget',
@@ -1777,7 +1823,7 @@ var STORAGE_KEYS = {
   dashboardCards: 'gunlukAjandam_dashboardCards'
 };
 
-var USER_SCOPED_KEYS = ['user', 'xp', 'tasks', 'routines', 'events', 'goals', 'vocab', 'reading', 'prayers', 'finance', 'accounts', 'installments', 'notifiedBudgetOverruns', 'budget', 'recurringFinance', 'finPlan', 'noteFolders', 'notes', 'transfers', 'savingsGoals', 'lastImport'];
+var USER_SCOPED_KEYS = ['user', 'xp', 'tasks', 'routines', 'events', 'goals', 'vocab', 'reading', 'prayers', 'finance', 'accounts', 'installments', 'notifiedBudgetOverruns', 'budget', 'recurringFinance', 'finPlan', 'noteFolders', 'notes', 'transfers', 'savingsGoals', 'lastImport', 'defaultAccount'];
 
 var ACTIVE_USER_ID_KEY = 'gunlukAjandam_activeUserId';
 var DEFAULT_USER_ID = 'default';
@@ -3230,7 +3276,7 @@ function processRecurringFinance() {
     var already = finance.some(function (f) { return f.source === 'recurring' && f.recurringId === t.id && f.date && f.date.slice(0, 7) === monthPrefix; });
     var dom = clamp(t.dayOfMonth, 1, lastDay);
     if (!already && todayDom >= dom) {
-      finance.push({ id: uid(), title: t.title, amount: t.amount, type: t.type, category: t.category, date: monthPrefix + '-' + pad2(dom), source: 'recurring', recurringId: t.id });
+      finance.push({ id: uid(), title: t.title, amount: t.amount, type: t.type, category: t.category, date: monthPrefix + '-' + pad2(dom), source: 'recurring', recurringId: t.id, accountId: recurringAccountId(t) });
       changed = true;
     }
   });
@@ -6632,11 +6678,23 @@ function getAccounts() {
 }
 function saveAccounts(list) { set('accounts', list); }
 
+/* Yeni kayıtların (işlem, taksit, sabit işlem, ekstre, transfer) varsayılan hesabı.
+   Seçilen hesap saklanır; yoksa ya da silinmişse ilk hesaba düşer. */
+function getDefaultAccountId() {
+  var accounts = getAccounts(), id = get('defaultAccount', null);
+  return accounts.some(function (a) { return a.id === id; }) ? id : accounts[0].id;
+}
+function setDefaultAccountId(id) { if (id && id !== get('defaultAccount', null)) set('defaultAccount', id); }
+/* Sabit işlem şablonunun hesabı; silinmiş/boşsa varsayılan hesap. */
+function recurringAccountId(t) {
+  return getAccounts().some(function (a) { return a.id === t.accountId; }) ? t.accountId : getDefaultAccountId();
+}
+
 /* Hesabı olmayan (accountId alanı boş) her finans kaydını varsayılan
    hesaba bağlar. Yeni kullanıcı/temiz kurulumlarda no-op'tur. */
 function ensureFinanceAccountMigration() {
   var accounts = getAccounts(); // yoksa burada oluşturulur
-  var defaultId = accounts[0].id;
+  var defaultId = getDefaultAccountId();
   var finance = getFinance();
   var changed = false;
   finance = finance.map(function (f) {
@@ -7915,7 +7973,7 @@ function openStatementImport(text, preRaw, preRows) {
     }
     var h = '<p class="muted" style="margin-top:0">' + state.items.length + ' işlem bulundu · ' + news + ' yeni · ' + (state.items.length - news) + ' zaten kayıtlı</p>' + metaHTML +
       '<div class="field"><label>Hesap / Kart</label><select id="si-account" style="' + selStyle + '">' +
-      accounts.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>'; }).join('') + '</select></div>' +
+      accounts.map(function (a) { return '<option value="' + esc(a.id) + '"' + (a.id === getDefaultAccountId() ? ' selected' : '') + '>' + esc(a.name) + '</option>'; }).join('') + '</select></div>' +
       '<label style="display:flex;align-items:center;gap:.5rem;margin:.2rem 0 .7rem;font-size:.88rem"><input type="checkbox" id="si-invert"' + (state.invert ? ' checked' : '') + '> Gelir/gider yönü ters çıktıysa işaretle</label>' +
       '<p id="si-check" class="muted" style="margin:.2rem 0"></p>' +
       '<div style="display:flex;flex-wrap:wrap;gap:.4rem;margin:.4rem 0 .5rem">' +
@@ -8396,6 +8454,7 @@ function accountTypeLabel(type) {
 
 function renderAccounts() {
   var el = document.getElementById('fin-accounts');
+  var defAccId = getDefaultAccountId();
   el.innerHTML = getAccounts().map(function (a) {
     var bal = accountBalance(a.id), cc = a.type === 'credit_card', limit = Number(a.cardLimit) || 0, used = Math.max(0, -bal), sd = Number(a.statementDay), extra = '', val;
     if (cc) {
@@ -8403,7 +8462,7 @@ function renderAccounts() {
       if (limit) extra += '<div class="bar"><i style="width:' + Math.min(100, used / limit * 100) + '%"></i></div><div class="s">Limit ' + finMask(formatMoney(limit)) + ' \u00b7 %' + Math.round(used / limit * 100) + ' kullanıldı</div>';
       if (sd) extra += '<div class="s">Hesap kesimi: ' + inDaysLabel(daysFromToday(nextDayOfMonth(sd))).toLowerCase() + '</div>';
     } else { val = finMask(formatMoney(bal)); if (a.bank) extra = '<div class="s">' + esc(a.bank) + '</div>'; }
-    return '<button type="button" class="fin-acc" data-account-id="' + a.id + '" style="background:' + esc(a.color || '#2563EB') + '"><span class="n">' + esc(a.name) + '</span><span class="t">' + accountTypeLabel(a.type) + (cc ? ' \u00b7 borç' : '') + '</span><span class="v">' + val + '</span>' + extra + '</button>';
+    return '<button type="button" class="fin-acc" data-account-id="' + a.id + '" style="background:' + esc(a.color || '#2563EB') + '"><span class="n">' + esc(a.name) + '</span><span class="t">' + accountTypeLabel(a.type) + (cc ? ' \u00b7 borç' : '') + (a.id === defAccId ? ' \u00b7 varsayılan' : '') + '</span><span class="v">' + val + '</span>' + extra + '</button>';
   }).join('') + '<button type="button" class="fin-acc add" id="fin-acc-new">' + icon('plus') + ' Hesap ekle</button>';
   el.querySelectorAll('[data-account-id]').forEach(function (b) { b.onclick = function () { openAccountSheet(b.dataset.accountId); }; });
   document.getElementById('fin-acc-new').onclick = function () { openAccountSheet(null); };
@@ -8414,6 +8473,7 @@ function openAccountSheet(id) {
   var a = id ? accounts.find(function (x) { return x.id === id; }) : null;
   var isNew = !a;
   var isOnlyAccount = accounts.length <= 1;
+  var isCurDefault = !isNew && a.id === getDefaultAccountId();
   var draft = a ? JSON.parse(JSON.stringify(a)) : { id: uid(), name: '', type: 'bank', bank: '', cardLimit: '', statementDay: '', color: ACCOUNT_COLORS[accounts.length % ACCOUNT_COLORS.length], createdAt: todayISO() };
 
   function bodyHTML() {
@@ -8427,6 +8487,8 @@ function openAccountSheet(id) {
       '<div class="field-row"><div class="field"><label>Kart limiti</label><input type="number" id="acf-limit" value="' + esc(draft.cardLimit === undefined ? '' : String(draft.cardLimit)) + '" placeholder="Ör. 50000"></div>' +
       '<div class="field"><label>Hesap kesim günü</label><input type="number" min="1" max="31" id="acf-statement" value="' + esc(draft.statementDay === undefined ? '' : String(draft.statementDay)) + '" placeholder="Ör. 15"></div></div>' +
       '</div>' +
+      '<label class="rep-switch" style="margin:.2rem 0 .9rem"><input type="checkbox" id="acf-default"' + (isNew || isCurDefault ? ' checked' : '') + (isCurDefault ? ' disabled' : '') + '><span>' +
+        (isCurDefault ? 'Varsayılan hesap: yeni işlemler buna yazılır' : 'Yeni işlemler için varsayılan hesap yap') + '</span></label>' +
       '<div class="stack" style="margin-top:.5rem">' +
       '<button class="btn btn-primary btn-block" id="acf-save">Kaydet</button>' +
       (isNew || isOnlyAccount ? '' : '<button class="btn btn-danger btn-block" id="acf-delete">Hesabı sil</button>') +
@@ -8458,9 +8520,12 @@ function openAccountSheet(id) {
         var idx = all.findIndex(function (x) { return x.id === draft.id; });
         if (idx === -1) all.push(draft); else all[idx] = draft;
         saveAccounts(all);
+        var defBox = document.getElementById('acf-default');
+        var makeDef = !!(defBox && defBox.checked && !isCurDefault);
+        if (makeDef) setDefaultAccountId(draft.id);
         closeSheet();
         renderAccounts();
-        showToast('Kaydedildi');
+        showToast(makeDef ? 'Kaydedildi · yeni işlemler bu hesaba yazılacak' : 'Kaydedildi');
       });
       var delBtn = document.getElementById('acf-delete');
       if (delBtn) {
@@ -8471,7 +8536,7 @@ function openAccountSheet(id) {
             if (!ok) return;
             var remaining = getAccounts().filter(function (x) { return x.id !== draft.id; });
             saveAccounts(remaining);
-            var fallbackId = remaining[0].id;
+            var fallbackId = getDefaultAccountId();
             var fin = getFinance().map(function (f) { if (f.accountId === draft.id) f.accountId = fallbackId; return f; });
             saveFinance(fin);
             saveTransfers(getTransfers().map(function (t) { if (t.from === draft.id) t.from = fallbackId; if (t.to === draft.id) t.to = fallbackId; return t; }).filter(function (t) { return t.from !== t.to; }));
@@ -8516,7 +8581,7 @@ function renderInstallments() {
 
 function openInstallmentSheet() {
   var accounts = getAccounts();
-  var draft = { id: uid(), title: '', totalAmount: '', installmentCount: 3, monthlyAmount: '', startMonth: finSelectedMonth, accountId: accounts[0].id, category: '', paidMonths: [] };
+  var draft = { id: uid(), title: '', totalAmount: '', installmentCount: 3, monthlyAmount: '', startMonth: finSelectedMonth, accountId: getDefaultAccountId(), category: '', paidMonths: [] };
 
   function bodyHTML() {
     return '' +
@@ -9084,9 +9149,9 @@ function openTransactionSheet(id, presetType) {
   var f = id ? list.find(function (x) { return x.id === id; }) : null;
   var isNew = !f;
   var accounts = getAccounts();
-  var draft = f ? JSON.parse(JSON.stringify(f)) : { id: uid(), title: '', amount: '', type: 'expense', category: '', date: todayISO(), source: 'manual', accountId: accounts[0].id };
+  var draft = f ? JSON.parse(JSON.stringify(f)) : { id: uid(), title: '', amount: '', type: 'expense', category: '', date: todayISO(), source: 'manual', accountId: getDefaultAccountId() };
   if (isNew && presetType) draft.type = presetType;
-  if (!draft.accountId) draft.accountId = accounts[0].id;
+  if (!draft.accountId) draft.accountId = getDefaultAccountId();
 
   function bodyHTML() {
     return '' +
@@ -9142,6 +9207,7 @@ function openTransactionSheet(id, presetType) {
           var idx = all.findIndex(function (x) { return x.id === draft.id; });
           if (idx === -1) all.push(draft); else all[idx] = draft;
           saveFinance(all);
+          if (isNew) setDefaultAccountId(draft.accountId); // son kullanılan hesap bir sonraki işlemde varsayılan olur
           closeSheet();
           renderAll();
           checkBudgetOverrunsAndNotify();
@@ -9184,7 +9250,9 @@ function openRecurringSheet(id) {
   var list = getRecurring();
   var r = id ? list.find(function (x) { return x.id === id; }) : null;
   var isNew = !r;
-  var draft = r ? JSON.parse(JSON.stringify(r)) : { id: uid(), title: '', amount: '', type: 'expense', category: '', dayOfMonth: 1 };
+  var draft = r ? JSON.parse(JSON.stringify(r)) : { id: uid(), title: '', amount: '', type: 'expense', category: '', dayOfMonth: 1, accountId: getDefaultAccountId() };
+  draft.accountId = recurringAccountId(draft);
+  var rcfAccounts = getAccounts();
   function dayOptionsHTML() {
     var out = '';
     for (var d = 1; d <= 31; d++) out += '<option value="' + d + '"' + (d === draft.dayOfMonth ? ' selected' : '') + '>' + d + '</option>';
@@ -9198,6 +9266,8 @@ function openRecurringSheet(id) {
       '<div class="field" style="position:relative"><label>Kategori</label>' +
       '<input type="text" id="rcf-category" value="' + esc(draft.category) + '" placeholder="Kategori seç ya da yeni yaz" autocomplete="off">' +
       '<div class="cat-dropdown" id="rcf-cat-dropdown" style="display:none"></div></div>' +
+      '<div class="field"><label>Hesap / Kart</label><select id="rcf-account" style="width:100%;background:var(--paper-raised);border:1px solid var(--rule-strong);border-radius:6px;padding:.62rem .7rem">' +
+      rcfAccounts.map(function (a) { return '<option value="' + esc(a.id) + '"' + (a.id === draft.accountId ? ' selected' : '') + '>' + esc(a.name) + '</option>'; }).join('') + '</select></div>' +
       '<label class="rep-switch" style="margin:.2rem 0 .9rem"><input type="checkbox" id="rcf-auto"' + (draft.noAuto ? '' : ' checked') + '><span>Her ay işlem kaydı olarak da ekle (kapalıysa yalnızca hatırlatma)</span></label>' +
       '<div class="stack"><button class="btn btn-primary btn-block" id="rcf-save">Kaydet</button>' +
       (isNew ? '' : '<button class="btn btn-danger btn-block" id="rcf-delete">Sil</button>') + '</div>';
@@ -9221,6 +9291,7 @@ function openRecurringSheet(id) {
         draft.title = title; draft.amount = amount; draft.dayOfMonth = day;
         draft.noAuto = !document.getElementById('rcf-auto').checked; if (!draft.noAuto) delete draft.noAuto;
         draft.category = document.getElementById('rcf-category').value.trim() || 'Diğer';
+        draft.accountId = document.getElementById('rcf-account').value;
         var all = getRecurring();
         var idx = all.findIndex(function (x) { return x.id === draft.id; });
         if (idx === -1) all.push(draft); else all[idx] = draft;
@@ -9314,13 +9385,16 @@ var SEL_STYLE = 'width:100%;background:var(--paper-raised);border:1px solid var(
 function openTransferSheet() {
   var accs = getAccounts();
   if (accs.length < 2) { showToast('Transfer için en az iki hesap gerekli'); return; }
+  var defId = getDefaultAccountId();
+  var trfFrom = Math.max(0, accs.findIndex(function (a) { return a.id === defId; }));
+  var trfTo = trfFrom === 0 ? 1 : 0;
   var sel = function (id, pick) {
     return '<select id="' + id + '" style="' + SEL_STYLE + '">' + accs.map(function (a, i) { return '<option value="' + esc(a.id) + '"' + (i === pick ? ' selected' : '') + '>' + esc(a.name) + '</option>'; }).join('') + '</select>';
   };
   openSheet({
     title: 'Hesaplar arası transfer',
-    bodyHTML: '<div class="field"><label>Nereden</label>' + sel('trf-from', 0) + '</div>' +
-      '<div class="field"><label>Nereye</label>' + sel('trf-to', 1) + '</div>' +
+    bodyHTML: '<div class="field"><label>Nereden</label>' + sel('trf-from', trfFrom) + '</div>' +
+      '<div class="field"><label>Nereye</label>' + sel('trf-to', trfTo) + '</div>' +
       '<div class="field-row"><div class="field"><label>Tutar</label><input type="number" step="0.01" id="trf-amount"></div><div class="field"><label>Tarih</label><input type="date" id="trf-date" value="' + todayISO() + '"></div></div>' +
       '<p class="hint">Kredi kartı borcunu ödemek için kartı "Nereye" olarak seç. Transferler gelir ya da gider sayılmaz.</p>' +
       '<button class="btn btn-primary btn-block" id="trf-save">Transfer et</button>',
