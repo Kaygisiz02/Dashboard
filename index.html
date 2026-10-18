@@ -457,12 +457,44 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .modal .modal-actions .btn { flex: 1; }
 
 /* ---- Heatmap / streak -----------------------------------------------------*/
-.heatmap { display: grid; grid-template-columns: repeat(7, 1fr); gap: .28rem; }
-.heatmap .cell { aspect-ratio: 1; border-radius: 5px; background: var(--rule); animation: cellIn .35s ease backwards; }
-@keyframes cellIn { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
-.heatmap .cell[data-level="1"] { background: color-mix(in srgb, var(--accent) 30%, var(--rule)); }
-.heatmap .cell[data-level="2"] { background: color-mix(in srgb, var(--accent) 60%, var(--rule)); }
-.heatmap .cell[data-level="3"] { background: var(--accent); }
+.heatmap { display: grid; grid-template-columns: 2.9rem repeat(7, 1fr); gap: .28rem; align-items: center; }
+.heatmap .hm-dow, .heatmap .hm-wk { font-size: .7rem; color: var(--ink-soft); text-align: center; }
+.heatmap .hm-wk { text-align: left; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.heatmap .cell { aspect-ratio: 1; min-width: 0; padding: 0; border: 0; border-radius: 5px; background: var(--rule); cursor: pointer; }
+.heatmap .cell[data-level="none"] { background: transparent; box-shadow: inset 0 0 0 1px var(--rule); }
+.heatmap .cell[data-level="wait"] { background: transparent; box-shadow: inset 0 0 0 1px var(--rule-strong); }
+.heatmap .cell[data-level="1"], .hm-legend i[data-level="1"] { background: color-mix(in srgb, var(--accent) 30%, var(--rule)); }
+.heatmap .cell[data-level="2"], .hm-legend i[data-level="2"] { background: color-mix(in srgb, var(--accent) 60%, var(--rule)); }
+.heatmap .cell[data-level="3"], .hm-legend i[data-level="3"] { background: var(--accent); }
+.heatmap .cell[data-today] { outline: 2px solid var(--ink); outline-offset: 1px; }
+.heatmap .cell.sel { box-shadow: 0 0 0 2px var(--paper-raised), 0 0 0 4px var(--accent); }
+.hm-foot { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-top: .75rem; min-height: 1.2rem; }
+.hm-legend { display: inline-flex; align-items: center; gap: .22rem; flex: none; font-size: .7rem; color: var(--ink-soft); }
+.hm-legend i { display: inline-block; width: .7rem; height: .7rem; border-radius: 3px; background: var(--rule); margin: 0; }
+.hm-legend span { margin: 0 .2rem; }
+
+/* ---- Rutin istatistikleri ---------------------------------------------------*/
+.rs-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: .8rem; margin-bottom: .8rem; }
+.rs-pct { font-family: var(--font-display); font-size: 2.7rem; font-weight: 800; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.rs-pct small { font-size: 1.1rem; font-weight: 700; color: var(--ink-soft); margin-left: .1rem; }
+.rs-cmp { display: flex; flex-direction: column; align-items: flex-end; gap: .25rem; text-align: right; min-width: 0; }
+.rs-cmp .card-sub { font-size: .72rem; max-width: 15ch; line-height: 1.25; }
+.rs-delta { font-size: .8rem; font-weight: 700; padding: .2rem .55rem; border-radius: 999px; background: var(--rule); color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rs-delta.up { background: color-mix(in srgb, var(--success) 18%, transparent); }
+.rs-delta.down { background: color-mix(in srgb, var(--danger) 16%, transparent); }
+.rs-note { margin: .6rem 0 0; }
+.rs-tiles { margin-bottom: .8rem; }
+.rs-tiles .stat-value { font-variant-numeric: tabular-nums; }
+.rs-tiles .stat-value small { font-size: .78rem; font-weight: 600; color: var(--ink-soft); }
+.rs-tiles .stat-sub { font-size: .74rem; color: var(--ink-soft); margin-top: .1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.progress.thin { height: .38rem; }
+.rs-row { padding: .7rem 0; border-bottom: 1px solid var(--rule); }
+.rs-row:last-child { border-bottom: none; padding-bottom: .1rem; }
+.rs-row-top { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; margin-bottom: .4rem; }
+.rs-row-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; font-weight: 600; }
+.rs-row-pct { font-family: var(--font-mono); font-size: .86rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rs-row-meta { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-top: .35rem; font-size: .76rem; color: var(--ink-soft); }
+.rs-row-meta .streak-flame svg { width: 14px; height: 14px; }
 .streak-flame { display: inline-flex; align-items: center; gap: .3rem; vertical-align: middle; }
 .streak-flame svg { width: 17px; height: 17px; color: var(--warning); }
 .streak-flame .n { font-family: var(--font-mono); font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -1296,17 +1328,20 @@ button,[role="button"],a,label,input,select,textarea,.prayer-toggle,.checkbox{-w
   </div>
 
   <div id="tab-stats-panel" style="margin-top:1rem;display:none">
-    <div class="card">
-      <div class="card-head"><h3>Isı haritası</h3><span class="card-sub" id="heatmap-range"></span></div>
-      <div class="heatmap" id="routine-heatmap"></div>
+    <div class="segmented" id="stats-period" role="group" aria-label="İstatistik dönemi" style="margin-bottom:.8rem">
+      <button data-v="week" class="active" aria-pressed="true">Bu hafta</button>
+      <button data-v="month" aria-pressed="false">Bu ay</button>
     </div>
 
-    <div class="card">
-      <div class="segmented" id="stats-period">
-        <button data-v="week" class="active">Bu hafta</button>
-        <button data-v="month">Bu ay</button>
+    <div id="routine-stats"></div>
+
+    <div class="card" id="routine-heatmap-card">
+      <div class="card-head"><h3>Günlük tamamlanma</h3><span class="card-sub" id="heatmap-range"></span></div>
+      <div class="heatmap" id="routine-heatmap" role="group" aria-label="Son haftaların günlük tamamlanma haritası"></div>
+      <div class="hm-foot">
+        <span class="card-sub" id="heatmap-detail" role="status" aria-live="polite">Ayrıntı için bir güne dokun.</span>
+        <span class="hm-legend" aria-hidden="true"><span>Az</span><i data-level="0"></i><i data-level="1"></i><i data-level="2"></i><i data-level="3"></i><span>Çok</span></span>
       </div>
-      <div id="routine-stats" style="margin-top:.7rem"></div>
     </div>
   </div>
 </main>
@@ -4623,66 +4658,166 @@ var DAY_CODES = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
 var DAY_LABELS = { MO: 'Pt', TU: 'Sa', WE: 'Ça', TH: 'Pe', FR: 'Cu', SA: 'Ct', SU: 'Pz' };
 var routineStatsPeriod = 'week';
 
+function shortDate(iso) { var d = parseISO(iso); return d.getDate() + ' ' + MONTHS_TR[d.getMonth()].slice(0, 3); }
+
+/* Bir rutinin belirli gündeki durumu: 'done' | 'missed' | 'pending' (yalnız bugün) | null (planlı değil).
+   Rutin oluşturulmadan önceki günler ve henüz bitmemiş bugün başarısızlık sayılmaz. */
+function routineDayState(r, iso, today) {
+  if (r.log && r.log[iso]) return 'done';
+  if (!isRoutineDue(r, iso)) return null;
+  var c = (r.createdAt || '').slice(0, 10);
+  if (c && iso < c) return null;
+  return iso === today ? 'pending' : 'missed';
+}
+function routineDayTally(routines, iso, today) {
+  var t = { done: 0, missed: 0, pending: 0 };
+  routines.forEach(function (r) { var st = routineDayState(r, iso, today); if (st) t[st]++; });
+  return t;
+}
+
 function renderHeatmap() {
   var today = todayISO();
   var start = startOfWeek(addDays(today, -34));
   var routines = getRoutines().filter(function (r) { return !r.archived; });
-  var html = '', d = start, guard = 0, i = 0;
+  var card = document.getElementById('routine-heatmap-card');
+  if (card) card.hidden = !routines.length;
+  var html = '<span></span>' + DAY_CODES.map(function (c) { return '<span class="hm-dow" aria-hidden="true">' + DAY_LABELS[c] + '</span>'; }).join('');
+  var d = start, guard = 0;
   while (d <= today && guard < 60) {
-    var due = routines.filter(function (r) { return isRoutineDue(r, d); });
-    var done = due.filter(function (r) { return r.log && r.log[d]; }).length;
-    var level = 0;
-    if (due.length) { var ratio = done / due.length; level = ratio === 0 ? 0 : ratio < .5 ? 1 : ratio < .9 ? 2 : 3; }
-    html += '<div class="cell" data-level="' + level + '" style="animation-delay:' + (i * 6) + 'ms" title="' + d + ': ' + done + '/' + due.length + '"></div>';
-    d = addDays(d, 1); guard++; i++;
+    if (isoWeekdayMon0(d) === 0) html += '<span class="hm-wk" aria-hidden="true">' + shortDate(d) + '</span>';
+    var t = routineDayTally(routines, d, today);
+    var all = t.done + t.missed + t.pending, level = 'none';
+    if (all) {
+      if (d === today && !t.done) level = 'wait';
+      else { var ratio = t.done / all; level = ratio === 0 ? '0' : ratio < .5 ? '1' : ratio < .9 ? '2' : '3'; }
+    }
+    var label = formatDateTR(d, { year: false, weekday: true }) + ': ' + (all ? t.done + '/' + all + ' rutin tamamlandı' : 'planlı rutin yok');
+    html += '<button type="button" class="cell" data-level="' + level + '"' + (d === today ? ' data-today="1"' : '') + ' aria-label="' + label + '" title="' + label + '"></button>';
+    d = addDays(d, 1); guard++;
   }
-  document.getElementById('routine-heatmap').innerHTML = html;
-  document.getElementById('heatmap-range').textContent = formatDateTR(start, { year: false }) + ' – ' + formatDateTR(today, { year: false });
+  var el = document.getElementById('routine-heatmap');
+  el.innerHTML = html;
+  document.getElementById('heatmap-range').textContent = shortDate(start) + ' – ' + shortDate(today);
+  document.getElementById('heatmap-detail').textContent = 'Ayrıntı için bir güne dokun.';
+  if (!el.dataset.bound) {
+    el.dataset.bound = '1';
+    el.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('.cell') : null;
+      if (!b) return;
+      var prev = el.querySelector('.cell.sel');
+      if (prev) prev.classList.remove('sel');
+      b.classList.add('sel');
+      document.getElementById('heatmap-detail').textContent = b.getAttribute('aria-label');
+    });
+  }
 }
 
-function periodRange(period) {
+/* Dönem aralığı + karşılaştırma aralığı (önceki dönemin aynı sayıda günü). */
+function periodRanges(period) {
   var today = todayISO();
-  return period === 'week' ? { start: startOfWeek(today), end: today } : { start: startOfMonth(today), end: today };
+  var start = period === 'week' ? startOfWeek(today) : startOfMonth(today);
+  var n = daysBetween(start, today) + 1;
+  var pStart = period === 'week' ? addDays(start, -7) : startOfMonth(addDays(start, -1));
+  var pEnd = addDays(pStart, n - 1), pMax = addDays(start, -1);
+  if (pEnd > pMax) pEnd = pMax;
+  return { cur: { start: start, end: today }, prev: { start: pStart, end: pEnd } };
+}
+
+function tallyRange(routines, range, today) {
+  var out = { done: 0, due: 0, pending: 0, perfect: 0, planned: 0, per: {} };
+  routines.forEach(function (r) { out.per[r.id] = { due: 0, done: 0 }; });
+  var d = range.start, guard = 0;
+  while (d <= range.end && guard < 62) {
+    var dDone = 0, dMissed = 0, dPending = 0;
+    routines.forEach(function (r) {
+      var st = routineDayState(r, d, today), p = out.per[r.id];
+      if (st === 'done') { p.due++; p.done++; dDone++; }
+      else if (st === 'missed') { p.due++; dMissed++; }
+      else if (st === 'pending') dPending++;
+    });
+    out.done += dDone; out.due += dDone + dMissed; out.pending += dPending;
+    if (dDone + dMissed + dPending > 0 && !dPending) { out.planned++; if (!dMissed) out.perfect++; }
+    d = addDays(d, 1); guard++;
+  }
+  return out;
 }
 
 function computeRoutinePeriodStats(period) {
-  var range = periodRange(period);
+  var today = todayISO(), rg = periodRanges(period);
   var routines = getRoutines().filter(function (r) { return !r.archived; });
-  var totalDue = 0, totalDone = 0;
-  var perRoutine = routines.map(function (r) {
-    var due = 0, done = 0, d = range.start, guard = 0;
-    while (d <= range.end && guard < 40) {
-      if (isRoutineDue(r, d)) { due++; if (r.log && r.log[d]) done++; }
-      d = addDays(d, 1); guard++;
-    }
-    totalDue += due; totalDone += done;
-    return { r: r, due: due, done: done, pct: due ? (done / due) * 100 : null };
-  }).filter(function (x) { return x.due > 0; });
-  perRoutine.sort(function (a, b) { return b.pct - a.pct; });
+  var cur = tallyRange(routines, rg.cur, today), prev = tallyRange(routines, rg.prev, today);
+  var rows = routines.map(function (r) {
+    var p = cur.per[r.id], st = computeRoutineStats(r);
+    return { r: r, due: p.due, done: p.done, pct: p.due ? Math.round((p.done / p.due) * 100) : null, current: st.current, longest: st.longest };
+  });
+  rows.sort(function (a, b) {
+    if ((a.pct === null) !== (b.pct === null)) return a.pct === null ? 1 : -1;
+    return ((b.pct || 0) - (a.pct || 0)) || (b.due - a.due) || String(a.r.title).localeCompare(String(b.r.title), 'tr');
+  });
+  var bestCur = null, bestLong = null;
+  rows.forEach(function (x) {
+    if (x.current > 0 && (!bestCur || x.current > bestCur.current)) bestCur = x;
+    if (x.longest > 0 && (!bestLong || x.longest > bestLong.longest)) bestLong = x;
+  });
+  var pct = cur.due ? Math.round((cur.done / cur.due) * 100) : null;
+  var prevPct = prev.due ? Math.round((prev.done / prev.due) * 100) : null;
   return {
-    pct: totalDue ? Math.round((totalDone / totalDue) * 100) : null,
-    totalDue: totalDue, totalDone: totalDone,
-    best: perRoutine[0] || null,
-    worst: perRoutine.length > 1 ? perRoutine[perRoutine.length - 1] : null
+    range: rg.cur, hasRoutines: routines.length > 0, rows: rows,
+    pct: pct, done: cur.done, due: cur.due, pending: cur.pending,
+    perfect: cur.perfect, planned: cur.planned,
+    delta: (pct !== null && prevPct !== null) ? pct - prevPct : null,
+    bestCur: bestCur, bestLong: bestLong
   };
 }
 
 function renderRoutineStats() {
   var s = computeRoutinePeriodStats(routineStatsPeriod);
   var el = document.getElementById('routine-stats');
-  if (s.pct === null) { el.innerHTML = '<p class="muted mt0">Bu dönemde veri yok.</p>'; return; }
-  el.innerHTML =
-    '<div class="card-head mt0"><h3>Tamamlanma</h3><span class="card-stat">%' + s.pct + '</span></div>' +
-    '<div class="progress"><div id="routine-progress-fill" style="width:0%"></div></div>' +
-    '<div class="card-sub" style="margin-top:.4rem">' + s.totalDone + ' / ' + s.totalDue + ' tamamlandı</div>' +
-    (s.best ? '<hr class="divider">' +
-      '<div class="row-sub">En iyi: <strong>' + esc(s.best.r.title) + '</strong> (%' + Math.round(s.best.pct) + ')</div>' +
-      (s.worst ? '<div class="row-sub">En düşük: <strong>' + esc(s.worst.r.title) + '</strong> (%' + Math.round(s.worst.pct) + ')</div>' : '')
-      : '');
+  var isWeek = routineStatsPeriod === 'week';
+  if (!s.hasRoutines) {
+    el.innerHTML = '<div class="empty"><div class="glyph">↻</div><p>Rutin ekledikçe tamamlanma oranın ve serilerin burada görünür. Sağ alttaki + ile ilk rutinini ekle.</p></div>';
+    return;
+  }
+  var rangeTxt = s.range.start === s.range.end ? shortDate(s.range.end) : shortDate(s.range.start) + ' – ' + shortDate(s.range.end);
+  var head = '<div class="card-head"><h3>' + (isWeek ? 'Bu hafta' : 'Bu ay') + '</h3><span class="card-sub">' + rangeTxt + '</span></div>';
+  if (s.pct === null) {
+    el.innerHTML = '<div class="card">' + head + '<p class="muted mt0">' +
+      (s.pending ? 'Bugünün rutinlerini tamamladıkça istatistikler burada belirir.' : 'Bu dönemde planlı rutin yok.') + '</p></div>';
+    return;
+  }
+  var delta = '';
+  if (s.delta !== null) {
+    var cls = s.delta > 0 ? 'up' : s.delta < 0 ? 'down' : '';
+    var txt = s.delta === 0 ? 'Değişim yok' : (s.delta > 0 ? '+' : '−') + Math.abs(s.delta) + ' puan';
+    delta = '<div class="rs-cmp"><span class="rs-delta ' + cls + '">' + txt + '</span><span class="card-sub">' + (isWeek ? 'geçen haftanın aynı günlerine göre' : 'geçen ayın aynı günlerine göre') + '</span></div>';
+  }
+  function tile(value, unit, label, sub) {
+    return '<div class="stat-card"><div class="stat-value">' + value + (unit ? ' <small>' + unit + '</small>' : '') + '</div>' +
+      '<div class="stat-label">' + label + '</div>' + (sub ? '<div class="stat-sub">' + sub + '</div>' : '') + '</div>';
+  }
+  var summary = '<div class="card">' + head +
+    '<div class="rs-hero"><div><div class="rs-pct">' + s.pct + '<small>%</small></div><div class="card-sub">' + s.done + ' / ' + s.due + ' tamamlandı</div></div>' + delta + '</div>' +
+    '<div class="progress" role="progressbar" aria-label="Tamamlanma oranı" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + s.pct + '"><div data-w="' + s.pct + '" style="width:0%"></div></div>' +
+    (s.pending ? '<p class="card-sub rs-note">Bugünün bekleyen ' + s.pending + ' rutini henüz hesaba katılmadı.</p>' : '') + '</div>';
+  var tiles = '<div class="stat-grid rs-tiles">' +
+    tile(s.bestCur ? s.bestCur.current : 0, 'gün', 'Aktif seri', s.bestCur ? esc(s.bestCur.r.title) : 'Şu an seri yok') +
+    tile(s.bestLong ? s.bestLong.longest : 0, 'gün', 'En uzun seri', s.bestLong ? esc(s.bestLong.r.title) : '') +
+    tile(s.perfect + '/' + s.planned, '', 'Tam gün', 'tüm rutinler yapıldı') +
+    tile(s.due - s.done, '', 'Kaçırılan', 'yapılmayan rutin') + '</div>';
+  var rows = s.rows.map(function (x) {
+    var meta = x.pct === null ? 'Henüz sonuçlanan gün yok' : x.done + ' / ' + x.due + ' gün';
+    var streak = x.current ? '<span class="streak-flame">' + icon('flame') + '<span>' + x.current + ' gün seri</span></span>' : '';
+    var bar = '<div class="progress thin' + (x.pct !== null && x.pct < 50 ? ' warn' : '') + '"' +
+      (x.pct !== null ? ' role="progressbar" aria-label="' + esc(x.r.title) + '" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + x.pct + '"' : '') +
+      '><div data-w="' + (x.pct || 0) + '" style="width:0%"></div></div>';
+    return '<div class="rs-row"><div class="rs-row-top"><span class="rs-row-title">' + esc(x.r.title) + '</span><span class="rs-row-pct">' + (x.pct === null ? '—' : '%' + x.pct) + '</span></div>' +
+      bar + '<div class="rs-row-meta"><span>' + meta + '</span>' + streak + '</div></div>';
+  }).join('');
+  var breakdown = '<div class="card"><div class="card-head"><h3>Rutinlere göre</h3><span class="card-sub">' + s.rows.length + ' rutin</span></div>' + rows + '</div>';
+  el.innerHTML = summary + tiles + breakdown;
   requestAnimationFrame(function () {
     requestAnimationFrame(function () {
-      var fill = document.getElementById('routine-progress-fill');
-      if (fill) fill.style.width = s.pct + '%';
+      el.querySelectorAll('[data-w]').forEach(function (b) { b.style.width = b.dataset.w + '%'; });
     });
   });
 }
@@ -4915,7 +5050,7 @@ function initRoutines() {
   document.querySelectorAll('#stats-period button').forEach(function (b) {
     b.addEventListener('click', function () {
       routineStatsPeriod = b.dataset.v;
-      document.querySelectorAll('#stats-period button').forEach(function (x) { x.classList.toggle('active', x === b); });
+      document.querySelectorAll('#stats-period button').forEach(function (x) { x.classList.toggle('active', x === b); x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
       renderRoutineStats();
     });
   });
