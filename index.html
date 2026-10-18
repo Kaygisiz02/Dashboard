@@ -7950,16 +7950,19 @@ function openStatementImport(text, preRaw, preRows) {
   if (!raw.length) { showToast('Dosyada içe aktarılacak işlem bulunamadı'); return; }
 
   var accounts = getAccounts();
-  var state = { invert: false, onlyWarn: false, flips: {}, items: [], limit: 300 };
+  var state = { invert: false, onlyWarn: false, flips: {}, items: [], limit: 300, accId: getActiveAccountId() === 'all' ? '' : getActiveAccountId() };
+  var accNameById = {}; accounts.forEach(function (a) { accNameById[a.id] = a.name; });
 
   function build() {
-    var existing = {}, existingRef = {};
-    getFinance().forEach(function (f) {
+    /* Tekrar kontrolü YALNIZ hedef hesabın kayıtlarına bakar; başka hesapta aynı satır varsa sadece bilgi notu düşer. */
+    var existing = {}, existingRef = {}, elsewhere = {};
+    if (state.accId) getFinance().forEach(function (f) {
       var k = stmtKey(f.date, f.amount, f.type, f.title);
+      if (f.accountId !== state.accId) { if (!elsewhere[k]) elsewhere[k] = f.accountId; return; }
       existing[k] = (existing[k] || 0) + 1;
       if (f.ref) { var rk = f.ref + '|' + f.date + '|' + (Math.round(Math.abs(Number(f.amount)) * 100) / 100).toFixed(2); existingRef[rk] = (existingRef[rk] || 0) + 1; }
     });
-    var prevOn = state.items.length === raw.length ? state.items.map(function (it) { return it.on; }) : null;
+    var prevItems = state.items.length === raw.length ? state.items : null;
     state.items = raw.map(function (x, idx) {
       var sg = state.invert ? -x.signed : x.signed;
       var type = sg > 0 ? 'income' : 'expense';
@@ -7970,7 +7973,8 @@ function openStatementImport(text, preRaw, preRows) {
       var dup = false;
       if (rk && existingRef[rk] > 0) { dup = true; existingRef[rk]--; if (existing[k] > 0) existing[k]--; }
       else if (existing[k] > 0) { dup = true; existing[k]--; }
-      return { date: x.date, title: x.title, type: type, amount: amount, dup: dup, warn: x.warn || '', ref: x.ref || '', on: prevOn ? prevOn[idx] : (!dup && !(x.warn && /doğrulanamadı/.test(x.warn))) };
+      var autoOn = !dup && !(x.warn && /doğrulanamadı/.test(x.warn));
+      return { date: x.date, title: x.title, type: type, amount: amount, dup: dup, other: (!dup && elsewhere[k]) ? (accNameById[elsewhere[k]] || '') : '', warn: x.warn || '', ref: x.ref || '', on: prevItems ? (prevItems[idx].dup !== dup ? autoOn : prevItems[idx].on) : autoOn };
     });
   }
 
@@ -7978,7 +7982,7 @@ function openStatementImport(text, preRaw, preRows) {
     var x = state.items[i];
         return '<label class="list-row" data-row="' + i + '" style="cursor:pointer;gap:.6rem' + ((state.onlyWarn && !x.warn) ? ';display:none' : '') + '"><input type="checkbox" data-si="' + i + '"' + (x.on ? ' checked' : '') + '>' +
           '<span class="row-main"><span class="row-title" style="display:block;overflow-wrap:anywhere">' + esc(x.title.slice(0, 110)) + '</span>' +
-          '<span class="row-sub" style="display:block">' + esc(formatDateTR(x.date)) + (x.dup ? ' · zaten kayıtlı' : '') + (x.warn ? ' · ⚠ ' + esc(x.warn) : '') + (state.flips[i] ? ' · yön elle değiştirildi' : '') + '</span></span>' +
+          '<span class="row-sub" style="display:block">' + esc(formatDateTR(x.date)) + (x.dup ? ' · bu hesapta zaten kayıtlı' : '') + (x.other ? ' · ' + esc(x.other) + ' hesabında da var' : '') + (x.warn ? ' · ⚠ ' + esc(x.warn) : '') + (state.flips[i] ? ' · yön elle değiştirildi' : '') + '</span></span>' +
           '<button type="button" class="mono" data-flip="' + i + '" title="Gelir/gider yönünü çevir" style="color:' + (x.type === 'income' ? 'var(--success)' : 'var(--danger)') + ';background:transparent;border:1px solid var(--rule-strong);border-radius:6px;padding:.25rem .45rem;white-space:nowrap">' + (x.type === 'income' ? '+' : '−') + formatMoney(x.amount) + ' ⇄</button></label>';
   }
   function visibleIdx() {
@@ -7990,6 +7994,12 @@ function openStatementImport(text, preRaw, preRows) {
     var v = visibleIdx(), shown = v.slice(0, state.limit);
     return shown.map(rowHTML).join('') + (v.length > shown.length ? '<button type="button" class="btn btn-secondary btn-block" id="si-more" style="margin:.5rem 0">Daha fazla göster (' + (v.length - shown.length) + ' satır daha)</button>' : '');
   }
+
+  function countText() {
+    var news = state.items.filter(function (x) { return !x.dup; }).length;
+    return state.items.length + ' işlem bulundu · ' + news + ' yeni · ' + (state.items.length - news) + ' bu hesapta zaten kayıtlı' + (state.accId ? '' : ' · hesap seçince tekrar kontrolü yapılır');
+  }
+  function refreshCount() { var c = document.getElementById('si-count'); if (c) c.textContent = countText(); }
 
   function bodyHTML() {
     var news = state.items.filter(function (x) { return !x.dup; }).length;
@@ -8008,7 +8018,7 @@ function openStatementImport(text, preRaw, preRows) {
       metaHTML += '<details style="margin:.2rem 0 .6rem"><summary class="muted">Okunamayan ' + meta.skipped.length + ' satır (elle eklemen gerekebilir)</summary>' +
         meta.skipped.map(function (l) { return '<div class="row-sub" style="padding:.15rem 0">' + esc(l.slice(0, 140)) + '</div>'; }).join('') + '</details>';
     }
-    var h = '<p class="muted" style="margin-top:0">' + state.items.length + ' işlem bulundu · ' + news + ' yeni · ' + (state.items.length - news) + ' zaten kayıtlı</p>' + metaHTML +
+    var h = '<p class="muted" style="margin-top:0" id="si-count">' + countText() + '</p>' + metaHTML +
       '<div class="field"><label>Hesap / Kart</label><select id="si-account" style="' + selStyle + '">' +
       (getActiveAccountId() === 'all' ? '<option value="">Hesap seç\u2026</option>' : '') + accounts.map(function (a) { return '<option value="' + esc(a.id) + '"' + (a.id === getActiveAccountId() ? ' selected' : '') + '>' + esc(a.name) + '</option>'; }).join('') + '</select></div>' +
       '<label style="display:flex;align-items:center;gap:.5rem;margin:.2rem 0 .7rem;font-size:.88rem"><input type="checkbox" id="si-invert"' + (state.invert ? ' checked' : '') + '> Gelir/gider yönü ters çıktıysa işaretle</label>' +
@@ -8070,7 +8080,7 @@ function openStatementImport(text, preRaw, preRows) {
     openSheet({
       title: 'Ekstre içe aktar', bodyHTML: bodyHTML(), onOpen: function (body) {
         if (accountId) document.getElementById('si-account').value = accountId;
-        document.getElementById('si-account').addEventListener('change', updateGo);
+        document.getElementById('si-account').addEventListener('change', function () { state.accId = this.value; build(); renderList(); refreshCount(); updateGo(); });
         updateGo();
         var listEl = document.getElementById('si-list');
         function renderList() { listEl.innerHTML = listHTML(); }
@@ -8099,6 +8109,7 @@ function openStatementImport(text, preRaw, preRows) {
         });
         document.getElementById('si-invert').addEventListener('change', function (e) {
           state.invert = e.target.checked;
+          state.accId = document.getElementById('si-account').value;
           build();
           show(document.getElementById('si-account').value);
         });
