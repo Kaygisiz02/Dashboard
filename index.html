@@ -1537,6 +1537,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
     <div class="fin-actions" id="fin-actions"></div>
     <div class="section-title"><h2>Bölümler</h2></div>
     <div class="fin-feats" id="fin-feats"></div>
+    <div id="fin-accnote"></div>
     <div id="fin-start"></div>
     <div id="fin-attn"></div>
     <div class="section-title"><h2>Son işlemler</h2><button type="button" class="link-btn" data-fin-go="history">Tümü</button></div>
@@ -1547,6 +1548,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
       <button type="button" class="fin-back" data-fin-go="home" aria-label="Finans ana sayfasına dön"></button>
       <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>Analiz</h1></div>
     </header>
+    <div data-accslot></div>
     <p class="fin-lead">Finansal sağlık, kategori dağılımı, nakit akışı ve bu ayın özeti.</p>
     <div data-monthslot></div>
     <div id="fin-pro"></div>
@@ -1601,6 +1603,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
       <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>Yaklaşan ödemeler</h1></div>
       <div class="fin-subact"><button type="button" class="fin-pill ghost" data-fin-detect>Otomatik bul</button></div>
     </header>
+    <div data-accslot></div>
     <p class="fin-lead">Önümüzdeki 30 günde seni bekleyen sabit gider, taksit ve kart ödemeleri.</p>
 
     <div class="fin-tiles" id="fin-up-kpi"></div>
@@ -1612,6 +1615,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
       <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>Taksitler</h1></div>
       <div class="fin-subact"><button type="button" class="fin-pill" id="fin-installment-add-btn">+ Taksit</button></div>
     </header>
+    <div data-accslot></div>
     <p class="fin-lead">Taksitli alışverişlerini ve kalan borcunu takip et.</p>
 
     <div class="fin-tiles" id="fin-inst-kpi"></div>
@@ -1623,6 +1627,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
       <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>Bütçe</h1></div>
       <div class="fin-subact"><button type="button" class="fin-pill ghost" id="fin-budget-btn">Limitler</button><button type="button" class="fin-pill" id="plan-edit-btn">Planı ayarla</button></div>
     </header>
+    <div data-accslot></div>
     <p class="fin-lead">Gelirini, sabit ödemelerini ve esnek harcama bütçeni tek ekranda gör; gelecek 12 ayı tahmin et.</p>
     <div data-monthslot></div>
     <div class="segmented" id="plan-tabs" style="margin-bottom:.9rem">
@@ -1710,6 +1715,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
       <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>Birikim hedefleri</h1></div>
       <div class="fin-subact"><button type="button" class="fin-pill" id="fin-goal-add-btn">+ Hedef</button></div>
     </header>
+    <div data-accslot></div>
     <p class="fin-lead">Tatil, acil durum fonu gibi hedefler belirle; birikimini izle.</p>
 
     <div class="fin-tiles" id="fin-sav-kpi"></div>
@@ -1721,6 +1727,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
       <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>Sabit gelir / gider</h1></div>
       <div class="fin-subact"><button type="button" class="fin-pill ghost" data-fin-detect>Otomatik bul</button><button type="button" class="fin-pill" id="fin-recurring-add-btn">+ Ekle</button></div>
     </header>
+    <div data-accslot></div>
     <p class="fin-lead">Her ay tekrarlayan maaş, kira, fatura gibi kalemler.</p>
 
     <div class="fin-tiles" id="fin-rec-kpi"></div>
@@ -6725,6 +6732,11 @@ function getActiveAccountId() {
   return getAccounts().some(function (a) { return a.id === id; }) ? id : 'all';
 }
 function setActiveAccountId(id) { set('activeAccount', id || 'all'); }
+/* Her hesabın kendi alanı: seçili hesapta yalnız o hesaba ait taksit / sabit işlem / birikim / yaklaşan ödeme görünür; 'Tüm hesaplar'da hepsi */
+function finScopeAcc(accId) { var a = getActiveAccountId(); return a === 'all' || accId === a; }
+function getInstallmentsView() { return getInstallments().filter(function (i) { return finScopeAcc(i.accountId); }); }
+function getRecurringView() { return getRecurring().filter(function (r) { return finScopeAcc(recurringAccountId(r)); }); }
+function getSavingsView() { return getSavings().filter(function (g) { return finScopeAcc(g.accountId); }); }
 function getFinanceView() {
   var list = getFinance(), id = getActiveAccountId();
   return id === 'all' ? list : list.filter(function (f) { return f.accountId === id; });
@@ -8507,15 +8519,15 @@ function renderInsights() {
 
 function renderFinUpcoming() {
   var items = [], curM = todayISO().slice(0, 7), nextM = (function () { var d = parseISO(curM + '-01'); d.setMonth(d.getMonth() + 1); return d.getFullYear() + '-' + pad2(d.getMonth() + 1); })();
-  getRecurring().forEach(function (r) { items.push({ d: finRecNext(r), acc: recurringAccountId(r), t: r.title, amt: Number(r.amount), inc: r.type === 'income', ic: r.type === 'income' ? 'arrowUp' : 'arrowDown', sub: 'Sabit ' + (r.type === 'income' ? 'gelir' : 'gider') + (r.variable ? ' \u00b7 tahmini tutar' : '') }); });
-  getInstallments().forEach(function (it) {
+  getRecurringView().forEach(function (r) { items.push({ d: finRecNext(r), acc: recurringAccountId(r), t: r.title, amt: Number(r.amount), inc: r.type === 'income', ic: r.type === 'income' ? 'arrowUp' : 'arrowDown', sub: 'Sabit ' + (r.type === 'income' ? 'gelir' : 'gider') + (r.variable ? ' \u00b7 tahmini tutar' : '') }); });
+  getInstallmentsView().forEach(function (it) {
     var m = installmentMonths(it).filter(function (x) { return (it.paidMonths || []).indexOf(x) === -1; })[0];
     if (!m || m > nextM) return;
     items.push({ d: m <= curM ? parseISO(todayISO()) : parseISO(m + '-01'), acc: it.accountId, t: it.title, amt: Number(it.monthlyAmount), ic: 'wallet', sub: 'Taksit ' + ((it.paidMonths || []).length + 1) + '/' + it.installmentCount + (m < curM ? ' \u00b7 gecikmiş' : '') });
   });
   getAccounts().forEach(function (a) {
     var used = Math.max(0, -accountBalance(a.id)), sd = Number(a.statementDay);
-    if (a.type === 'credit_card' && sd && used) items.push({ d: nextDayOfMonth(sd), acc: a.id, t: a.name, amt: used, ic: 'wallet', sub: 'Kart hesap kesimi' });
+    if (a.type === 'credit_card' && sd && used && finScopeAcc(a.id)) items.push({ d: nextDayOfMonth(sd), acc: a.id, t: a.name, amt: used, ic: 'wallet', sub: 'Kart hesap kesimi' });
   });
   items = items.filter(function (x) { return daysFromToday(x.d) <= 31; }).sort(function (a, b) { return a.d - b.d; });
   finUpcomingAll = items.slice(); items = items.slice(0, 30);
@@ -8722,7 +8734,7 @@ function finInstInfo(inst, remaining) {
   return { txt: txt, bar: '<div class="progress" style="margin:.35rem 0 .1rem" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '" aria-label="' + esc(inst.title) + ' taksit ilerlemesi"><div style="width:' + pct + '%;' + (remaining ? '' : 'background:var(--success)') + '"></div></div>' };
 }
 function renderInstallments() {
-  var list = getInstallments();
+  var list = getInstallmentsView();
   var el = document.getElementById('fin-installments');
   if (!list.length) { el.innerHTML = '<p class="muted">Henüz taksitli ödeme eklenmedi.</p>'; return; }
   el.innerHTML = '<div class="card" style="padding:.2rem .8rem">' + list.map(function (inst) {
@@ -9397,7 +9409,7 @@ function openTransactionSheet(id, presetType) {
 
 /* ---- Sabit gelir/gider ---------------------------------------------------- */
 function renderRecurring() {
-  var list = getRecurring().slice().sort(function (a, b) { return Number(a.dayOfMonth) - Number(b.dayOfMonth); });
+  var list = getRecurringView().slice().sort(function (a, b) { return Number(a.dayOfMonth) - Number(b.dayOfMonth); });
   var el = document.getElementById('fin-recurring');
   if (!list.length) { el.innerHTML = '<p class="muted">Sabit gelir/gider yok.</p>'; return; }
   el.innerHTML = '<div class="card" style="padding:.2rem .8rem">' + list.map(function (r) {
@@ -9591,6 +9603,10 @@ function renderTransfers() {
 
 /* ---- Birikim hedefleri ---- */
 function getSavings() { return get('savingsGoals', []); }
+function savAccHTML(g) {
+  var cur = g ? (g.accountId || '') : (getActiveAccountId() === 'all' ? '' : getActiveAccountId());
+  return '<div class="field"><label>Hesap</label><select id="sg-account"><option value="">Hesaba bağlı değil (yalnız Tüm hesaplar)</option>' + getAccounts().map(function (a) { return '<option value="' + esc(a.id) + '"' + (a.id === cur ? ' selected' : '') + '>' + esc(a.name) + '</option>'; }).join('') + '</select></div>';
+}
 function saveSavings(l) { set('savingsGoals', l); }
 function monthsUntil(ym) { var a = todayISO().slice(0, 7).split('-'), b = ym.split('-'); return (b[0] - a[0]) * 12 + (b[1] - a[1]); }
 
@@ -9608,7 +9624,7 @@ function finSavLogHTML(g) {
     }).join('') + '</div>';
 }
 function renderSavings() {
-  var el = document.getElementById('fin-savings'), l = getSavings();
+  var el = document.getElementById('fin-savings'), l = getSavingsView();
   if (!l.length) { el.innerHTML = '<p class="muted">Tatil, acil durum fonu gibi bir hedef belirle; birikimini burada izle.</p>'; return; }
   el.innerHTML = l.map(function (g) {
     var t = Number(g.target) || 0, sv = Number(g.saved) || 0, pct = t ? Math.min(100, sv / t * 100) : 0, done = t && sv >= t, sub;
@@ -9635,12 +9651,12 @@ function openSavingsSheet(id) {
     bodyHTML: '<div class="field"><label>Hedef adı</label><input type="text" id="sg-name" value="' + esc(g ? g.name : '') + '" placeholder="Ör. Yaz tatili"></div>' +
       '<div class="field-row"><div class="field"><label>Hedef tutar</label><input type="number" id="sg-target" value="' + (g ? g.target : '') + '"></div><div class="field"><label>Biriken</label><input type="number" id="sg-saved" value="' + (g ? g.saved : '') + '"></div></div>' +
       '<div class="field"><label>Hedef ay (opsiyonel)</label><input type="month" id="sg-date" value="' + esc(g && g.deadline ? g.deadline : '') + '"></div>' +
-      finSavLogHTML(g) + '<div class="stack"><button class="btn btn-primary btn-block" id="sg-save">Kaydet</button>' + (isNew ? '' : '<button class="btn btn-danger btn-block" id="sg-del">Hedefi sil</button>') + '</div>',
+      savAccHTML(g) + finSavLogHTML(g) + '<div class="stack"><button class="btn btn-primary btn-block" id="sg-save">Kaydet</button>' + (isNew ? '' : '<button class="btn btn-danger btn-block" id="sg-del">Hedefi sil</button>') + '</div>',
     onOpen: function () {
       document.getElementById('sg-save').onclick = function () {
         var name = document.getElementById('sg-name').value.trim(), target = parseFloat(document.getElementById('sg-target').value);
         if (!name || !target || target <= 0) { showToast('Ad ve hedef tutar gerekli'); return; }
-        var obj = { id: g ? g.id : uid(), name: name, target: target, saved: Math.max(0, parseFloat(document.getElementById('sg-saved').value) || 0), deadline: document.getElementById('sg-date').value };
+        var obj = { id: g ? g.id : uid(), name: name, target: target, saved: Math.max(0, parseFloat(document.getElementById('sg-saved').value) || 0), deadline: document.getElementById('sg-date').value, accountId: document.getElementById('sg-account').value || undefined };
         var all = getSavings(), i = all.findIndex(function (x) { return x.id === obj.id; });
         if (i === -1) all.push(obj); else all[i] = obj;
         saveSavings(all); closeSheet(); renderSavings(); showToast('Kaydedildi');
@@ -9993,7 +10009,7 @@ function finPro_health() {
   var accs = getAccounts(), assets = 0, cardDebt = 0;
   accs.forEach(function (a) { var b = accountBalance(a.id); if (a.type === 'credit_card') cardDebt += Math.max(0, -b); else assets += b; });
   if (!accs.length) assets = currentBalance();
-  var instM = getInstallments().filter(function (x) { return installmentRemaining(x) > 0; }).reduce(function (a, x) { return a + (Number(x.monthlyAmount) || 0); }, 0);
+  var instM = getInstallmentsView().filter(function (x) { return installmentRemaining(x) > 0; }).reduce(function (a, x) { return a + (Number(x.monthlyAmount) || 0); }, 0);
   if (avgIn > 0) {
     var load = (instM + cardDebt) / avgIn;
     comps.push({ n: 'Borç yükü', w: 20, f: clamp((0.5 - load) / 0.4), v: '%' + Math.round(load * 100), tip: 'Taksit ve kart borcu gelirinin %' + Math.round(load * 100) + '\u2019i; %10 altı ideal.' });
@@ -10106,12 +10122,12 @@ function renderFinKpis() {
   put('fin-acc-kpi', [['Varlık', finMoney(assets), accs.length + ' hesap'], ['Kart borcu', finMoney(debt), debt ? 'ödenecek' : 'borç yok']]);
   var up = finUpcomingAll, out = up.filter(function (x) { return !x.inc; }).reduce(function (s, x) { return s + (Number(x.amt) || 0); }, 0);
   put('fin-up-kpi', [['31 gün çıkış', finMoney(out), 'planlı ödeme'], ['Kalem', String(up.length), up.length ? 'sıradaki: ' + inDaysLabel(daysFromToday(up[0].d)).toLowerCase() : 'planlı ödeme yok']]);
-  var act = getInstallments().filter(function (i) { return installmentRemaining(i) > 0; });
+  var act = getInstallmentsView().filter(function (i) { return installmentRemaining(i) > 0; });
   put('fin-inst-kpi', [['Aylık yük', finMoney(act.reduce(function (s, i) { return s + (Number(i.monthlyAmount) || 0); }, 0)), act.length + ' aktif taksit'],
     ['Kalan toplam', finMoney(act.reduce(function (s, i) { return s + installmentRemainingAmount(i); }, 0)), 'ödenecek']]);
-  var sv = getSavings(), T = sv.reduce(function (s, g) { return s + (Number(g.target) || 0); }, 0), V = sv.reduce(function (s, g) { return s + (Number(g.saved) || 0); }, 0);
+  var sv = getSavingsView(), T = sv.reduce(function (s, g) { return s + (Number(g.target) || 0); }, 0), V = sv.reduce(function (s, g) { return s + (Number(g.saved) || 0); }, 0);
   put('fin-sav-kpi', [['Toplam birikim', finMoney(V), sv.length + ' hedef'], ['Hedef toplamı', finMoney(T), T ? '%' + Math.round(Math.min(100, V / T * 100)) + ' tamamlandı' : 'hedef yok']]);
-  var rc = getRecurring(), ri = 0, re = 0;
+  var rc = getRecurringView(), ri = 0, re = 0;
   rc.forEach(function (r) { if (r.type === 'income') ri += Number(r.amount) || 0; else re += Number(r.amount) || 0; });
   put('fin-rec-kpi', [['Aylık gelir', finMoney(ri), 'sabit'], ['Aylık gider', finMoney(re), 'sabit']]);
 }
@@ -10129,11 +10145,11 @@ function renderFinHub() {
   });
   var bp = L ? S / L * 100 : 0;
   var up = finUpcomingAll, nx = up[0];
-  var act = getInstallments().filter(function (i) { return installmentRemaining(i) > 0; });
+  var act = getInstallmentsView().filter(function (i) { return installmentRemaining(i) > 0; });
   var instLeft = act.reduce(function (s, i) { return s + installmentRemainingAmount(i); }, 0);
-  var sv = getSavings(), T = sv.reduce(function (s, g) { return s + (Number(g.target) || 0); }, 0), V = sv.reduce(function (s, g) { return s + (Number(g.saved) || 0); }, 0);
+  var sv = getSavingsView(), T = sv.reduce(function (s, g) { return s + (Number(g.target) || 0); }, 0), V = sv.reduce(function (s, g) { return s + (Number(g.saved) || 0); }, 0);
   var sp2 = T ? Math.min(100, V / T * 100) : 0;
-  var rc = getRecurring(), rnet = rc.reduce(function (s, r) { return s + (r.type === 'income' ? 1 : -1) * (Number(r.amount) || 0); }, 0);
+  var rc = getRecurringView(), rnet = rc.reduce(function (s, r) { return s + (r.type === 'income' ? 1 : -1) * (Number(r.amount) || 0); }, 0);
   var mt = monthTotals(mk);
   var cards = [
     { sub: 'history', ic: 'swap', hue: 215, wide: true, t: 'İşlemler', v: monthCount + ' işlem', s: last ? esc(String(last.title || '').slice(0, 44)) : 'Henüz kayıt yok · içe aktar veya ekle' },
@@ -10158,6 +10174,17 @@ function renderFinHub() {
       '<span class="go">' + icon('chevronR') + '</span></button>';
   }).join('');
 }
+
+function finRenderAccNote() {
+  var el = document.getElementById('fin-accnote');
+  if (!el) return;
+  var id = getActiveAccountId(), a = id === 'all' ? null : accountById(id);
+  if (!a) { el.innerHTML = ''; return; }
+  var notes = get('accountNotes', {});
+  el.innerHTML = '<div class="card"><div class="card-head mt0"><h3>' + esc(a.name) + ' notları</h3></div><div class="field" style="margin:0"><textarea id="fin-accnote-ta" rows="4" placeholder="Bu hesapla ilgili notların, hatırlatmaların…">' + esc(notes[id] || '') + '</textarea></div></div>';
+  document.getElementById('fin-accnote-ta').oninput = function () { var n = get('accountNotes', {}); n[id] = this.value; set('accountNotes', n); };
+}
+(function () { var o = renderFinHub; renderFinHub = function () { var r = o.apply(this, arguments); try { finRenderAccNote(); } catch (e) {} return r; }; })();
 
 /* ---- Alıcı/yer adı çıkarma: banka açıklamasından anlamlı ad ------------------------------ */
 function finTC(str) {
@@ -10545,7 +10572,7 @@ function planGroup(cat, plan) {
 }
 function planTemplateIndex() {
   var m = {};
-  getRecurring().forEach(function (t) {
+  getRecurringView().forEach(function (t) {
     if (t.type === 'income') return;
     var pl = t.src ? String(t.src).split('|')[1] : String(t.title || '').toLocaleLowerCase('tr');
     if (pl) m[pl] = t;
@@ -10583,9 +10610,9 @@ function planStats(mk) {
   var sum = function (arr, k) { return arr.reduce(function (s2, e) { return s2 + e[k]; }, 0); };
   var flexAvg = sum(flexE, 'avg'), flexSpent = sum(flexE, 'cur'), fixedExtra = sum(fixE, 'avg');
   var irregMed = finMedian(months.map(function (x) { return irregMonth[x] || 0; }));
-  var rc = getRecurring(), tmplFixed = 0, tmplIncome = 0;
+  var rc = getRecurringView(), tmplFixed = 0, tmplIncome = 0;
   rc.forEach(function (t) { if (t.type === 'income') tmplIncome += Number(t.amount) || 0; else tmplFixed += Number(t.amount) || 0; });
-  var act = getInstallments().filter(function (x) { return installmentRemaining(x) > 0; }), inst = act.reduce(function (s2, x) { return s2 + (Number(x.monthlyAmount) || 0); }, 0);
+  var act = getInstallmentsView().filter(function (x) { return installmentRemaining(x) > 0; }), inst = act.reduce(function (s2, x) { return s2 + (Number(x.monthlyAmount) || 0); }, 0);
   var autoInc = 0;
   if (tmplIncome > 0) autoInc = tmplIncome;
   else { var im = [finShiftM(mk, -1), finShiftM(mk, -2), finShiftM(mk, -3)].filter(function (x) { return first && x >= first.slice(0, 7); }); autoInc = im.length ? im.reduce(function (s2, x) { return s2 + planIncomeOf(x); }, 0) / im.length : 0; }
