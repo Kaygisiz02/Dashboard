@@ -8244,6 +8244,8 @@ function openStatementImport(text, preRaw, preRows) {
             return finFlush();
           }).then(function (ok) {
             if (ok === false) throw new Error('kalıcı yazma başarısız');
+            var okc = getFinance().filter(function (f) { return f.batch === batch && f.accountId === accId; }).length;
+            if (okc !== picked.length) showToast('⚠ Doğrulama: ' + picked.length + ' kayıt beklenirken ' + okc + ' kayıt bulundu');
             set('lastImport', { id: batch, count: picked.length, at: todayISO() });
             closeSheet();
             renderAll();
@@ -10157,13 +10159,13 @@ function renderFinKpis() {
 function renderFinHub() {
   var el = document.getElementById('fin-feats');
   if (!el) return;
-  var mk = finSelectedMonth, fin = getFinance(), accs = getAccounts(), assets = 0, debt = 0;
+  var mk = finSelectedMonth, finAll = getFinance(), fin = getFinanceView(), accs = getAccounts().filter(function (a) { return finScopeAcc(a.id); }), assets = 0, debt = 0;
   accs.forEach(function (a) { var b = accountBalance(a.id); if (a.type === 'credit_card') debt += Math.max(0, -b); else assets += b; });
   var monthCount = fin.filter(function (f) { return f.date && f.date.slice(0, 7) === mk; }).length;
   var last = fin.slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); })[0];
   var bud = getBudget(), cats = Object.keys(bud), L = 0, S = 0, over = 0;
   cats.forEach(function (c) {
-    var lim = Number(bud[c]) || 0, sp = fin.filter(function (f) { return f.type === 'expense' && f.category === c && f.date && f.date.slice(0, 7) === mk; }).reduce(function (a, f) { return a + Number(f.amount); }, 0);
+    var lim = Number(bud[c]) || 0, sp = finAll.filter(function (f) { return f.type === 'expense' && f.category === c && f.date && f.date.slice(0, 7) === mk; }).reduce(function (a, f) { return a + Number(f.amount); }, 0);
     L += lim; S += sp; if (lim && sp > lim) over++;
   });
   var bp = L ? S / L * 100 : 0;
@@ -10204,7 +10206,13 @@ function openFinAudit() {
   function by(list, fn) { var o = {}; list.forEach(function (x) { var k = fn(x); o[k] = (o[k] || 0) + 1; }); return o; }
   var tx = by(fin, function (f) { return f.accountId; }), inc = by(fin.filter(function (f) { return f.type === 'income'; }), function (f) { return f.accountId; });
   var rc = by(rec, recurringAccountId), ins = by(inst, function (i) { return i.accountId; }), sv = by(sav, function (g) { return g.accountId || ''; });
-  var unRec = rec.filter(function (r) { return !valid[r.accountId]; }), sumTx = 0;
+  var fix = [];
+  rec.forEach(function (r) {
+    var ev = finRecEvidenceAccount(r);
+    if (!valid[r.accountId]) fix.push({ r: r, to: ev.id || '' });
+    else if (r.detected && ev.id && !ev.has[r.accountId]) fix.push({ r: r, to: ev.id });
+  });
+  var unRec = fix, sumTx = 0;
   var rows = accs.map(function (a) {
     var n = tx[a.id] || 0, i = inc[a.id] || 0; sumTx += n;
     return '<div class="list-row"><span class="row-main"><span class="row-title">' + esc(a.name) + '</span><span class="row-sub">' + n + ' işlem (' + i + ' gelir · ' + (n - i) + ' gider) · sabit ' + (rc[a.id] || 0) + ' · taksit ' + (ins[a.id] || 0) + ' · birikim ' + (sv[a.id] || 0) + '</span></span></div>';
@@ -10218,13 +10226,13 @@ function openFinAudit() {
   var html = '<div class="card" style="padding:.2rem .8rem">' + rows + '</div>' +
     '<p class="muted" style="font-size:.85rem">Toplam ' + fin.length + ' işlem · hesap toplamı ' + sumTx + (fin.length === sumTx ? ' ✓ tutarlı' : ' · ⚠ ' + (fin.length - sumTx) + ' işlem geçerli bir hesaba bağlı değil') + ' · birikim: hesaba bağlı olmayan ' + (sv[''] || 0) + '</p>';
   if (splitRows) html += '<div class="section-title"><h2>Birden fazla hesaba bölünmüş içe aktarmalar</h2></div><div class="card" style="padding:.2rem .8rem">' + splitRows + '</div>';
-  if (unRec.length) html += '<div class="section-title"><h2>Hesabı atanmamış sabit kalemler</h2></div><p class="muted" style="font-size:.85rem">' + unRec.length + ' kalem şu an "' + esc(defName) + '" hesabında sayılıyor. Doğru hesaba ata:</p><div class="field"><select id="fa-acc">' + accs.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>'; }).join('') + '</select></div><button class="btn btn-primary btn-block" id="fa-go">' + unRec.length + ' kalemi ata</button>';
-  else html += '<p class="muted" style="font-size:.85rem">Tüm sabit kalemler bir hesaba bağlı ✓</p>';
+  if (unRec.length) html += '<div class="section-title"><h2>Hesabı yanlış/eksik sabit kalemler</h2></div><p class="muted" style="font-size:.85rem">' + unRec.length + ' kalemin hesabı yok ya da işlem geçmişi başka hesapta. İşlem geçmişine göre doğru hesaba taşınır; geçmişi bulunamayanlar aşağıda seçtiğin hesaba atanır:</p><div class="card" style="padding:.2rem .8rem">' + unRec.slice(0, 15).map(function (f) { var t = accountById(f.to); return '<div class="list-row"><span class="row-main"><span class="row-title">' + esc(f.r.title) + '</span><span class="row-sub">→ ' + esc(t ? t.name : 'geçmiş yok · seçilen hesap') + '</span></span></div>'; }).join('') + (unRec.length > 15 ? '<div class="row-sub">+' + (unRec.length - 15) + ' kalem daha</div>' : '') + '</div><div class="field"><select id="fa-acc">' + accs.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>'; }).join('') + '</select></div><button class="btn btn-primary btn-block" id="fa-go">' + unRec.length + ' kalemi düzelt</button>';
+  else html += '<p class="muted" style="font-size:.85rem">Tüm sabit kalemler doğru hesapta ✓</p>';
   openSheet({ title: 'Veri kontrolü', bodyHTML: html, onOpen: function () {
     var go = document.getElementById('fa-go');
     if (go) go.onclick = function () {
       var id = document.getElementById('fa-acc').value, all = getRecurring();
-      all.forEach(function (r) { if (!valid[r.accountId]) r.accountId = id; });
+      fix.forEach(function (f) { var t = all.filter(function (r) { return r.id === f.r.id; })[0]; if (t) t.accountId = f.to || id; });
       saveRecurring(all); closeSheet(); renderAll(); showToast(unRec.length + ' kalem atandı');
     };
   } });
@@ -10276,7 +10284,12 @@ function finMonthIdx(m) { return Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 
    arası transferler dışarıda kalır. Eklenenler yalnızca HATIRLATMA olur (noAuto), çift kayıt oluşmaz. */
 var FIN_UTIL_RE = /turkcell|vodafone|telekom|enerjisa|enejisa|gaski|gazdaş|doğalgaz|elektrik|internet|netflix|spotify|youtube|kira|aidat|sigorta|maaş|ek ödeme|kredi kartı|kmh/i;
 function finDetectRecurring() {
-  var recs = getFinance().filter(function (f) { return f.date && Number(f.amount) > 0 && f.source !== 'recurring' && !isInternalTransfer(f) && !isSavingsRecord(f); });
+  var act = getActiveAccountId(), out = [];
+  getAccounts().forEach(function (a) { if (act === 'all' || a.id === act) out = out.concat(finDetectForAccount(a.id)); });
+  return out;
+}
+function finDetectForAccount(accId) {
+  var recs = getFinance().filter(function (f) { return f.accountId === accId && f.date && Number(f.amount) > 0 && f.source !== 'recurring' && !isInternalTransfer(f) && !isSavingsRecord(f); });
   var groups = {};
   recs.forEach(function (f) {
     var p = finPayee(f.title);
@@ -10284,7 +10297,7 @@ function finDetectRecurring() {
     var key = f.type + '|' + p.toLocaleLowerCase('tr');
     (groups[key] = groups[key] || { key: key, type: f.type, payee: p, list: [] }).list.push(f);
   });
-  var tmpl = getRecurring(), out = [];
+  var tmpl = getRecurring().filter(function (t) { return recurringAccountId(t) === accId; }), out = [];
   Object.keys(groups).forEach(function (k) {
     var g = groups[k], list = g.list.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; }), mset = {};
     list.forEach(function (f) { var mk = f.date.slice(0, 7); mset[mk] = (mset[mk] || 0) + 1; });
@@ -10308,23 +10321,34 @@ function finDetectRecurring() {
     var pl = g.payee.toLocaleLowerCase('tr');
     var exists = tmpl.some(function (t) {
       var tl = String(t.title || '').toLocaleLowerCase('tr');
-      return t.type === g.type && (t.src === g.key || (tl.length > 2 && (tl.indexOf(pl) !== -1 || pl.indexOf(tl) !== -1)) ||
-        (Math.abs(Number(t.amount) - amount) / amount < 0.1 && Math.abs(Number(t.dayOfMonth) - day) <= 3));
+      return t.type === g.type && (t.src === g.key || (tl.length > 2 && (tl.indexOf(pl) !== -1 || pl.indexOf(tl) !== -1)));
     });
     if (exists) return;
     var conf = stable ? (n >= 4 ? 'high' : 'low') : 'med';
-    out.push({ key: g.key, type: g.type, title: g.payee, amount: round2(amount), day: day, months: n, variable: !stable, category: cat, conf: conf, on: conf !== 'low', last: list[list.length - 1].date });
+    out.push({ key: accId + '::' + g.key, src: g.key, accountId: accId, type: g.type, title: g.payee, amount: round2(amount), day: day, months: n, variable: !stable, category: cat, conf: conf, on: conf !== 'low', last: list[list.length - 1].date });
   });
   var rank = { high: 0, med: 1, low: 2 };
   out.sort(function (a, b) { return (a.type === b.type ? 0 : a.type === 'income' ? -1 : 1) || rank[a.conf] - rank[b.conf] || b.amount - a.amount; });
   return out;
+}
+/* Bir sabit kalemin işlem geçmişi hangi hesaplarda var? (alıcı adına göre) */
+function finRecEvidenceAccount(r) {
+  var pl = String(r.src || '').split('|')[1] || String(r.title || '').toLocaleLowerCase('tr'), cnt = {};
+  getFinance().forEach(function (f) {
+    if (f.type !== r.type || !f.accountId || isInternalTransfer(f)) return;
+    var p = finPayee(f.title).toLocaleLowerCase('tr');
+    if (p && pl && (p === pl || (pl.length > 2 && (p.indexOf(pl) !== -1 || pl.indexOf(p) !== -1)))) cnt[f.accountId] = (cnt[f.accountId] || 0) + 1;
+  });
+  var best = '', bc = 0;
+  Object.keys(cnt).forEach(function (id) { if (cnt[id] > bc) { bc = cnt[id]; best = id; } });
+  return { id: best, has: cnt };
 }
 function finDetectSig(c) { return c.map(function (x) { return x.key; }).sort().join(';'); }
 function finRenderFound() { if (document.getElementById('fin-attn')) renderFinHome(); }
 function finRecPaidThisMonth(r) {
   if (!r.noAuto || !r.src) return false;
   var mk = todayISO().slice(0, 7), pl = String(r.src).split('|')[1];
-  return getFinance().some(function (f) { return f.type === r.type && f.date && f.date.slice(0, 7) === mk && !isInternalTransfer(f) && finPayee(f.title).toLocaleLowerCase('tr') === pl; });
+  return getFinance().some(function (f) { return f.type === r.type && f.accountId === recurringAccountId(r) && f.date && f.date.slice(0, 7) === mk && !isInternalTransfer(f) && finPayee(f.title).toLocaleLowerCase('tr') === pl; });
 }
 function finRecNext(r) {
   var d = nextDayOfMonth(Number(r.dayOfMonth) || 1, true), t = parseISO(todayISO());
@@ -10338,7 +10362,7 @@ function openRecurringDetectSheet() {
   function rowHTML(x, i) {
     return '<label class="list-row det-row"><input type="checkbox" data-i="' + i + '"' + (x.on ? ' checked' : '') + '>' +
       '<span class="row-main"><span class="row-title">' + esc(x.title) + '<span class="det-tag">' + TAG[x.conf] + '</span></span>' +
-      '<span class="row-sub">' + (x.type === 'income' ? 'Gelir' : 'Gider') + ' \u00b7 her ayın ~' + x.day + '. günü \u00b7 ' + x.months + ' ay</span></span>' +
+      '<span class="row-sub">' + (x.type === 'income' ? 'Gelir' : 'Gider') + ' \u00b7 her ayın ~' + x.day + '. günü \u00b7 ' + x.months + ' ay' + (getActiveAccountId() === 'all' ? ' · ' + esc((accountById(x.accountId) || {}).name || '') : '') + '</span></span>' +
       '<span class="mono" style="' + (x.type === 'income' ? 'color:var(--success)' : '') + '">' + (x.variable ? '\u2248' : '') + formatMoney(x.amount) + '</span></label>';
   }
   openSheet({
@@ -10351,11 +10375,14 @@ function openRecurringDetectSheet() {
         var pick = [].slice.call(body.querySelectorAll('input[data-i]')).filter(function (b) { return b.checked; }).map(function (b) { return c[Number(b.dataset.i)]; });
         if (!pick.length) { showToast('Hiç kalem seçilmedi'); return; }
         var all = getRecurring();
-        pick.forEach(function (x) { all.push({ id: uid(), accountId: (getActiveAccountId() === 'all' ? getStoredDefaultAccountId() : getActiveAccountId()), title: x.title, amount: x.amount, type: x.type, category: x.category, dayOfMonth: x.day, noAuto: true, detected: true, variable: x.variable || undefined, src: x.key }); });
+        pick.forEach(function (x) { all.push({ id: uid(), accountId: x.accountId, title: x.title, amount: x.amount, type: x.type, category: x.category, dayOfMonth: x.day, noAuto: true, detected: true, variable: x.variable || undefined, src: x.src }); });
         saveRecurring(all);
+        var cnt = {}, bad = 0, saved = getRecurring();
+        pick.forEach(function (x) { cnt[x.accountId] = (cnt[x.accountId] || 0) + 1; if (!saved.some(function (r) { return r.accountId === x.accountId && r.src === x.src; })) bad++; });
         closeSheet();
         renderAll();
-        showToast(pick.length + ' kalem eklendi \u00b7 Yaklaşan ödemelerde görünecek');
+        if (bad) showToast('⚠ Doğrulama: ' + bad + ' kalem kaydedilemedi');
+        else showToast(Object.keys(cnt).map(function (id) { return ((accountById(id) || {}).name || '') + ': ' + cnt[id]; }).join(' · ') + ' kalem eklendi \u00b7 Yaklaşan ödemelerde görünecek');
       });
       body.querySelector('#det-skip').addEventListener('click', function () {
         try { localStorage.setItem('ajandam_finDetectSeen', finDetectSig(c)); } catch (e) {}
