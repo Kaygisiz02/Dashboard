@@ -1559,7 +1559,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
     <header class="fin-subhead">
       <button type="button" class="fin-back" data-fin-go="home" aria-label="Finans ana sayfasına dön"></button>
       <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>Hesaplar</h1></div>
-      <div class="fin-subact"><button type="button" class="fin-pill ghost" id="fin-transfer-btn">Transfer</button><button type="button" class="fin-pill" id="fin-account-add-btn">+ Hesap</button></div>
+      <div class="fin-subact"><button type="button" class="fin-pill ghost" id="fin-transfer-btn">Transfer</button><button type="button" class="fin-pill ghost" id="fin-audit-btn">Veri kontrolü</button><button type="button" class="fin-pill" id="fin-account-add-btn">+ Hesap</button></div>
     </header>
     <p class="fin-lead">Banka, kart ve nakit hesaplarını tek yerden yönet; hesaplar arası para aktar.</p>
     <div data-accslot></div>
@@ -7369,9 +7369,9 @@ function finishStatementTable(pages, ocr) {
   var tt = merged.totals || {}, sd = 0, sc = 0, last = null;
   merged.forEach(function (r) { if (isNaN(r.A) || !(r.A > 0) || !r.date) return; last = r; if ((r.s || 1) < 0) sd += r.A; else sc += r.A; });
   var totalsOk = tt.borc != null && tt.alacak != null && Math.abs(sd - tt.borc) < 0.02 && Math.abs(sc - tt.alacak) < 0.02;
-  var raw = [], clean = 0;
+  var raw = [], clean = 0, dropped = 0;
   merged.forEach(function (r) {
-    if (isNaN(r.A) || !(r.A > 0) || !r.date) return;
+    if (isNaN(r.A) || !(r.A > 0) || !r.date) { dropped++; return; }
     var warn = '';
     if (r.flag === 'bad' || r.flag === 'unk' || r.flag === 'amb') warn = (totalsOk && r === last && r.flag === 'unk') ? '' : 'bakiye zinciriyle doğrulanamadı';
     else if (r.dateGuess) warn = 'tarih tahmini';
@@ -7382,7 +7382,7 @@ function finishStatementTable(pages, ocr) {
   });
   if (!raw.length) { showToast('Ekstrede işlem satırı bulunamadı'); return; }
   stmtConsensusTitles(raw);
-  raw.meta = { skipped: [], expected: null, ocr: !!ocr, totals: merged.totals || {}, verified: clean };
+  raw.meta = { skipped: [], expected: null, ocr: !!ocr, totals: merged.totals || {}, verified: clean, dropped: dropped };
   openStatementImport('', raw);
 }
 
@@ -7993,12 +7993,13 @@ function openStatementImport(text, preRaw, preRows) {
   var raw = preRaw || [];
   var meta = (preRaw && preRaw.meta) || null;
   var rows = preRaw ? [] : (preRows || stmtParseCSV(text));
+  var skDate = 0, skAmt = 0;
   var col = preRaw ? null : stmtFindColumns(rows);
   if (!preRaw && !col) { showToast('Başlık satırı bulunamadı (Tarih ve Tutar sütunları gerekli)'); return; }
   for (var i = preRaw ? rows.length : col.headerRow + 1; i < rows.length; i++) {
     var r = rows[i];
     var date = stmtParseDate(r[col.date]);
-    if (!date) continue;
+    if (!date) { skDate++; continue; }
     var signed = NaN;
     if (col.amount !== -1) signed = stmtParseAmount(r[col.amount]);
     if (isNaN(signed) && (col.debit !== -1 || col.credit !== -1)) {
@@ -8007,7 +8008,7 @@ function openStatementImport(text, preRaw, preRows) {
       if (!isNaN(d) && d !== 0) signed = -Math.abs(d);
       else if (!isNaN(c) && c !== 0) signed = Math.abs(c);
     }
-    if (isNaN(signed) || signed === 0) continue;
+    if (isNaN(signed) || signed === 0) { skAmt++; continue; }
     var title = (col.desc !== -1 ? String(r[col.desc] || '') : '').replace(/\s+/g, ' ').trim() || 'Banka hareketi';
     var refv = col.ref !== -1 ? String(r[col.ref] || '').trim() : '';
     raw.push({ date: date, title: title, signed: signed, ref: refv });
@@ -8020,13 +8021,14 @@ function openStatementImport(text, preRaw, preRows) {
 
   function build() {
     /* Tekrar kontrolü YALNIZ hedef hesabın kayıtlarına bakar; başka hesapta aynı satır varsa sadece bilgi notu düşer. */
-    var existing = {}, existingRef = {}, elsewhere = {}, opp = {};
+    var existing = {}, existingRef = {}, elsewhere = {}, opp = {}, elseRecs = {};
+    state.elseRecs = elseRecs;
     if (state.accId) getFinance().forEach(function (f) {
       var k = stmtKey(f.date, f.amount, f.type, f.title);
       /* Aynı gün + aynı tutar + (gelir|gider) -> hangi hesapta var; karşı yöndeki kayıt için bilgi notu üretir (tekrar sayılmaz) */
       var ok = f.date + '|' + (Math.round(Math.abs(Number(f.amount)) * 100) / 100).toFixed(2) + '|' + f.type;
       if (!Object.prototype.hasOwnProperty.call(opp, ok)) opp[ok] = f.accountId;
-      if (f.accountId !== state.accId) { if (!elsewhere[k]) elsewhere[k] = f.accountId; return; }
+      if (f.accountId !== state.accId) { if (!elsewhere[k]) elsewhere[k] = f.accountId; (elseRecs[k] = elseRecs[k] || []).push(f); return; }
       existing[k] = (existing[k] || 0) + 1;
       if (f.ref) { var rk = f.ref + '|' + f.date + '|' + f.type + '|' + (Math.round(Math.abs(Number(f.amount)) * 100) / 100).toFixed(2); existingRef[rk] = (existingRef[rk] || 0) + 1; }
     });
@@ -8047,7 +8049,7 @@ function openStatementImport(text, preRaw, preRows) {
         if (Object.prototype.hasOwnProperty.call(opp, pk)) pair = (opp[pk] === state.accId ? 'bu hesapta' : (accNameById[opp[pk]] || 'başka') + ' hesabında') + ' aynı gün/tutarda karşı yönde kayıt var (hesaplar arası transfer olabilir)';
       }
       var autoOn = !dup && !(x.warn && /doğrulanamadı/.test(x.warn));
-      return { date: x.date, title: x.title, type: type, amount: amount, dup: dup, pair: pair, other: (!dup && elsewhere[k]) ? (accNameById[elsewhere[k]] || '') : '', warn: x.warn || '', ref: x.ref || '', on: prevItems ? (prevItems[idx].dup !== dup ? autoOn : prevItems[idx].on) : autoOn };
+      return { date: x.date, title: x.title, type: type, amount: amount, dup: dup, pair: pair, key: k, other: (!dup && elsewhere[k]) ? (accNameById[elsewhere[k]] || '') : '', warn: x.warn || '', ref: x.ref || '', on: prevItems ? (prevItems[idx].dup !== dup ? autoOn : prevItems[idx].on) : autoOn };
     });
   }
 
@@ -8068,9 +8070,24 @@ function openStatementImport(text, preRaw, preRows) {
     return shown.map(rowHTML).join('') + (v.length > shown.length ? '<button type="button" class="btn btn-secondary btn-block" id="si-more" style="margin:.5rem 0">Daha fazla göster (' + (v.length - shown.length) + ' satır daha)</button>' : '');
   }
 
+  function skipText() { var n = skDate + skAmt + (meta && meta.dropped ? meta.dropped : 0); return n ? ' · ⚠ ' + n + ' satır atlandı (tarih/tutar okunamadı)' : ''; }
+  /* Başka hesapta kayıtlı satırları bu hesaba taşı: çift sayımı önler, eksik görünen hareketleri yerine koyar */
+  function moveOther() {
+    var fin = getFinance(), byId = {}, moved = 0;
+    fin.forEach(function (f) { byId[f.id] = f; });
+    state.items.forEach(function (x) {
+      if (!x.other || x.dup || !state.accId) return;
+      var rec = (state.elseRecs[x.key] || []).shift();
+      if (rec && byId[rec.id]) { byId[rec.id].accountId = state.accId; moved++; }
+    });
+    if (!moved) { showToast('Taşınacak kayıt bulunamadı'); return; }
+    if (!saveFinance(fin)) { showToast('Kayıt yazılamadı'); return; }
+    showToast(moved + ' kayıt ' + (accNameById[state.accId] || 'bu') + ' hesabına taşındı');
+    build(); show(state.accId); renderAll();
+  }
   function countText() {
     var news = state.items.filter(function (x) { return !x.dup; }).length;
-    return state.items.length + ' işlem bulundu · ' + news + ' yeni · ' + (state.items.length - news) + ' bu hesapta zaten kayıtlı' + (state.accId ? '' : ' · hesap seçince tekrar kontrolü yapılır');
+    return state.items.length + ' işlem bulundu · ' + news + ' yeni · ' + (state.items.length - news) + ' bu hesapta zaten kayıtlı' + skipText() + (state.accId ? '' : ' · hesap seçince tekrar kontrolü yapılır');
   }
   function refreshCount() { var c = document.getElementById('si-count'); if (c) c.textContent = countText(); }
 
@@ -8104,6 +8121,7 @@ function openStatementImport(text, preRaw, preRows) {
       '<p class="muted" style="margin:0 0 .4rem;font-size:.82rem">Tutarın üstüne dokunarak o satırın gelir/gider (alacak/borç) yönünü çevirebilirsin.</p>' +
       '<p id="si-live" class="muted" style="margin:0 0 .4rem"></p>' +
       '<p id="si-hv" class="muted" style="margin:0 0 .4rem"></p>' +
+      '<button type="button" class="btn btn-secondary btn-block" id="si-mv" hidden style="margin:.2rem 0 .6rem"></button>' +
       '<div id="si-list" style="max-height:42vh;overflow:auto;border:1px solid var(--rule);border-radius:var(--radius-m);padding:0 .6rem">' + listHTML() + '</div>' +
       '<button class="btn btn-primary btn-block" id="si-go" style="margin-top:.9rem"></button>';
     return h;
@@ -8119,10 +8137,10 @@ function openStatementImport(text, preRaw, preRows) {
   }
 
   function refreshSummary() {
-    var inc = 0, exp = 0, n = 0;
+    var inc = 0, exp = 0, n = 0, unsel = state.items.filter(function (x) { return !x.dup && !x.on; }).length;
     state.items.forEach(function (x) { if (!x.on) return; n++; if (x.type === 'income') inc += x.amount; else exp += x.amount; });
     var live = document.getElementById('si-live');
-    if (live) live.textContent = 'Seçili ' + n + ' işlem · Gelir +' + formatMoney(inc) + ' · Gider −' + formatMoney(exp) + ' · Net ' + (inc - exp < 0 ? '−' : '+') + formatMoney(Math.abs(inc - exp));
+    if (live) live.textContent = 'Seçili ' + n + ' işlem · Gelir +' + formatMoney(inc) + ' · Gider −' + formatMoney(exp) + ' · Net ' + (inc - exp < 0 ? '−' : '+') + formatMoney(Math.abs(inc - exp)) + (unsel ? ' · ⚠ ' + unsel + ' yeni satır seçili değil' : '');
     var hv = document.getElementById('si-hv');
     if (hv) {
       var gi = 0, gn = 0, ci = 0, cn = 0;
@@ -8132,6 +8150,8 @@ function openStatementImport(text, preRaw, preRows) {
       });
       hv.textContent = (gi || ci) ? 'Havale/EFT/FAST — Gelen (+): ' + gi + ' işlem, +' + formatMoney(gn) + ' · Giden (−): ' + ci + ' işlem, −' + formatMoney(cn) : '';
     }
+    var mv = document.getElementById('si-mv'), nm = state.accId ? state.items.filter(function (x) { return x.other && !x.dup; }).length : 0;
+    if (mv) { mv.hidden = !nm; mv.textContent = nm + ' satır başka hesapta kayıtlı — bu hesaba taşı (çift sayımı önler)'; }
     var chk = document.getElementById('si-check');
     if (chk && meta && meta.totals && (meta.totals.borc != null || meta.totals.alacak != null)) {
       var pb = 0, pa = 0;
@@ -8165,6 +8185,7 @@ function openStatementImport(text, preRaw, preRows) {
         if (accountId) document.getElementById('si-account').value = accountId;
         document.getElementById('si-account').addEventListener('change', function () { state.accId = this.value; build(); renderList(); refreshCount(); updateGo(); });
         updateGo();
+        document.getElementById('si-mv').onclick = moveOther;
         var listEl = document.getElementById('si-list');
         function renderList() { listEl.innerHTML = listHTML(); }
         listEl.addEventListener('change', function (e) {
@@ -8197,6 +8218,8 @@ function openStatementImport(text, preRaw, preRows) {
           show(document.getElementById('si-account').value);
         });
         document.getElementById('si-go').addEventListener('click', function () {
+          var un = state.items.filter(function (x) { return !x.dup && !x.on; }).length;
+          if (un && !state.unselOk) { state.unselOk = true; this.textContent = un + ' yeni satır seçili değil — yine de devam için tekrar dokun'; return; }
           var btn = this, accId = document.getElementById('si-account').value;
           var picked = state.items.filter(function (x) { return x.on; });
           if (!picked.length) return;
@@ -10175,6 +10198,38 @@ function renderFinHub() {
   }).join('');
 }
 
+function openFinAudit() {
+  var accs = getAccounts(), fin = getFinance(), rec = getRecurring(), inst = getInstallments(), sav = getSavings();
+  var valid = {}; accs.forEach(function (a) { valid[a.id] = 1; });
+  function by(list, fn) { var o = {}; list.forEach(function (x) { var k = fn(x); o[k] = (o[k] || 0) + 1; }); return o; }
+  var tx = by(fin, function (f) { return f.accountId; }), inc = by(fin.filter(function (f) { return f.type === 'income'; }), function (f) { return f.accountId; });
+  var rc = by(rec, recurringAccountId), ins = by(inst, function (i) { return i.accountId; }), sv = by(sav, function (g) { return g.accountId || ''; });
+  var unRec = rec.filter(function (r) { return !valid[r.accountId]; }), sumTx = 0;
+  var rows = accs.map(function (a) {
+    var n = tx[a.id] || 0, i = inc[a.id] || 0; sumTx += n;
+    return '<div class="list-row"><span class="row-main"><span class="row-title">' + esc(a.name) + '</span><span class="row-sub">' + n + ' işlem (' + i + ' gelir · ' + (n - i) + ' gider) · sabit ' + (rc[a.id] || 0) + ' · taksit ' + (ins[a.id] || 0) + ' · birikim ' + (sv[a.id] || 0) + '</span></span></div>';
+  }).join('');
+  var split = {};
+  fin.forEach(function (f) { if (!f.batch) return; var b = split[f.batch] = split[f.batch] || {}; b[f.accountId] = (b[f.accountId] || 0) + 1; });
+  var splitRows = Object.keys(split).filter(function (b) { return Object.keys(split[b]).length > 1; }).map(function (b) {
+    return '<div class="list-row"><span class="row-main"><span class="row-sub">' + Object.keys(split[b]).map(function (id) { var a = accountById(id); return esc(a ? a.name : 'Hesapsız') + ' ' + split[b][id]; }).join(' · ') + '</span></span></div>';
+  }).join('');
+  var defName = (accountById(getStoredDefaultAccountId()) || {}).name || '';
+  var html = '<div class="card" style="padding:.2rem .8rem">' + rows + '</div>' +
+    '<p class="muted" style="font-size:.85rem">Toplam ' + fin.length + ' işlem · hesap toplamı ' + sumTx + (fin.length === sumTx ? ' ✓ tutarlı' : ' · ⚠ ' + (fin.length - sumTx) + ' işlem geçerli bir hesaba bağlı değil') + ' · birikim: hesaba bağlı olmayan ' + (sv[''] || 0) + '</p>';
+  if (splitRows) html += '<div class="section-title"><h2>Birden fazla hesaba bölünmüş içe aktarmalar</h2></div><div class="card" style="padding:.2rem .8rem">' + splitRows + '</div>';
+  if (unRec.length) html += '<div class="section-title"><h2>Hesabı atanmamış sabit kalemler</h2></div><p class="muted" style="font-size:.85rem">' + unRec.length + ' kalem şu an "' + esc(defName) + '" hesabında sayılıyor. Doğru hesaba ata:</p><div class="field"><select id="fa-acc">' + accs.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>'; }).join('') + '</select></div><button class="btn btn-primary btn-block" id="fa-go">' + unRec.length + ' kalemi ata</button>';
+  else html += '<p class="muted" style="font-size:.85rem">Tüm sabit kalemler bir hesaba bağlı ✓</p>';
+  openSheet({ title: 'Veri kontrolü', bodyHTML: html, onOpen: function () {
+    var go = document.getElementById('fa-go');
+    if (go) go.onclick = function () {
+      var id = document.getElementById('fa-acc').value, all = getRecurring();
+      all.forEach(function (r) { if (!valid[r.accountId]) r.accountId = id; });
+      saveRecurring(all); closeSheet(); renderAll(); showToast(unRec.length + ' kalem atandı');
+    };
+  } });
+}
+document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('#fin-audit-btn')) openFinAudit(); });
 function finRenderAccNote() {
   var el = document.getElementById('fin-accnote');
   if (!el) return;
@@ -10296,7 +10351,7 @@ function openRecurringDetectSheet() {
         var pick = [].slice.call(body.querySelectorAll('input[data-i]')).filter(function (b) { return b.checked; }).map(function (b) { return c[Number(b.dataset.i)]; });
         if (!pick.length) { showToast('Hiç kalem seçilmedi'); return; }
         var all = getRecurring();
-        pick.forEach(function (x) { all.push({ id: uid(), title: x.title, amount: x.amount, type: x.type, category: x.category, dayOfMonth: x.day, noAuto: true, detected: true, variable: x.variable || undefined, src: x.key }); });
+        pick.forEach(function (x) { all.push({ id: uid(), accountId: (getActiveAccountId() === 'all' ? getStoredDefaultAccountId() : getActiveAccountId()), title: x.title, amount: x.amount, type: x.type, category: x.category, dayOfMonth: x.day, noAuto: true, detected: true, variable: x.variable || undefined, src: x.key }); });
         saveRecurring(all);
         closeSheet();
         renderAll();
