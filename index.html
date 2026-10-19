@@ -8078,7 +8078,7 @@ function openStatementImport(text, preRaw, preRows) {
     state.items.forEach(function (x) {
       if (!x.other || x.dup || !state.accId) return;
       var rec = (state.elseRecs[x.key] || []).shift();
-      if (rec && byId[rec.id]) { byId[rec.id].accountId = state.accId; moved++; }
+      if (rec && byId[rec.id]) { byId[rec.id].accountId = state.accId; byId[rec.id].acctPinned = true; moved++; }
     });
     if (!moved) { showToast('Taşınacak kayıt bulunamadı'); return; }
     if (!saveFinance(fin)) { showToast('Kayıt yazılamadı'); return; }
@@ -9398,7 +9398,7 @@ function openTransactionSheet(id, presetType) {
         if (!title || !amount || amount <= 0) { showToast('Açıklama ve tutar gerekli'); return; }
         draft.title = title; draft.amount = round2(amount);
         draft.date = document.getElementById('txf-date').value || todayISO();
-        draft.accountId = document.getElementById('txf-account').value;
+        var nvAcc = document.getElementById('txf-account').value; if (f && f.accountId && nvAcc !== f.accountId) draft.acctPinned = true; draft.accountId = nvAcc;
         draft.category = document.getElementById('txf-category').value.trim() || 'Diğer';
         if (isNew) { draft.createdAt = new Date().toISOString(); if (txOcrPending) draft.source = 'ocr'; }
         function commit() {
@@ -10206,9 +10206,9 @@ function openFinAudit() {
   function by(list, fn) { var o = {}; list.forEach(function (x) { var k = fn(x); o[k] = (o[k] || 0) + 1; }); return o; }
   var tx = by(fin, function (f) { return f.accountId; }), inc = by(fin.filter(function (f) { return f.type === 'income'; }), function (f) { return f.accountId; });
   var rc = by(rec, recurringAccountId), ins = by(inst, function (i) { return i.accountId; }), sv = by(sav, function (g) { return g.accountId || ''; });
-  var fix = [];
+  var fix = [], ix = finPayeeIndex();
   rec.forEach(function (r) {
-    var ev = finRecEvidenceAccount(r);
+    var ev = finRecEvidenceAccount(r, ix);
     if (!valid[r.accountId]) fix.push({ r: r, to: ev.id || '' });
     else if (r.detected && ev.id && !ev.has[r.accountId]) fix.push({ r: r, to: ev.id });
   });
@@ -10228,11 +10228,15 @@ function openFinAudit() {
   if (splitRows) html += '<div class="section-title"><h2>Birden fazla hesaba bölünmüş içe aktarmalar</h2></div><div class="card" style="padding:.2rem .8rem">' + splitRows + '</div>';
   if (unRec.length) html += '<div class="section-title"><h2>Hesabı yanlış/eksik sabit kalemler</h2></div><p class="muted" style="font-size:.85rem">' + unRec.length + ' kalemin hesabı yok ya da işlem geçmişi başka hesapta. İşlem geçmişine göre doğru hesaba taşınır; geçmişi bulunamayanlar aşağıda seçtiğin hesaba atanır:</p><div class="card" style="padding:.2rem .8rem">' + unRec.slice(0, 15).map(function (f) { var t = accountById(f.to); return '<div class="list-row"><span class="row-main"><span class="row-title">' + esc(f.r.title) + '</span><span class="row-sub">→ ' + esc(t ? t.name : 'geçmiş yok · seçilen hesap') + '</span></span></div>'; }).join('') + (unRec.length > 15 ? '<div class="row-sub">+' + (unRec.length - 15) + ' kalem daha</div>' : '') + '</div><div class="field"><select id="fa-acc">' + accs.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>'; }).join('') + '</select></div><button class="btn btn-primary btn-block" id="fa-go">' + unRec.length + ' kalemi düzelt</button>';
   else html += '<p class="muted" style="font-size:.85rem">Tüm sabit kalemler doğru hesapta ✓</p>';
+  var hl = get('finHealLog', []), lastHeal = hl[hl.length - 1];
+  html += '<div class="section-title"><h2>Otomatik düzeltme</h2></div><p class="muted" style="font-size:.85rem">Açık. Hesabı yanlış sabit kalemler ve birden fazla hesaba bölünmüş içe aktarmalar, uygulama açılırken ve veri değişince kendiliğinden düzeltilir; hiçbir şey silinmez ve her düzeltme kaydedilir.' + (lastHeal ? ' Son düzeltme: ' + esc(lastHeal.at) + ' · ' + lastHeal.items.length + ' kayıt.' : ' Henüz düzeltme gerekmedi.') + '</p>' + (lastHeal ? '<button class="btn btn-secondary btn-block" id="fa-undo">Son düzeltmeyi geri al</button>' : '');
   openSheet({ title: 'Veri kontrolü', bodyHTML: html, onOpen: function () {
+    var ub = document.getElementById('fa-undo');
+    if (ub) ub.onclick = function () { closeSheet(); finHealUndo(); };
     var go = document.getElementById('fa-go');
     if (go) go.onclick = function () {
       var id = document.getElementById('fa-acc').value, all = getRecurring();
-      fix.forEach(function (f) { var t = all.filter(function (r) { return r.id === f.r.id; })[0]; if (t) t.accountId = f.to || id; });
+      fix.forEach(function (f) { var t = all.filter(function (r) { return r.id === f.r.id; })[0]; if (t) { t.accountId = f.to || id; if (!f.to) t.accountPinned = true; } });
       saveRecurring(all); closeSheet(); renderAll(); showToast(unRec.length + ' kalem atandı');
     };
   } });
@@ -10331,18 +10335,90 @@ function finDetectForAccount(accId) {
   out.sort(function (a, b) { return (a.type === b.type ? 0 : a.type === 'income' ? -1 : 1) || rank[a.conf] - rank[b.conf] || b.amount - a.amount; });
   return out;
 }
-/* Bir sabit kalemin işlem geçmişi hangi hesaplarda var? (alıcı adına göre) */
-function finRecEvidenceAccount(r) {
-  var pl = String(r.src || '').split('|')[1] || String(r.title || '').toLocaleLowerCase('tr'), cnt = {};
+/* Alıcı adına göre hangi hesapta kaç işlem var (tek geçiş) */
+function finPayeeIndex() {
+  var ix = {};
   getFinance().forEach(function (f) {
-    if (f.type !== r.type || !f.accountId || isInternalTransfer(f)) return;
+    if (!f.accountId || isInternalTransfer(f)) return;
     var p = finPayee(f.title).toLocaleLowerCase('tr');
-    if (p && pl && (p === pl || (pl.length > 2 && (p.indexOf(pl) !== -1 || pl.indexOf(p) !== -1)))) cnt[f.accountId] = (cnt[f.accountId] || 0) + 1;
+    if (!p) return;
+    var k = f.type + '|' + p, o = ix[k] = ix[k] || {};
+    o[f.accountId] = (o[f.accountId] || 0) + 1;
+  });
+  return ix;
+}
+/* Bir sabit kalemin işlem geçmişi hangi hesaplarda var? */
+function finRecEvidenceAccount(r, ix) {
+  ix = ix || finPayeeIndex();
+  var pl = String(r.src || '').split('|')[1] || String(r.title || '').toLocaleLowerCase('tr'), cnt = {};
+  Object.keys(ix).forEach(function (k) {
+    var c = k.indexOf('|'), t = k.slice(0, c), p = k.slice(c + 1);
+    if (t !== r.type) return;
+    if (p === pl || (pl.length > 2 && p && (p.indexOf(pl) !== -1 || pl.indexOf(p) !== -1))) Object.keys(ix[k]).forEach(function (id) { cnt[id] = (cnt[id] || 0) + ix[k][id]; });
   });
   var best = '', bc = 0;
   Object.keys(cnt).forEach(function (id) { if (cnt[id] > bc) { bc = cnt[id]; best = id; } });
   return { id: best, has: cnt };
 }
+/* ---- Kendi kendini düzelten kontrol --------------------------------------------------------
+   Açılışta ve veri değişince çalışır (imza değişmediyse atlar). Siler değil, hesabı düzeltir:
+   1) hesabı olmayan / işlem geçmişi başka hesapta olan TESPİT EDİLMİŞ sabit kalemler doğru hesaba taşınır,
+   2) içe aktarması birden fazla hesaba bölünmüş (çoğunluk >= %70) satırlar asıl hesaba döner.
+   Elle taşınan/sabitlenen kayıtlara dokunmaz. Her düzeltme günlüğe yazılır ve geri alınabilir. */
+var finHealSig = '';
+function finAutoHeal() {
+  var fin = getFinance(), rec = getRecurring(), accs = getAccounts();
+  if (!accs.length) return 0;
+  var sig = fin.length + '|' + rec.length + '|' + accs.length + '|' + (fin.length ? fin[fin.length - 1].id : '');
+  if (sig === finHealSig) return 0;
+  finHealSig = sig;
+  var valid = {}; accs.forEach(function (a) { valid[a.id] = 1; });
+  var log = [], recCh = false, finCh = false, ix = null;
+  rec.forEach(function (r) {
+    if (r.accountPinned) return;
+    var bad = !valid[r.accountId];
+    if (!bad && !r.detected) return;
+    ix = ix || finPayeeIndex();
+    var ev = finRecEvidenceAccount(r, ix), to = '';
+    if (bad) to = ev.id || getStoredDefaultAccountId();
+    else if (ev.id && !ev.has[r.accountId]) to = ev.id;
+    if (to && to !== r.accountId) { log.push({ k: 'rec', id: r.id, t: r.title, from: r.accountId || '', to: to }); r.accountId = to; recCh = true; }
+  });
+  var bt = {};
+  fin.forEach(function (f) { if (f.batch && f.source === 'import') (bt[f.batch] = bt[f.batch] || []).push(f); });
+  Object.keys(bt).forEach(function (b) {
+    var l = bt[b], cnt = {};
+    l.forEach(function (f) { cnt[f.accountId] = (cnt[f.accountId] || 0) + 1; });
+    var ids = Object.keys(cnt).sort(function (x, y) { return cnt[y] - cnt[x]; });
+    if (ids.length < 2 || !valid[ids[0]] || cnt[ids[0]] / l.length < 0.7) return;
+    l.forEach(function (f) { if (f.accountId !== ids[0] && !f.acctPinned) { log.push({ k: 'tx', id: f.id, t: f.title, from: f.accountId, to: ids[0] }); f.accountId = ids[0]; finCh = true; } });
+  });
+  if (!log.length) return 0;
+  if (recCh) saveRecurring(rec);
+  if (finCh) saveFinance(fin);
+  var logs = get('finHealLog', []);
+  logs.push({ at: todayISO(), items: log.slice(0, 1000) });
+  set('finHealLog', logs.slice(-20));
+  try { showToast(log.length + ' kayıt otomatik düzeltildi', { label: 'Geri al', onClick: finHealUndo }); } catch (e) {}
+  return log.length;
+}
+function finHealUndo() {
+  var logs = get('finHealLog', []), run = logs.pop();
+  if (!run) { showToast('Geri alınacak düzeltme yok'); return; }
+  var fin = getFinance(), rec = getRecurring(), n = 0;
+  run.items.forEach(function (it) {
+    var list = it.k === 'rec' ? rec : fin, t = list.filter(function (x) { return x.id === it.id; })[0];
+    if (!t || t.accountId !== it.to) return;
+    t.accountId = it.from || undefined;
+    if (it.k === 'rec') t.accountPinned = true; else t.acctPinned = true;
+    n++;
+  });
+  saveRecurring(rec); saveFinance(fin); set('finHealLog', logs);
+  finHealSig = '';
+  renderAll();
+  showToast(n + ' kayıt eski hesabına döndürüldü');
+}
+(function () { var o = renderAll; renderAll = function () { try { finAutoHeal(); } catch (e) { console.warn('otomatik kontrol', e); } return o.apply(this, arguments); }; })();
 function finDetectSig(c) { return c.map(function (x) { return x.key; }).sort().join(';'); }
 function finRenderFound() { if (document.getElementById('fin-attn')) renderFinHome(); }
 function finRecPaidThisMonth(r) {
