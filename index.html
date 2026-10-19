@@ -3630,7 +3630,7 @@ function computeTodayAgenda() {
   var tasks = getTasks().filter(function (t) {
     return t.status !== 'done' && (t.due === today || (t.createdAt || '').slice(0, 10) === today);
   });
-  var notes = getNotes().filter(function (n) { return ntLocalISO(n.createdAt) === today; })
+  var notes = getHomeNotes().filter(function (n) { return ntLocalISO(n.createdAt) === today; })
     .sort(function (a, b) { return (a.createdAt || '').localeCompare(b.createdAt || ''); });
   var hasRoutinesToday = getRoutines().some(function (r) { return !r.archived && isRoutineDue(r, today); });
   return { events: events, overdue: overdue, tasks: tasks, notes: notes, hasRoutinesToday: hasRoutinesToday };
@@ -3661,7 +3661,7 @@ function tdItems() {
     var dn = taskDoneOn(t, today), m = (t.due === today || dn) ? tdMin(t.time) : null, it = { kind: 'task', id: t.id, title: t.title, done: dn, priority: t.priority, m: m, sub: dn ? 'Tamamlandı' : taskSubText(t) };
     (m == null ? untimed : timed).push(it);
   });
-  getNotes().filter(function (n) { return ntLocalISO(n.createdAt) === today; }).forEach(function (n) { untimed.push({ kind: 'note', id: n.id, title: ntTitleOf(n), sub: 'Not' }); });
+  getHomeNotes().filter(function (n) { return ntLocalISO(n.createdAt) === today; }).forEach(function (n) { untimed.push({ kind: 'note', id: n.id, title: ntTitleOf(n), sub: 'Not' }); });
   timed.sort(function (a, b) { return (a.m - b.m) || (a.kind === 'prayer' ? -1 : 1); });
   var order = { event: 0, task: 1, routine: 2, note: 3, prayer: 4 };
   untimed.sort(function (a, b) { return ((a.done ? 1 : 0) - (b.done ? 1 : 0)) || (order[a.kind] - order[b.kind]); });
@@ -3823,8 +3823,8 @@ function tdCloseSheet() {
         var mv = b.querySelector('#cl-move'), txt = b.querySelector('#cl-note').value.trim();
         if (mv && mv.checked) L.today.forEach(function (t) { tdMoveTask(t.id, addDays(todayISO(), 1)); });
         if (txt) {
-          var nowISO = new Date().toISOString(), head = 'Gün sonu \u00b7 ' + formatDateTR(todayISO());
-          var all = ntAll(); all.push({ id: uid(), text: head + '\n' + txt, html: '<div>' + esc(head) + '</div><div>' + esc(txt) + '</div>', createdAt: nowISO, updatedAt: nowISO, folder: null, pinned: false }); saveNotes(all);
+          var nowISO = new Date().toISOString(), head = 'Gün sonu \u00b7 ' + formatDateTR(todayISO()), deFid = ntDayEndFolderId(true);
+          var all = ntAll(); all.push({ id: uid(), text: head + '\n' + txt, html: '<div>' + esc(head) + '</div><div>' + esc(txt) + '</div>', createdAt: nowISO, updatedAt: nowISO, folder: deFid, dayEnd: true, pinned: false }); saveNotes(all);
         }
         tdRitualMark('close'); addXP(3, { silent: true }); closeSheet(); tdRefresh(); showToast('Gün kapandı. İyi geceler');
       });
@@ -4027,7 +4027,7 @@ function categoryRowHTML(key) {
       statColor = net > 0 ? 'var(--success)' : net < 0 ? 'var(--danger)' : '';
     }
   } else if (key === 'notes') {
-    var notes = getNotes().slice().sort(function (a, b) { return (b.createdAt || '').localeCompare(a.createdAt || ''); });
+    var notes = getHomeNotes().slice().sort(function (a, b) { return (b.createdAt || '').localeCompare(a.createdAt || ''); });
     if (notes.length) {
       var last = notes[0];
       var preview = (last.text || '').trim().slice(0, 40);
@@ -4117,7 +4117,7 @@ function dhInitFeed() {
 }
 function dhFinancePost() { return finAllScope(dhFinancePostImpl); }
 function dhFinancePostImpl() {
-  var fin = get('finance', []), cur = todayISO().slice(0, 7), d0 = parseISO(cur + '-01');
+  var fin = getFinance(), cur = todayISO().slice(0, 7), d0 = parseISO(cur + '-01');
   if (!fin.length) return dhPost('wallet', 'Finans', MONTHS_TR[d0.getMonth()], '<p class="dh-empty">Henüz kayıt yok. İlk gelir veya giderini ekleyerek bakiyeni ve aylık özetini burada gör.</p>', 'finance', 'Finansı aç');
   var mt = monthTotals(cur), pm = monthTotals(prevMonthKey(cur)), net = mt.income - mt.expense, over = 0; try { over = dhStoryCount('finance'); } catch (err) { over = 0; }
   var body = '<div class="dh-big">' + finMask(formatMoney(currentBalance())) + '</div>' +
@@ -4148,7 +4148,7 @@ function dhGoalsPost() {
   return dhPost('target', 'Hedefler', gs.length + ' hedef', body, 'goals', 'Hedefleri aç');
 }
 function dhNotesPost() {
-  var today = todayISO(), ns = getNotes().filter(function (n) { return ntLocalISO(n.createdAt) !== today; }).sort(function (a, b) { return (b.createdAt || '').localeCompare(a.createdAt || ''); });
+  var today = todayISO(), ns = getHomeNotes().filter(function (n) { return ntLocalISO(n.createdAt) !== today; }).sort(function (a, b) { return (b.createdAt || '').localeCompare(a.createdAt || ''); });
   if (!ns.length) return '';
   return dhPost('note', 'Notlar', 'Son not \u00b7 ' + relativeDayLabel(ns[0].createdAt), '<p class="dh-txt">' + esc((ns[0].text || '').trim().slice(0, 220)) + '</p>', 'notes', 'Notlara git');
 }
@@ -4165,7 +4165,14 @@ function renderCards() {
   var keys = dhVisibleKeys();
   if (!keys.length) { el.innerHTML = '<p class="dh-empty" style="margin-top:1rem">Ayarlar\'dan en az bir bölüm açman gerekiyor.</p>'; return; }
   var map = { finance: dhFinancePost, worship: dhWorshipPost, learning: dhLearningPost, goals: dhGoalsPost, notes: dhNotesPost, achievements: dhAchPost, yearreport: dhYearPost };
-  el.innerHTML = keys.map(function (k) { try { return map[k] ? map[k]() : ''; } catch (err) { return ''; } }).join('');
+  el.innerHTML = keys.map(function (k) {
+    try { return map[k] ? map[k]() : ''; }
+    catch (err) {
+      try { console.error('Ana sayfa kartı hatası:', k, err); } catch (e2) {}
+      if (!map[k] || !CARD_META[k]) return '';
+      return dhPost(CARD_META[k].ic, CARD_META[k].title, 'Özet yüklenemedi', '<p class="dh-empty">Özet şu an gösterilemiyor, sayfayı açarak devam edebilirsin.</p>', k, CARD_META[k].title + ' sayfasını aç');
+    }
+  }).join('');
 }
 
 
@@ -4183,17 +4190,15 @@ function initDashboard() {
 }
 
 function startDashboard() {
+  ntMigrateDayEnd();
   tdDay = todayISO();
   renderGreeting();
   tdInitQuick();
   tdInitEvents();
   withGetCache(function () {
-    renderRitual();
-    renderHero();
-    renderTodayAgenda();
-    renderSuggestions();
-    renderCards();
-    dhInitFeed();
+    [renderRitual, renderHero, renderTodayAgenda, renderSuggestions, renderCards, dhInitFeed].forEach(function (fn) {
+      try { fn(); } catch (err) { try { console.error('Ana sayfa bölümü hatası:', fn.name, err); } catch (e2) {} }
+    });
   });
   tdStartTimer();
 }
@@ -6693,7 +6698,7 @@ var historyFilter = { type: 'all', category: null, start: '', end: '' };
 var finSelectedDate = todayISO(), finDayPicked = false;
 var finSelectedMonth = todayISO().slice(0, 7); // "YYYY-MM" — Finans sayfasında gezinilen ay
 
-function getFinance() { return get('finance', []); }
+function getFinance() { return get('finance', []).filter(function (f) { return f && typeof f === 'object'; }); }
 function saveFinance(list) { return set('finance', list); }
 
 /* ---- Hesap / Kart yönetimi -----------------------------------------------
@@ -11175,6 +11180,29 @@ function saveNotes(list) { return set('notes', list); }
 function getNoteFolders() { return get('noteFolders', []); }
 function saveNoteFolders(l) { set('noteFolders', l); }
 
+/* Gün sonu notları: "Günsonu" klasöründe toplanır, ana sayfada görünmez. */
+var NT_DAYEND_NAME = 'Günsonu';
+function ntIsDayEnd(n) { return !!n && (n.dayEnd === true || /^Gün sonu \u00b7 /.test(String(n.text || ''))); }
+function getHomeNotes() { return getNotes().filter(function (n) { return !ntIsDayEnd(n); }); }
+function ntDayEndFolderId(create) {
+  var fs = getNoteFolders(), i, key = function (x) { return String(x || '').toLocaleLowerCase('tr').replace(/\s+/g, ''); };
+  for (i = 0; i < fs.length; i++) if (fs[i] && key(fs[i].name) === 'günsonu') return fs[i].id;
+  if (create === false) return null;
+  var f = { id: uid(), name: NT_DAYEND_NAME }; fs.push(f); saveNoteFolders(fs); return f.id;
+}
+function ntMigrateDayEnd() {
+  try {
+    var all = ntAll(), legacy = all.filter(function (n) { return n && n.dayEnd !== true && ntIsDayEnd(n); }), flagKey = 'ajandam_dayEndFolder_' + getActiveUserId(), seen = false;
+    try { seen = localStorage.getItem(flagKey) === '1'; } catch (e) {}
+    if (!legacy.length && (seen || ntDayEndFolderId(false))) return;
+    var fid = ntDayEndFolderId(true);
+    try { localStorage.setItem(flagKey, '1'); } catch (e) {}
+    if (!legacy.length) return;
+    legacy.forEach(function (n) { n.folder = fid; n.dayEnd = true; });
+    saveNotes(all);
+  } catch (e) { try { console.error('Günsonu taşıma hatası', e); } catch (e2) {} }
+}
+
 function resizeImageFile(file, maxW) {
   return new Promise(function (resolve, reject) {
     var reader = new FileReader();
@@ -11492,6 +11520,7 @@ function ntSwipeBind(el) {
   el.addEventListener('touchcancel', end);
 }
 function initNotes() {
+  ntMigrateDayEnd();
   ntLoadPrefs(); ntFolder = 'all'; ntQ = ''; ntEd = null;
   var fab = document.getElementById('note-add-fab');
   fab.innerHTML = icon('pencil'); fab.onclick = function () { openNoteEditor(null); };
