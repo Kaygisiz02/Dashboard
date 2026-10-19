@@ -1535,6 +1535,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
     <div id="fin-daycard"></div>
     <div class="fin-hero" id="fin-overview"></div>
     <div class="fin-actions" id="fin-actions"></div>
+    <div id="fin-upc"></div>
     <div class="section-title"><h2>Bölümler</h2></div>
     <div class="fin-feats" id="fin-feats"></div>
     <div id="fin-accnote"></div>
@@ -9877,6 +9878,25 @@ function finAttention() {
   if (det.length && finDetectSig(det) !== seen) rows.push({ tone: 'info', ic: 'repeat', detect: true, t: det.length + ' düzenli ödeme buldum', s: 'Gözden geçirip yaklaşan ödemelere ekle' });
   return rows.slice(0, 4);
 }
+/* Ana sayfa: Yaklaşan ödemeler (seçili hesabın; "Tüm hesaplar"da hepsi). 3 gün içindekiler vurgulanır. */
+function finRenderHomeUpcoming() {
+  var el = document.getElementById('fin-upc');
+  if (!el) return;
+  try { renderFinUpcoming(); } catch (e) {}
+  var all = finUpcomingView(), act = getActiveAccountId(), multi = getAccounts().length > 1;
+  var head = '<div class="section-title"><h2>Yaklaşan ödemeler</h2><button type="button" class="link-btn" data-fin-go="upcoming">Tümü</button></div>';
+  if (!all.length) { el.innerHTML = head + '<p class="muted" style="margin:.2rem 0 .9rem;font-size:.88rem">Önümüzdeki 30 günde planlı ödeme yok. Sabit gider veya taksit ekleyerek takip edebilirsin.</p>'; return; }
+  var exp = all.filter(function (x) { return !x.inc; });
+  var sum = function (l) { return l.reduce(function (a, x) { return a + (Number(x.amt) || 0); }, 0); };
+  var w7 = exp.filter(function (x) { return daysFromToday(x.d) <= 7; });
+  var rows = all.slice(0, 5).map(function (x) {
+    var dd = daysFromToday(x.d), soon = !x.inc && dd <= 3, acc = (act === 'all' && multi) ? ((accountById(x.acc) || {}).name || '') : '';
+    return '<div class="list-row" data-fin-go="upcoming" style="cursor:pointer"><span class="fin-cat" style="background:var(--accent-soft);color:var(--accent)">' + icon(x.ic, 'ic-s') + '</span><div class="row-main"><div class="row-title">' + esc(x.t) + '</div><div class="row-sub">' + inDaysLabel(dd) + ' \u00b7 ' + pad2(x.d.getDate()) + ' ' + MONTHS_TR[x.d.getMonth()].slice(0, 3) + (acc ? ' \u00b7 ' + esc(acc) : '') + '</div></div><span class="mono" style="' + (x.inc ? 'color:var(--success)' : soon ? 'color:var(--danger,#c0392b);font-weight:600' : '') + '">' + (x.inc ? '+' : '') + finMoney(x.amt) + '</span></div>';
+  }).join('');
+  el.innerHTML = head +
+    '<div class="muted" style="font-size:.85rem;margin:-.2rem 0 .5rem">7 gün: <b>' + w7.length + ' ödeme \u00b7 ' + finMoney(sum(w7)) + '</b> \u00b7 30 gün: <b>' + exp.length + ' ödeme \u00b7 ' + finMoney(sum(exp)) + '</b></div>' +
+    '<div class="card" style="padding:.2rem .8rem">' + rows + (all.length > 5 ? '<button type="button" class="link-btn" data-fin-go="upcoming" style="display:block;margin:.4rem 0">+' + (all.length - 5) + ' ödeme daha</button>' : '') + '</div>';
+}
 function renderFinHome() {
   var fin = getFinanceView(), has = getFinance().length > 0;
   var st = document.getElementById('fin-start');
@@ -9897,6 +9917,7 @@ function renderFinHome() {
       .sort(function (a, b) { return a.f.date < b.f.date ? 1 : a.f.date > b.f.date ? -1 : b.i - a.i; }).slice(0, 5).map(function (x) { return x.f; });
     rc.innerHTML = last.length ? '<div class="card" style="padding:.2rem .8rem">' + last.map(finRowHTML).join('') + '</div>' : '<div class="empty"><p>' + (has ? 'Bu hesapta henüz işlem yok. İçe aktar ya da sağ alttaki + ile ekle.' : 'Henüz işlem yok. Sağ alttaki + ile ilk kaydını ekle.') + '</p></div>';
   }
+  try { finRenderHomeUpcoming(); } catch (e) { console.warn('yaklaşan ödemeler', e); }
   renderFinPro();
   var it = document.getElementById('fin-ins-title');
   if (it) { var d = parseISO(finSelectedMonth + '-01'); it.textContent = (finSelectedMonth === todayISO().slice(0, 7) ? 'Bu ay' : MONTHS_TR[d.getMonth()] + ' ' + d.getFullYear()) + ' özeti'; }
