@@ -9460,6 +9460,7 @@ function openRecurringSheet(id) {
   function bodyHTML() {
     return '<div class="segmented" id="rcf-type"><button data-v="expense" class="' + (draft.type === 'expense' ? 'active' : '') + '">Gider</button><button data-v="income" class="' + (draft.type === 'income' ? 'active' : '') + '">Gelir</button></div>' +
       '<div class="field" style="margin-top:.8rem"><label>Açıklama</label><input type="text" id="rcf-title" value="' + esc(draft.title) + '"></div>' +
+      '<div class="field"><label>Numara (telefon / abone / hesap no — isteğe bağlı)</label><input type="text" id="rcf-ident" inputmode="numeric" value="' + esc(draft.ident || '') + '" placeholder="Aynı kurumdan birden çok ödemeyi ayırt eder"></div>' +
       '<div class="field-row"><div class="field"><label>Tutar</label><input type="number" step="0.01" id="rcf-amount" value="' + esc(draft.amount) + '"></div>' +
       '<div class="field"><label>Ayın günü</label><select id="rcf-day" style="width:100%;background:var(--paper);border:1px solid var(--rule-strong);border-radius:8px;padding:.68rem .75rem">' + dayOptionsHTML() + '</select></div></div>' +
       '<div class="field" style="position:relative"><label>Kategori</label>' +
@@ -9487,7 +9488,7 @@ function openRecurringSheet(id) {
         var amount = parseFloat(document.getElementById('rcf-amount').value);
         var day = clamp(parseInt(document.getElementById('rcf-day').value, 10) || 1, 1, 31);
         if (!title || !amount || amount <= 0) { showToast('Açıklama ve tutar gerekli'); return; }
-        draft.title = title; draft.amount = amount; draft.dayOfMonth = day;
+        draft.title = title; draft.amount = amount; draft.dayOfMonth = day; draft.ident = document.getElementById('rcf-ident').value.replace(/\s/g, '') || undefined;
         draft.noAuto = !document.getElementById('rcf-auto').checked; if (!draft.noAuto) delete draft.noAuto;
         draft.category = document.getElementById('rcf-category').value.trim() || 'Diğer';
         draft.accountId = document.getElementById('rcf-account').value;
@@ -10298,10 +10299,10 @@ function finDetectForAccount(accId) {
   recs.forEach(function (f) {
     var p = finPayee(f.title);
     if (!p || p === 'ATM / nakit çekim' || /^prepaid/i.test(p)) return;
-    var key = f.type + '|' + p.toLocaleLowerCase('tr');
-    (groups[key] = groups[key] || { key: key, type: f.type, payee: p, list: [] }).list.push(f);
+    var idn = finIdent(f.title), key = f.type + '|' + p.toLocaleLowerCase('tr') + (idn ? '|' + idn : '');
+    (groups[key] = groups[key] || { key: key, type: f.type, payee: p, ident: idn, list: [] }).list.push(f);
   });
-  var tmpl = getRecurring().filter(function (t) { return recurringAccountId(t) === accId; }), out = [];
+  var tmpl = getRecurring().filter(function (t) { return recurringAccountId(t) === accId; }), out = [], used = {};
   Object.keys(groups).forEach(function (k) {
     var g = groups[k], list = g.list.slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; }), mset = {};
     list.forEach(function (f) { var mk = f.date.slice(0, 7); mset[mk] = (mset[mk] || 0) + 1; });
@@ -10323,17 +10324,41 @@ function finDetectForAccount(accId) {
     var cc = {}, cat = 'Diğer', cb = 0;
     list.forEach(function (f) { var c = f.category || 'Diğer'; cc[c] = (cc[c] || 0) + 1; if (cc[c] > cb) { cb = cc[c]; cat = c; } });
     var pl = g.payee.toLocaleLowerCase('tr');
+    var gid = g.ident || '';
     var exists = tmpl.some(function (t) {
+      if (t.type !== g.type) return false;
+      if (t.src === g.key) return true;
       var tl = String(t.title || '').toLocaleLowerCase('tr');
-      return t.type === g.type && (t.src === g.key || (tl.length > 2 && (tl.indexOf(pl) !== -1 || pl.indexOf(tl) !== -1)));
+      if (!(tl.length > 2 && (tl.indexOf(pl) !== -1 || pl.indexOf(tl) !== -1))) return false;
+      var ti = t.ident || String(t.src || '').split('|')[2] || finIdent(t.title);
+      if (gid && ti && gid !== ti) return false;
+      if (gid && !ti) { if (used[t.id]) return false; used[t.id] = 1; return true; }
+      return true;
     });
     if (exists) return;
     var conf = stable ? (n >= 4 ? 'high' : 'low') : 'med';
-    out.push({ key: accId + '::' + g.key, src: g.key, accountId: accId, type: g.type, title: g.payee, amount: round2(amount), day: day, months: n, variable: !stable, category: cat, conf: conf, on: conf !== 'low', last: list[list.length - 1].date });
+    out.push({ key: accId + '::' + g.key, src: g.key, accountId: accId, type: g.type, title: g.payee + (g.ident ? ' · ' + g.ident : ''), ident: g.ident || undefined, amount: round2(amount), day: day, months: n, variable: !stable, category: cat, conf: conf, on: conf !== 'low', last: list[list.length - 1].date });
   });
   var rank = { high: 0, med: 1, low: 2 };
   out.sort(function (a, b) { return (a.type === b.type ? 0 : a.type === 'income' ? -1 : 1) || rank[a.conf] - rank[b.conf] || b.amount - a.amount; });
   return out;
+}
+/* Aynı kurumdaki ödemeleri ayıran numara: etiketli abone/tesisat/sözleşme/müşteri/hesap/telefon no, IBAN, operatörlerde telefon.
+   Her işlemde değişen dekont/provizyon numaraları ALINMAZ (yalnız etiketli numaralar). */
+function finIdent(text) {
+  var t = String(text || ''), low = t.toLocaleLowerCase('tr').replace(/ı/g, 'i'), m;
+  if ((m = low.match(/(?:abone|tesisat|sozlesme|müşteri|musteri|müsteri|hesap|telefon|gsm|numara|sicil|police|poliçe)\D{0,14}(\d[\d ]{4,18}\d)/))) return m[1].replace(/ /g, '');
+  if ((m = t.match(/\bTR\d{2}(?: ?\d{4}){5} ?\d{2}\b/i))) return m[0].replace(/ /g, '').toUpperCase();
+  if (/turkcell|vodafone|telekom|superonline|turknet|bimcell|pttcell|gsm/.test(low)) {
+    var d = t.replace(/(\d)[ \-](?=\d)/g, '$1');
+    if ((m = d.match(/(^|\D)((?:\+?90)?0?5\d{9})(?!\d)/))) return m[2].slice(-10);
+  }
+  return '';
+}
+function finRecDupKey(r) {
+  var parts = String(r.src || '').split('|');
+  var pay = (parts[1] || finPayee(r.title) || String(r.title || '')).toLocaleLowerCase('tr').trim();
+  return r.type + '|' + pay + '|' + (r.ident || parts[2] || finIdent(r.title));
 }
 /* Alıcı adına göre hangi hesapta kaç işlem var (tek geçiş) */
 function finPayeeIndex() {
@@ -10393,6 +10418,21 @@ function finAutoHeal() {
     if (ids.length < 2 || !valid[ids[0]] || cnt[ids[0]] / l.length < 0.7) return;
     l.forEach(function (f) { if (f.accountId !== ids[0] && !f.acctPinned) { log.push({ k: 'tx', id: f.id, t: f.title, from: f.accountId, to: ids[0] }); f.accountId = ids[0]; finCh = true; } });
   });
+  var GEN = /kredi kart|kmh|maaş|maas|ek ödeme|havale|fast|eft|virman|nakit|prepaid/, seen = {}, drop = {};
+  rec.forEach(function (r, i) {
+    if (r.dupOk) return;
+    var kk = finRecDupKey(r);
+    if (GEN.test(kk)) return;
+    var k = recurringAccountId(r) + '#' + kk;
+    (seen[k] = seen[k] || []).push({ r: r, i: i });
+  });
+  Object.keys(seen).forEach(function (k) {
+    var g = seen[k];
+    if (g.length < 2) return;
+    g.sort(function (a, b) { return ((a.r.detected ? 1 : 0) - (b.r.detected ? 1 : 0)) || a.i - b.i; });
+    g.slice(1).forEach(function (x) { drop[x.r.id] = 1; log.push({ k: 'dup', id: x.r.id, t: x.r.title, from: recurringAccountId(x.r), to: '', obj: JSON.parse(JSON.stringify(x.r)) }); });
+  });
+  if (Object.keys(drop).length) { rec = rec.filter(function (r) { return !drop[r.id]; }); recCh = true; }
   if (!log.length) return 0;
   if (recCh) saveRecurring(rec);
   if (finCh) saveFinance(fin);
@@ -10407,6 +10447,7 @@ function finHealUndo() {
   if (!run) { showToast('Geri alınacak düzeltme yok'); return; }
   var fin = getFinance(), rec = getRecurring(), n = 0;
   run.items.forEach(function (it) {
+    if (it.k === 'dup') { if (!rec.some(function (x) { return x.id === it.id; })) { it.obj.dupOk = true; rec.push(it.obj); n++; } return; }
     var list = it.k === 'rec' ? rec : fin, t = list.filter(function (x) { return x.id === it.id; })[0];
     if (!t || t.accountId !== it.to) return;
     t.accountId = it.from || undefined;
@@ -10451,7 +10492,7 @@ function openRecurringDetectSheet() {
         var pick = [].slice.call(body.querySelectorAll('input[data-i]')).filter(function (b) { return b.checked; }).map(function (b) { return c[Number(b.dataset.i)]; });
         if (!pick.length) { showToast('Hiç kalem seçilmedi'); return; }
         var all = getRecurring();
-        pick.forEach(function (x) { all.push({ id: uid(), accountId: x.accountId, title: x.title, amount: x.amount, type: x.type, category: x.category, dayOfMonth: x.day, noAuto: true, detected: true, variable: x.variable || undefined, src: x.src }); });
+        pick.forEach(function (x) { all.push({ id: uid(), accountId: x.accountId, ident: x.ident, title: x.title, amount: x.amount, type: x.type, category: x.category, dayOfMonth: x.day, noAuto: true, detected: true, variable: x.variable || undefined, src: x.src }); });
         saveRecurring(all);
         var cnt = {}, bad = 0, saved = getRecurring();
         pick.forEach(function (x) { cnt[x.accountId] = (cnt[x.accountId] || 0) + 1; if (!saved.some(function (r) { return r.accountId === x.accountId && r.src === x.src; })) bad++; });
