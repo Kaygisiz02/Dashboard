@@ -1228,6 +1228,9 @@ button,[role="button"],a,label,input,select,textarea,.prayer-toggle,.checkbox{-w
 .td-chips{display:flex;flex-wrap:wrap;gap:.4rem;margin:.6rem 0 .9rem}
 .td-chip{display:inline-flex;align-items:center;gap:.35rem;background:rgba(120,120,128,.14);color:var(--ink);border-radius:99px;padding:.3rem .75rem;font-size:.78rem;font-weight:600;text-decoration:none}
 .td-chip svg{width:.9rem;height:.9rem;color:var(--accent)}
+button.td-chip{border:0;font:inherit;font-size:.78rem;font-weight:600;cursor:pointer}
+button.td-chip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.td-chip.warn svg{color:var(--danger)}
 .td-quick{position:relative}
 .td-quick .ic{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:var(--accent);display:grid;pointer-events:none}
 .td-quick .ic svg{width:1.1rem;height:1.1rem}
@@ -1337,7 +1340,8 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
 <main class="page" id="page-root">
   <div id="dash-content">
     <section id="dash-greeting"></section>
-    <div id="dash-quick"><div class="td-quick"><span class="ic" id="td-qic"></span><input type="text" id="td-q" placeholder="Hızlı ekle: yarın market · 15:00 diş hekimi" enterkeyhint="done" autocomplete="off" autocapitalize="sentences" aria-label="Hızlı ekle"></div><div class="td-qhint" id="td-qhint"></div></div>
+    <div id="dash-quick"><div class="td-quick"><span class="ic" id="td-qic"></span><input type="text" id="td-q" placeholder="Ekle ya da git: yarın market · notlarım" enterkeyhint="done" autocomplete="off" autocapitalize="sentences" aria-label="Hızlı ekle"></div><div class="td-qhint" id="td-qhint"></div></div>
+    <div id="dash-smart"></div>
     <div id="dash-ritual"></div>
     <section id="dash-hero" class="dh-feed"></section>
     <section id="dash-agenda" class="of-feed"></section>
@@ -3898,6 +3902,8 @@ function tdInitQuick() {
   function show() {
     var v = inp.value.trim();
     if (!v) { hint.innerHTML = ''; return; }
+    var rt = tdRoute(v);
+    if (rt) { hint.innerHTML = '\u2192 <b>' + esc(rt.label) + '</b> \u00b7 Enter'; return; }
     var r = tdParse(v);
     hint.innerHTML = r.title ? '\u2192 <b>' + (r.kind === 'event' ? 'Etkinlik' : 'Görev') + '</b>' + (r.date ? ' \u00b7 ' + esc(tdDateLabel(r.date)) : (r.kind === 'task' ? ' \u00b7 tarihsiz' : '')) + (r.time ? ' ' + r.time : '') + (r.repeat ? ' \u00b7 \u21bb ' + REPEAT_LABELS[r.repeat] : '') + ' \u00b7 \u201c' + esc(r.title) + '\u201d' : '';
   }
@@ -3917,6 +3923,8 @@ function tdInitQuick() {
   }
   inp.addEventListener('keydown', function (e) {
     if (e.key !== 'Enter') return;
+    var rt = tdRoute(inp.value);
+    if (rt) { e.preventDefault(); inp.value = ''; hint.innerHTML = ''; inp.blur(); tdRun(rt.act); return; }
     var r = tdParse(inp.value);
     if (!r.title) return;
     e.preventDefault();
@@ -3925,6 +3933,73 @@ function tdInitQuick() {
     showToast((r.kind === 'event' ? 'Etkinlik eklendi' : 'Görev eklendi') + (r.date ? ' \u00b7 ' + tdDateLabel(r.date) : '') + (r.time ? ' ' + r.time : ''));
     inp.value = ''; hint.innerHTML = ''; inp.blur(); tdRefresh();
   });
+}
+/* ---- Ana sayfa: istek yönlendirici + akıllı öneriler ------------------- */
+var TD_PAGE_WORDS = [
+  ['tasks', 'Görevler', ['görev', 'yapılacak']],
+  ['routines', 'Rutinler', ['rutin', 'alışkanlık']],
+  ['calendar', 'Takvim', ['takvim', 'etkinlik', 'randevu']],
+  ['finance', 'Finans', ['finans', 'bütçe', 'harcama', 'gider', 'fatura', 'borç']],
+  ['notes', 'Notlar', ['not', 'defter']],
+  ['goals', 'Hedefler', ['hedef']],
+  ['learning', 'Öğrenme', ['öğren', 'ders', 'kitap']],
+  ['worship', 'İbadet', ['ibadet', 'namaz', 'vakit']],
+  ['achievements', 'Başarılar', ['başarı', 'rozet', 'seviye']],
+  ['yearreport', 'Yıl Özeti', ['yıllık', 'özet']],
+  ['settings', 'Ayarlar', ['ayar', 'tema', 'yedek']]
+];
+var TD_NEW_WORDS = [
+  ['sheet:task', 'Yeni görev', ['görev']],
+  ['sheet:note', 'Yeni not', ['not']],
+  ['sheet:routine', 'Yeni rutin', ['rutin', 'alışkanlık']],
+  ['sheet:event', 'Yeni etkinlik', ['etkinlik', 'randevu']]
+];
+function tdHas(words, stems) {
+  return words.some(function (w) { return stems.some(function (s) { return w.indexOf(s) === 0; }); });
+}
+/* Yazılan isteği bir eyleme çevirir; eşleşme yoksa null döner (o zaman normal hızlı ekle çalışır). */
+function tdRoute(text) {
+  var words = String(text || '').toLocaleLowerCase('tr').replace(/[.,!?]/g, ' ').split(/\s+/).filter(Boolean);
+  if (!words.length || words.length > 4 || /\d/.test(text)) return null;
+  var isNew = words.some(function (w) { return ['yeni', 'ekle', 'al', 'yaz', 'oluştur'].indexOf(w) !== -1; });
+  var isGo = words.some(function (w) { return ['aç', 'git', 'göster', 'bak', 'götür'].indexOf(w) !== -1; });
+  var i, r;
+  if (isNew && !isGo) {
+    for (i = 0; i < TD_NEW_WORDS.length; i++) { r = TD_NEW_WORDS[i]; if (tdHas(words, r[2])) return { act: r[0], label: r[1] + ' aç' }; }
+  }
+  if (isGo || words.length === 1) {
+    for (i = 0; i < TD_PAGE_WORDS.length; i++) { r = TD_PAGE_WORDS[i]; if (tdHas(words, r[2])) return { act: 'nav:' + r[0], label: r[1] + ' sayfasına git' }; }
+  }
+  return null;
+}
+function tdRun(act) {
+  var p = String(act).split(':');
+  if (p[0] === 'nav') { navigateTo(p[1]); return; }
+  var s = { task: ['tasks', openTaskSheet], note: ['notes', openNoteEditor], routine: ['routines', openRoutineSheet], event: ['calendar', openEventSheet] }[p[1]];
+  if (!s) return;
+  navigateTo(s[0]);
+  try { s[1](); } catch (err) { console.error('Yönlendirme hatası', err); }
+}
+/* Verinin durumuna göre en fazla 3 öneri üretir. */
+function renderSmartChips() {
+  var el = document.getElementById('dash-smart');
+  if (!el) return;
+  try {
+    var today = todayISO(), hour = new Date().getHours(), out = [];
+    var overdue = tdItems().overdue.length;
+    if (overdue) out.push(['nav:tasks', 'tasks', overdue + ' gecikmiş görev', 'warn']);
+    var waiting = getRoutines().filter(function (r) { return !r.archived && isRoutineDue(r, today) && !(r.log && r.log[today]); }).length;
+    if (waiting) out.push(['nav:routines', 'routines', waiting + ' rutin seni bekliyor', '']);
+    if (!getTasks().length) out.push(['sheet:task', 'plus', 'İlk görevini ekle', '']);
+    else if (hour >= 20 && !ntAll().some(function (n) { return n.createdAt && toISO(new Date(n.createdAt)) === today; })) out.push(['sheet:note', 'note', 'Günü bir notla kapat', '']);
+    el.innerHTML = out.length ? '<div class="td-chips">' + out.slice(0, 3).map(function (c) {
+      return '<button type="button" class="td-chip ' + c[3] + '" data-td-act="' + c[0] + '">' + icon(c[1]) + esc(c[2]) + '</button>';
+    }).join('') + '</div>' : '';
+    if (!el.__b) {
+      el.__b = true;
+      el.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('[data-td-act]'); if (b) tdRun(b.getAttribute('data-td-act')); });
+    }
+  } catch (err) { console.error('Akıllı öneri hatası', err); }
 }
 function tdStartTimer() {
   if (tdTimer) clearInterval(tdTimer);
@@ -3982,6 +4057,7 @@ function tdInitEvents() {
 
 function renderSuggestions() {
   var el = document.getElementById('dash-suggestions');
+  renderSmartChips();
   if (el) el.innerHTML = backupNudgeHTML();
 }
 
