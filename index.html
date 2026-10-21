@@ -3923,6 +3923,45 @@ function tdParse(text) {
   return { title: title, date: date, time: time, repeat: repeat, kind: (time && !repeat) ? 'event' : 'task' };
 }
 function tdDateLabel(d) { var t = todayISO(); return d === t ? 'Bugün' : d === addDays(t, 1) ? 'Yarın' : formatDateTR(d, { year: false }); }
+/* ---- Sesle yazma: dinleme her durumda kapanır -------------------------------
+   Kapanma yolları: ilk sonuç gelince, konuşma bitince, 7 sn ses gelmezse, 20 sn üst sınır,
+   mikrofon tuşuna tekrar basınca, sayfa değişince, uygulama arka plana gidince. */
+var tdMic = null;   /* dinleme açıksa { stop, kill }, değilse null */
+function tdMicStart(SR, mic, inp, onText) {
+  var rec = new SR(), idle = null, cap = null, done = false;
+  function ui(on) {
+    mic.classList.toggle('on', on); mic.setAttribute('aria-pressed', on ? 'true' : 'false');
+    mic.setAttribute('aria-label', on ? 'Dinleniyor, durdurmak için dokun' : 'Sesle yaz');
+  }
+  function finish() {
+    if (done) return; done = true;
+    clearTimeout(idle); clearTimeout(cap); tdMic = null; ui(false);
+    try { rec.onresult = rec.onend = rec.onerror = rec.onspeechstart = rec.onspeechend = null; rec.abort(); } catch (e) { /* zaten kapalı */ }
+  }
+  rec.lang = 'tr-TR'; rec.continuous = false; rec.interimResults = false; rec.maxAlternatives = 1;
+  rec.onspeechstart = function () { clearTimeout(idle); };
+  rec.onspeechend = function () { try { rec.stop(); } catch (e) { /* kapalı */ } setTimeout(finish, 2500); };
+  rec.onresult = function (ev) {
+    var t = '';
+    for (var i = 0; i < ev.results.length; i++) t += ev.results[i][0].transcript + ' ';
+    t = t.trim().replace(/[.!?\u2026]+$/, '');
+    if (t) { inp.value = (inp.value.trim() ? inp.value.trim() + ' ' : '') + t; onText(); inp.focus(); }
+    finish();
+  };
+  rec.onend = finish;
+  rec.onerror = function (ev) {
+    var e = ev && ev.error;
+    if (e !== 'aborted') showToast(e === 'not-allowed' || e === 'service-not-allowed' ? 'Mikrofon izni verilmedi. Tarayıcı ayarlarından izin ver.' : e === 'no-speech' ? 'Ses duyulmadı' : e === 'network' ? 'Sesle yazmak için internet gerekli' : e === 'audio-capture' ? 'Mikrofon bulunamadı' : 'Ses algılanamadı');
+    finish();
+  };
+  tdMic = { stop: function () { ui(false); try { rec.stop(); } catch (e) { /* kapalı */ } setTimeout(finish, 1200); }, kill: finish };
+  ui(true);
+  idle = setTimeout(function () { showToast('Ses duyulmadı'); finish(); }, 7000);
+  cap = setTimeout(finish, 20000);
+  try { rec.start(); } catch (e) { finish(); }
+}
+document.addEventListener('visibilitychange', function () { if (document.hidden && tdMic) tdMic.kill(); });
+window.addEventListener('pagehide', function () { if (tdMic) tdMic.kill(); });
 function tdInitQuick() {
   var inp = document.getElementById('td-q'), hint = document.getElementById('td-qhint'), ic = document.getElementById('td-qic');
   if (!inp) return;
@@ -3938,15 +3977,11 @@ function tdInitQuick() {
   inp.addEventListener('input', show);
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (SR && !inp.parentNode.querySelector('.td-mic')) {
-    var mic = document.createElement('button'), rec = null;
-    mic.type = 'button'; mic.className = 'td-mic'; mic.setAttribute('aria-label', 'Sesle yaz'); mic.innerHTML = icon('tm_mic'); inp.parentNode.appendChild(mic);
+    var mic = document.createElement('button');
+    mic.type = 'button'; mic.className = 'td-mic'; mic.setAttribute('aria-label', 'Sesle yaz'); mic.setAttribute('aria-pressed', 'false'); mic.innerHTML = icon('tm_mic'); inp.parentNode.appendChild(mic);
     mic.addEventListener('click', function () {
-      if (rec) { try { rec.stop(); } catch (e) {} return; }
-      rec = new SR(); rec.lang = 'tr-TR'; rec.interimResults = false; rec.maxAlternatives = 1; mic.classList.add('on');
-      rec.onresult = function (ev) { inp.value = ev.results[0][0].transcript; show(); inp.focus(); };
-      rec.onend = function () { rec = null; mic.classList.remove('on'); };
-      rec.onerror = function () { rec = null; mic.classList.remove('on'); showToast('Ses algılanamadı'); };
-      try { rec.start(); } catch (e) { rec = null; mic.classList.remove('on'); }
+      if (tdMic) { tdMic.stop(); return; }
+      tdMicStart(SR, mic, inp, show);
     });
   }
   inp.addEventListener('keydown', function (e) {
@@ -12371,6 +12406,7 @@ PAGE_VIEWS.forEach(function (k) {
 function navI() { return (history.state && history.state.i) || 0; }
 function navigateTo(pageKey, opts) {
   if (PAGE_VIEWS.indexOf(pageKey) === -1) return;
+  if (typeof tdMic !== 'undefined' && tdMic) tdMic.kill();
   opts = opts || {};
   var el = document.getElementById('view-' + pageKey);
   if (el) el.innerHTML = VIEW_TEMPLATES[pageKey];
