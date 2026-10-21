@@ -382,12 +382,30 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .switch::after { content: ""; position: absolute; left: .15rem; top: 50%; width: 1.3rem; height: 1.3rem; margin-top: -.65rem; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .15s ease; }
 .switch[aria-checked="true"]::before { background: var(--accent); }
 .switch[aria-checked="true"]::after { transform: translateX(1.3rem); }
-/* Koyu temada düşük kontrastlı vurgu renkleri */
-[data-theme="dark"][data-accent="graphite"] { --accent: #A8ADB3; --accent-ink: #000; --accent-soft: rgba(168,173,179,.18); }
-[data-theme="dark"][data-accent="ochre"] { --accent: #E2A23B; --accent-ink: #000; --accent-soft: rgba(226,162,59,.18); }
+/* Koyu temada her vurgu rengi için parlak sürüm (seçici örnekleri de aynı rengi gösterir) */
+[data-theme="dark"][data-accent="ink-blue"], [data-theme="dark"] .swatch[data-accent="ink-blue"] { --accent: #3B8EFF; --accent-ink: #fff; --accent-soft: rgba(59,142,255,.18); }
+[data-theme="dark"][data-accent="fountain"], [data-theme="dark"] .swatch[data-accent="fountain"] { --accent: #2FBF86; --accent-ink: #000; --accent-soft: rgba(47,191,134,.18); }
+[data-theme="dark"][data-accent="wax-red"], [data-theme="dark"] .swatch[data-accent="wax-red"] { --accent: #FF4D7E; --accent-ink: #fff; --accent-soft: rgba(255,77,126,.18); }
+[data-theme="dark"][data-accent="plum"], [data-theme="dark"] .swatch[data-accent="plum"] { --accent: #A78BFA; --accent-ink: #000; --accent-soft: rgba(167,139,250,.2); }
+[data-theme="dark"][data-accent="ochre"], [data-theme="dark"] .swatch[data-accent="ochre"] { --accent: #E2A23B; --accent-ink: #000; --accent-soft: rgba(226,162,59,.18); }
+[data-theme="dark"][data-accent="graphite"], [data-theme="dark"] .swatch[data-accent="graphite"] { --accent: #A8ADB3; --accent-ink: #000; --accent-soft: rgba(168,173,179,.18); }
 @media (prefers-color-scheme: dark) {
-  [data-theme="auto"][data-accent="graphite"] { --accent: #A8ADB3; --accent-ink: #000; --accent-soft: rgba(168,173,179,.18); }
-  [data-theme="auto"][data-accent="ochre"] { --accent: #E2A23B; --accent-ink: #000; --accent-soft: rgba(226,162,59,.18); }
+  [data-theme="auto"][data-accent="ink-blue"], [data-theme="auto"] .swatch[data-accent="ink-blue"] { --accent: #3B8EFF; --accent-ink: #fff; --accent-soft: rgba(59,142,255,.18); }
+  [data-theme="auto"][data-accent="fountain"], [data-theme="auto"] .swatch[data-accent="fountain"] { --accent: #2FBF86; --accent-ink: #000; --accent-soft: rgba(47,191,134,.18); }
+  [data-theme="auto"][data-accent="wax-red"], [data-theme="auto"] .swatch[data-accent="wax-red"] { --accent: #FF4D7E; --accent-ink: #fff; --accent-soft: rgba(255,77,126,.18); }
+  [data-theme="auto"][data-accent="plum"], [data-theme="auto"] .swatch[data-accent="plum"] { --accent: #A78BFA; --accent-ink: #000; --accent-soft: rgba(167,139,250,.2); }
+  [data-theme="auto"][data-accent="ochre"], [data-theme="auto"] .swatch[data-accent="ochre"] { --accent: #E2A23B; --accent-ink: #000; --accent-soft: rgba(226,162,59,.18); }
+  [data-theme="auto"][data-accent="graphite"], [data-theme="auto"] .swatch[data-accent="graphite"] { --accent: #A8ADB3; --accent-ink: #000; --accent-soft: rgba(168,173,179,.18); }
+}
+/* Seçilen rengin canlı önizlemesi */
+.acc-preview { display: flex; align-items: center; gap: .7rem; margin-top: .9rem; padding: .85rem .9rem; background: var(--paper-raised); border: 1px solid var(--rule); border-radius: var(--radius-m); }
+.acc-preview .ap-btn { background: var(--accent); color: var(--accent-ink); border-radius: 999px; padding: .45rem 1rem; font-size: .85rem; font-weight: 600; }
+.acc-preview .ap-chip { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: .35rem .75rem; font-size: .78rem; font-weight: 600; white-space: nowrap; }
+.acc-preview .ap-bar { flex: 1; min-width: 2.5rem; height: .4rem; border-radius: 999px; background: var(--rule-strong); overflow: hidden; }
+.acc-preview .ap-bar i { display: block; width: 65%; height: 100%; background: var(--accent); }
+/* Renk seçilince tüm ekran yumuşakça yeni renge geçer */
+@media (prefers-reduced-motion: no-preference) {
+  html.accent-anim *, html.accent-anim *::before, html.accent-anim *::after { transition: background-color .3s ease, color .3s ease, border-color .3s ease, fill .3s ease, stroke .3s ease, box-shadow .3s ease !important; }
 }
 
 /* ---- Ayarlar sayfası: gruplanmış satırlar ------------------------------ */
@@ -2275,7 +2293,12 @@ try {
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { if (get('theme', 'auto') === 'auto') applyTheme(); });
 } catch (e) { /* eski tarayici */ }
 function setTheme(t) { set('theme', t); applyTheme(); }
-function setAccent(a) { set('accent', a); applyTheme(); }
+function setAccent(a) {
+  var root = document.documentElement;
+  root.classList.add('accent-anim');
+  set('accent', a); applyTheme();
+  setTimeout(function () { root.classList.remove('accent-anim'); }, 450);
+}
 
 /* ---------------------------------------------------------------------- */
 /* İkonlar — basit, tek stilde çizgi ikonlar (bağımlılık yok)              */
@@ -2948,7 +2971,8 @@ function settingsAppearance(body) {
     '<div style="height:1.4rem"></div>' +
     setSec('accent', 'Vurgu rengi', '',
       '<div class="pill-select" id="accent-pills" role="group" aria-label="Vurgu rengi">' +
-      ACCENTS.map(function (a) { return '<button type="button" data-v="' + a.id + '"' + setPressed(accent === a.id) + '><span class="swatch" data-accent="' + a.id + '" aria-hidden="true"></span>' + esc(a.label) + '</button>'; }).join('') + '</div>');
+      ACCENTS.map(function (a) { return '<button type="button" data-v="' + a.id + '"' + setPressed(accent === a.id) + '><span class="swatch" data-accent="' + a.id + '" aria-hidden="true"></span>' + esc(a.label) + '</button>'; }).join('') + '</div>' +
+      '<div class="acc-preview" aria-hidden="true"><span class="ap-btn">Kaydet</span><span class="ap-chip" id="acc-name">' + esc((ACCENTS.filter(function (x) { return x.id === accent; })[0] || ACCENTS[0]).label) + '</span><span class="ap-bar"><i></i></span></div>');
   function group(sel, fn) {
     var btns = body.querySelectorAll(sel + ' button');
     btns.forEach(function (btn) {
@@ -2960,7 +2984,11 @@ function settingsAppearance(body) {
   }
   group('#simple-seg', function (v) { lsSet('ajandam_simple', v); applySimple(); });
   group('#theme-seg', setTheme);
-  group('#accent-pills', setAccent);
+  group('#accent-pills', function (v) {
+    setAccent(v);
+    var ac = ACCENTS.filter(function (x) { return x.id === v; })[0], nm = body.querySelector('#acc-name');
+    if (nm && ac) nm.textContent = ac.label;
+  });
 }
 
 function settingsCards(body) {
