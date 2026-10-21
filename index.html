@@ -880,6 +880,7 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 #dash-content{--dh-band:color-mix(in srgb, var(--ink) 7%, var(--paper))}
 #dash-content .card,#dash-content a.card.clickable{background:transparent;border:0;border-bottom:1px solid var(--rule);border-radius:0;box-shadow:none;padding:.8rem 0;margin:0}
 #dash-greeting h1{font-size:1.35rem;margin-bottom:.1rem}
+body.simple #xp-chip,body.simple #dash-suggestions{display:none!important}
 #dash-quick .td-quick{display:flex;align-items:center;gap:.65rem}
 #dash-quick .td-quick::before{content:attr(data-i);flex:none;width:2.6rem;height:2.6rem;border-radius:50%;background:linear-gradient(135deg,var(--accent),#ff7a59);color:#fff;display:grid;place-items:center;font-weight:700;font-size:1.05rem}
 #dash-quick .td-quick .ic{display:none}
@@ -1175,6 +1176,7 @@ button,[role="button"],a,label,input,select,textarea,.prayer-toggle,.checkbox{-w
 .nt-th{flex:none;width:2.9rem;height:2.9rem;border-radius:.5rem;object-fit:cover}
 .nt-pin{display:inline-block;color:#e0a100;margin-right:.3rem;vertical-align:-.1em}
 .nt-pin svg{width:.85rem;height:.85rem}
+.nt-lk{display:inline-block;color:var(--muted,#8a8a8e);margin-right:.3rem;vertical-align:-.1em}.nt-lk svg{width:.85rem;height:.85rem}
 .nt-act-l,.nt-act-r{position:absolute;top:0;bottom:0;display:flex;align-items:stretch;font-size:.74rem;font-weight:700;color:#fff}
 .nt-act-l{left:0;width:6rem;background:#e0a100;align-items:center;padding-left:1rem}
 .nt-act-l span{display:flex;flex-direction:column;align-items:center;gap:.2rem}
@@ -1849,6 +1851,7 @@ var STORAGE_KEYS = {
   recurringFinance: 'gunlukAjandam_recurringFinance',
   finPlan: 'gunlukAjandam_finPlan',
   noteFolders: 'gunlukAjandam_noteFolders',
+  noteVault: 'gunlukAjandam_noteVault',
   transfers: 'gunlukAjandam_transfers',
   savingsGoals: 'gunlukAjandam_savingsGoals',
   lastImport: 'gunlukAjandam_lastImport',
@@ -1859,7 +1862,7 @@ var STORAGE_KEYS = {
   dashboardCards: 'gunlukAjandam_dashboardCards'
 };
 
-var USER_SCOPED_KEYS = ['user', 'xp', 'tasks', 'routines', 'events', 'goals', 'vocab', 'reading', 'prayers', 'finance', 'accounts', 'installments', 'notifiedBudgetOverruns', 'budget', 'recurringFinance', 'finPlan', 'noteFolders', 'notes', 'transfers', 'savingsGoals', 'lastImport', 'defaultAccount', 'activeAccount'];
+var USER_SCOPED_KEYS = ['user', 'xp', 'tasks', 'routines', 'events', 'goals', 'vocab', 'reading', 'prayers', 'finance', 'accounts', 'installments', 'notifiedBudgetOverruns', 'budget', 'recurringFinance', 'finPlan', 'noteFolders', 'noteVault', 'notes', 'transfers', 'savingsGoals', 'lastImport', 'defaultAccount', 'activeAccount'];
 
 var ACTIVE_USER_ID_KEY = 'gunlukAjandam_activeUserId';
 var DEFAULT_USER_ID = 'default';
@@ -2727,7 +2730,12 @@ function buildHeader(pageKey) {
   dateEl.style.display = (pageKey === 'today') ? 'none' : '';
   header.querySelector('.page-title').textContent = page.title;
   refreshXPChip();
+  applySimple();
 }
+
+/* Sade görünüm: puan rozeti ve öneri kartları gizlenir (varsayılan açık). */
+function isSimple() { return lsGet('ajandam_simple') !== '0'; }
+function applySimple() { if (document.body) document.body.classList.toggle('simple', isSimple()); }
 
 function buildTabbar(pageKey) {
   var bar = document.querySelector('.tabbar');
@@ -2750,16 +2758,28 @@ function buildTabbar(pageKey) {
 }
 
 function openMoreSheet() {
-  var moreKeys = ['goals', 'learning', 'worship', 'notes', 'achievements', 'yearreport'];
-  var html = '<div class="stack">';
-  moreKeys.forEach(function (key) {
-    var p = PAGES[key];
-    html += '<a class="list-row" href="javascript:void(0)" data-nav="' + key + '" style="text-decoration:none;color:inherit">' +
-      '<span class="icon-btn">' + icon(p.icon) + '</span>' +
-      '<span class="row-main"><span class="row-title">' + esc(p.title) + '</span></span>' +
-      '<span class="muted">' + icon('chevronR') + '</span></a>';
+  var groups = [
+    { h: 'Planlama', keys: ['goals', 'learning'] },
+    { h: 'Kişisel', keys: ['notes', 'worship'] },
+    { h: 'İlerleme', keys: ['achievements', 'yearreport'] }
+  ];
+  var desc = {
+    goals: 'Uzun vadeli hedeflerini takip et', learning: 'Kelime ve kitap okuma takibi',
+    notes: 'Hızlı notlar ve klasörler', worship: 'Namaz vakitleri ve ibadet takibi',
+    achievements: 'Puanların, seviyen ve rozetlerin', yearreport: 'Yılın kısa özeti'
+  };
+  var html = '';
+  groups.forEach(function (g) {
+    html += '<div class="pl-h">' + esc(g.h) + '</div><div class="stack">';
+    g.keys.forEach(function (key) {
+      var p = PAGES[key];
+      html += '<a class="list-row" href="javascript:void(0)" data-nav="' + key + '" style="text-decoration:none;color:inherit">' +
+        '<span class="icon-btn">' + icon(p.icon) + '</span>' +
+        '<span class="row-main"><span class="row-title">' + esc(p.title) + '</span><span class="row-sub">' + esc(desc[key] || '') + '</span></span>' +
+        '<span class="muted">' + icon('chevronR') + '</span></a>';
+    });
+    html += '</div>';
   });
-  html += '</div>';
   openSheet({ title: 'Daha fazla', bodyHTML: html });
 }
 
@@ -2914,6 +2934,10 @@ function settingsAppearance(body) {
   var theme = get('theme', 'auto'), accent = get('accent', 'ink-blue');
   var labels = { auto: 'Otomatik', light: 'Açık', dark: 'Koyu' };
   body.innerHTML =
+    setSec('simple', 'Sade görünüm', 'Puan rozetini ve öneri kartlarını gizler, ekranı yalnızca yapılacaklara odaklar.',
+      '<div class="segmented" id="simple-seg" role="group" aria-label="Sade görünüm">' +
+      '<button type="button" data-v="1"' + setPressed(isSimple()) + '>Açık</button><button type="button" data-v="0"' + setPressed(!isSimple()) + '>Kapalı</button></div>') +
+    '<div style="height:1.4rem"></div>' +
     setSec('theme', 'Tema', 'Otomatik, cihazının açık ya da koyu ayarını izler.',
       '<div class="segmented" id="theme-seg" role="group" aria-label="Tema">' +
       ['auto', 'light', 'dark'].map(function (t) { return '<button type="button" data-v="' + t + '"' + setPressed(theme === t) + '>' + labels[t] + '</button>'; }).join('') + '</div>') +
@@ -2930,6 +2954,7 @@ function settingsAppearance(body) {
       });
     });
   }
+  group('#simple-seg', function (v) { lsSet('ajandam_simple', v); applySimple(); });
   group('#theme-seg', setTheme);
   group('#accent-pills', setAccent);
 }
@@ -11183,7 +11208,7 @@ function saveNoteFolders(l) { set('noteFolders', l); }
 /* Gün sonu notları: "Günsonu" klasöründe toplanır, ana sayfada görünmez. */
 var NT_DAYEND_NAME = 'Günsonu';
 function ntIsDayEnd(n) { return !!n && (n.dayEnd === true || /^Gün sonu \u00b7 /.test(String(n.text || ''))); }
-function getHomeNotes() { return getNotes().filter(function (n) { return !ntIsDayEnd(n); }); }
+function getHomeNotes() { return getNotes().filter(function (n) { return !ntIsDayEnd(n) && !n.locked; }); }
 function ntDayEndFolderId(create) {
   var fs = getNoteFolders(), i, key = function (x) { return String(x || '').toLocaleLowerCase('tr').replace(/\s+/g, ''); };
   for (i = 0; i < fs.length; i++) if (fs[i] && key(fs[i].name) === 'günsonu') return fs[i].id;
@@ -11308,11 +11333,13 @@ function ntPlainFromHTML(html) {
 }
 function ntStrip(l) { return l.replace(/^[\u2610\u2611\u2022]\s+|^\d+\.\s+/, '').trim(); }
 function ntTitleOf(n) {
+  if (n && n.locked) return 'Kilitli not';
   var ls = String(n.text || '').split('\n'), i;
   for (i = 0; i < ls.length; i++) { var t = ntStrip(ls[i]); if (t) return t.slice(0, 80); }
   return (n.thumb || n.photo || /<img/.test(n.html || '')) ? 'Fotoğraf' : 'Yeni Not';
 }
 function ntSnippetOf(n) {
+  if (n && n.locked) return 'Bu not kilitli';
   var ls = String(n.text || '').split('\n'), i, seen = false, out = [];
   for (i = 0; i < ls.length && out.join(' ').length < 120; i++) { var t = ntStrip(ls[i]); if (!t) continue; if (!seen) { seen = true; continue; } out.push(t); }
   return out.join(' ').slice(0, 120);
@@ -11355,13 +11382,13 @@ function ntRowHTML(n) {
   var th = n.thumb || n.photo, trash = !!n.deletedAt, fol = !trash && ntFolder === 'all' && n.folder ? ntFolderName(n.folder) : '';
   var left = trash ? Math.max(0, 30 - Math.floor((Date.now() - new Date(n.deletedAt).getTime()) / 864e5)) : 0;
   return '<div class="nt-row" data-id="' + n.id + '">' + (trash ? '' : '<div class="nt-act-l"><span>' + icon('notepin') + (n.pinned ? 'Kaldır' : 'Sabitle') + '</span></div><div class="nt-act-r"><button type="button" data-nt-act="move">' + icon('folder') + 'Taşı</button><button type="button" class="del" data-nt-act="del">' + icon('trash') + 'Sil</button></div>') +
-    '<div class="nt-main" data-open><div class="nt-tx"><div class="nt-t">' + (n.pinned ? '<span class="nt-pin">' + icon('notepin') + '</span>' : '') + esc(ntTitleOf(n)) + '</div>' +
+    '<div class="nt-main" data-open><div class="nt-tx"><div class="nt-t">' + (n.pinned ? '<span class="nt-pin">' + icon('notepin') + '</span>' : '') + (n.locked ? '<span class="nt-lk">' + icon('lock') + '</span>' : '') + esc(ntTitleOf(n)) + '</div>' +
     '<div class="nt-s"><span class="nt-d">' + (trash ? left + ' gün kaldı' : esc(ntRowDate(ntStamp(n)))) + '</span> ' + esc(ntSnippetOf(n) || (th ? 'Fotoğraf' : 'Ek metin yok')) + '</div>' +
     (fol ? '<div class="nt-f">' + icon('folder') + esc(fol) + '</div>' : '') + '</div>' + (th ? '<img class="nt-th" alt="" src="' + th + '">' : '') + '</div></div>';
 }
 function ntCardHTML(n) {
   var th = n.thumb || n.photo;
-  return '<div class="nt-card" data-id="' + n.id + '" data-open>' + (th ? '<img alt="" src="' + th + '">' : '') + '<div class="nt-t">' + (n.pinned ? '<span class="nt-pin">' + icon('notepin') + '</span>' : '') + esc(ntTitleOf(n)) + '</div><div class="nt-s">' + esc(ntSnippetOf(n)) + '</div><div class="nt-d">' + (n.deletedAt ? 'Silindi' : esc(ntRowDate(ntStamp(n)))) + '</div></div>';
+  return '<div class="nt-card" data-id="' + n.id + '" data-open>' + (th ? '<img alt="" src="' + th + '">' : '') + '<div class="nt-t">' + (n.pinned ? '<span class="nt-pin">' + icon('notepin') + '</span>' : '') + (n.locked ? '<span class="nt-lk">' + icon('lock') + '</span>' : '') + esc(ntTitleOf(n)) + '</div><div class="nt-s">' + esc(ntSnippetOf(n)) + '</div><div class="nt-d">' + (n.deletedAt ? 'Silindi' : esc(ntRowDate(ntStamp(n)))) + '</div></div>';
 }
 function renderNotes() {
   var el = document.getElementById('notes-list');
@@ -11444,6 +11471,7 @@ function ntOpenMenu() {
     title: 'Seçenekler',
     bodyHTML: '<div class="field"><label>Görünüm</label><div class="segmented" id="ntm-view"><button data-v="list">Liste</button><button data-v="grid">Galeri</button></div></div>' +
       '<div class="field"><label>Sırala</label><div class="segmented" id="ntm-sort"><button data-v="edited">Düzenleme</button><button data-v="created">Oluşturma</button><button data-v="title">Başlık</button></div></div>' +
+      nvMenuHTML() +
       '<div class="stack"><button class="btn btn-secondary btn-block" id="ntm-new">+ Yeni klasör</button>' +
       (user ? '<button class="btn btn-secondary btn-block" id="ntm-ren">Klasörü yeniden adlandır</button><button class="btn btn-danger btn-block" id="ntm-del">Klasörü sil</button>' : '') +
       (trash ? '<button class="btn btn-danger btn-block" id="ntm-empty">Hepsini kalıcı olarak sil</button>' : '') + '</div>',
@@ -11455,7 +11483,7 @@ function ntOpenMenu() {
           b.addEventListener('click', function () { ntPrefs[key] = b.dataset.v; ntSavePrefs(); box.querySelectorAll('button').forEach(function (x) { x.classList.toggle('active', x === b); }); renderNotes(); });
         });
       }
-      seg('#ntm-view', 'view'); seg('#ntm-sort', 'sort');
+      seg('#ntm-view', 'view'); seg('#ntm-sort', 'sort'); nvMenuBind(body);
       body.querySelector('#ntm-new').addEventListener('click', function () { closeSheet(); ntNewFolder(); });
       if (user) {
         body.querySelector('#ntm-ren').addEventListener('click', function () {
@@ -11519,6 +11547,270 @@ function ntSwipeBind(el) {
   el.addEventListener('touchend', end);
   el.addEventListener('touchcancel', end);
 }
+/* ---------------------------------------------------------------------- */
+/* Not kilidi: şifre (PBKDF2 + AES-GCM) ve isteğe bağlı Face ID / parmak izi */
+/* Kilitli notun içeriği şifreli saklanır; anahtar yalnızca şifreyle çözülür. */
+/* Face ID / parmak izi (WebAuthn) şifreye alternatif bir kapıdır, https gerekir. */
+/* ---------------------------------------------------------------------- */
+var NV = { key: null, raw: null, timer: null, hiddenAt: 0, fails: 0, until: 0 };
+var NV_ITER = 250000;
+function nvSupported() { return !!(window.crypto && window.crypto.subtle && window.TextEncoder); }
+function nvB64(buf) { var b = new Uint8Array(buf), s = '', i; for (i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); }
+function nvUnB64(str) { var s = atob(str), b = new Uint8Array(s.length), i; for (i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; }
+function nvRand(n) { return window.crypto.getRandomValues(new Uint8Array(n)); }
+function nvVault() { var v = get('noteVault', null); return v && v.ct && v.salt ? v : null; }
+function nvDerive(pw, salt, iter) {
+  return crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']).then(function (base) {
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt, iterations: iter, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  });
+}
+function nvWrap(pw, raw, vid) {
+  var salt = nvRand(16), iv = nvRand(12);
+  return nvDerive(pw, salt, NV_ITER).then(function (kek) { return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, kek, raw); }).then(function (ct) {
+    return { v: 1, id: vid || nvB64(nvRand(9)), it: NV_ITER, salt: nvB64(salt), iv: nvB64(iv), ct: nvB64(ct) };
+  });
+}
+function nvTouch() { clearTimeout(NV.timer); if (NV.key) NV.timer = setTimeout(nvLock, 5 * 60 * 1000); }
+function nvOpenWith(raw) {
+  return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']).then(function (k) { NV.key = k; NV.raw = raw; NV.fails = 0; nvTouch(); return true; });
+}
+function nvLock() {
+  clearTimeout(NV.timer);
+  if (ntEd && ntEd.isLocked && ntEd.isLocked()) { try { ntEd.close(false); } catch (e) {} }   /* kapanırken son değişiklik mevcut anahtarla şifrelenir */
+  NV.key = null; NV.raw = null;
+}
+function nvUnlockPw(pw) {
+  var v = nvVault();
+  if (!v) return Promise.reject(new Error('novault'));
+  return nvDerive(pw, nvUnB64(v.salt), v.it || NV_ITER).then(function (kek) {
+    return crypto.subtle.decrypt({ name: 'AES-GCM', iv: nvUnB64(v.iv) }, kek, nvUnB64(v.ct));
+  }).then(function (raw) { return nvOpenWith(new Uint8Array(raw)); });
+}
+function nvCreate(pw) {
+  var raw = nvRand(32);
+  return nvWrap(pw, raw).then(function (v) { if (set('noteVault', v) === false) throw new Error('save'); return nvOpenWith(raw); });
+}
+function nvEncWith(key, obj) {
+  var iv = nvRand(12);
+  return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, new TextEncoder().encode(JSON.stringify(obj))).then(function (ct) { return { iv: nvB64(iv), ct: nvB64(ct) }; });
+}
+function nvDecWith(key, enc) {
+  return crypto.subtle.decrypt({ name: 'AES-GCM', iv: nvUnB64(enc.iv) }, key, nvUnB64(enc.ct)).then(function (buf) { return JSON.parse(new TextDecoder().decode(buf)); });
+}
+
+/* ---- Face ID / parmak izi (WebAuthn kapısı + cihazdan çıkarılamayan anahtar) ---- */
+function nvBioKey() { return 'ajandam_noteBio_' + getActiveUserId(); }
+function nvBioInfo() {
+  try { var b = JSON.parse(localStorage.getItem(nvBioKey()) || 'null'), v = nvVault(); return b && v && b.vid === v.id ? b : null; } catch (e) { return null; }
+}
+function nvBioSupported() {
+  if (!(window.isSecureContext !== false && window.PublicKeyCredential && navigator.credentials && window.indexedDB && nvSupported())) return Promise.resolve(false);
+  try { return window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(function (ok) { return !!ok; }, function () { return false; }); } catch (e) { return Promise.resolve(false); }
+}
+function nvIdb(fn) {
+  return new Promise(function (res, rej) {
+    var rq = indexedDB.open('ajandam_nv', 1);
+    rq.onupgradeneeded = function () { rq.result.createObjectStore('k'); };
+    rq.onerror = function () { rej(rq.error); };
+    rq.onsuccess = function () {
+      var db = rq.result, tx = db.transaction('k', 'readwrite'), out = fn(tx.objectStore('k'));
+      tx.oncomplete = function () { db.close(); res(out ? out.result : undefined); };
+      tx.onerror = tx.onabort = function () { db.close(); rej(tx.error); };
+    };
+  });
+}
+function nvBioEnable() {
+  if (!NV.raw) return Promise.reject(new Error('locked'));
+  var v = nvVault(), cred = null;
+  return navigator.credentials.create({ publicKey: {
+    challenge: nvRand(32), rp: { name: 'Günlük Ajandam' },
+    user: { id: nvRand(16), name: 'ajandam-notlar', displayName: 'Günlük Ajandam' },
+    pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+    authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
+    timeout: 60000, attestation: 'none'
+  } }).then(function (c) {
+    cred = c;
+    return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  }).then(function (dk) {
+    var iv = nvRand(12);
+    return nvIdb(function (st) { return st.put(dk, 'dev_' + getActiveUserId()); }).then(function () {
+      return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, dk, NV.raw);
+    }).then(function (ct) {
+      localStorage.setItem(nvBioKey(), JSON.stringify({ vid: v.id, cid: nvB64(cred.rawId), iv: nvB64(iv), ct: nvB64(ct) }));
+    });
+  });
+}
+function nvBioUnlock() {
+  var b = nvBioInfo();
+  if (!b) return Promise.reject(new Error('nobio'));
+  return navigator.credentials.get({ publicKey: { challenge: nvRand(32), allowCredentials: [{ type: 'public-key', id: nvUnB64(b.cid), transports: ['internal'] }], userVerification: 'required', timeout: 60000 } }).then(function () {
+    return nvIdb(function (st) { return st.get('dev_' + getActiveUserId()); });
+  }).then(function (dk) {
+    if (!dk) throw new Error('nodevkey');
+    return crypto.subtle.decrypt({ name: 'AES-GCM', iv: nvUnB64(b.iv) }, dk, nvUnB64(b.ct));
+  }).then(function (raw) { return nvOpenWith(new Uint8Array(raw)); });
+}
+function nvBioDisable() {
+  try { localStorage.removeItem(nvBioKey()); } catch (e) {}
+  return nvIdb(function (st) { return st.delete('dev_' + getActiveUserId()); }).then(null, function () {});
+}
+
+/* ---- arayüz ---- */
+function nvAsk() {
+  return new Promise(function (resolve) {
+    var bioOn = !!nvBioInfo();
+    openSheet({
+      title: 'Kilitli notlar',
+      bodyHTML: '<p class="muted" style="margin:.2rem 0 .8rem">' + (bioOn ? 'Face ID / parmak iziyle aç ya da şifreni gir.' : 'Notu açmak için not şifreni gir.') + '</p>' +
+        '<div class="field"><input type="password" id="nv-pw" autocomplete="off" autocapitalize="off" placeholder="Not şifresi"></div>' +
+        '<p id="nv-err" role="alert" style="color:var(--danger);min-height:1.3em;margin:.2rem 0 .6rem"></p>' +
+        '<div class="stack"><button type="button" class="btn btn-primary btn-block" id="nv-go">Aç</button>' +
+        (bioOn ? '<button type="button" class="btn btn-secondary btn-block" id="nv-bio">' + icon('lock') + ' Face ID / parmak izi</button>' : '') + '</div>',
+      onOpen: function (body) {
+        var pw = body.querySelector('#nv-pw'), err = body.querySelector('#nv-err'), go = body.querySelector('#nv-go'), bb = body.querySelector('#nv-bio'), busy = false;
+        function ok() { closeSheet(); resolve(true); }
+        function tryPw() {
+          if (busy) return;
+          var wait = NV.until - Date.now();
+          if (wait > 0) { err.textContent = 'Çok fazla deneme. ' + Math.ceil(wait / 1000) + ' sn bekle.'; return; }
+          if (!pw.value) { err.textContent = 'Şifreyi gir.'; return; }
+          busy = true; go.disabled = true; err.textContent = '';
+          nvUnlockPw(pw.value).then(ok, function () {
+            NV.fails++;
+            if (NV.fails >= 5) { NV.until = Date.now() + 30000; NV.fails = 0; err.textContent = 'Çok fazla deneme. 30 sn bekle.'; } else err.textContent = 'Şifre yanlış.';
+            pw.value = ''; pw.focus();
+          }).then(function () { busy = false; go.disabled = false; });
+        }
+        function tryBio() {
+          nvBioUnlock().then(ok, function (e) { err.textContent = e && e.name === 'NotAllowedError' ? 'Doğrulama iptal edildi, şifreni girebilirsin.' : 'Face ID / parmak izi şu an kullanılamıyor, şifreni gir.'; });
+        }
+        go.addEventListener('click', tryPw);
+        pw.addEventListener('keydown', function (e) { if (e.key === 'Enter') tryPw(); });
+        if (bb) { bb.addEventListener('click', tryBio); tryBio(); } else setTimeout(function () { pw.focus(); }, 80);
+      }
+    });
+  });
+}
+function nvSetup(title, msg) {
+  return new Promise(function (resolve) {
+    openSheet({
+      title: title,
+      bodyHTML: '<p class="muted" style="margin:.2rem 0 .8rem">' + esc(msg) + '</p>' +
+        '<div class="field"><label for="nv-p1">Şifre</label><input type="password" id="nv-p1" autocomplete="new-password" autocapitalize="off" placeholder="En az 6 karakter"></div>' +
+        '<div class="field"><label for="nv-p2">Şifre (tekrar)</label><input type="password" id="nv-p2" autocomplete="new-password" autocapitalize="off"></div>' +
+        '<p id="nv-err" role="alert" style="color:var(--danger);min-height:1.3em;margin:.2rem 0 .6rem"></p>' +
+        '<div class="stack"><button type="button" class="btn btn-primary btn-block" id="nv-ok">Kaydet</button></div>',
+      onOpen: function (body) {
+        var p1 = body.querySelector('#nv-p1'), p2 = body.querySelector('#nv-p2'), err = body.querySelector('#nv-err');
+        function go() {
+          if (p1.value.length < 6) { err.textContent = 'Şifre en az 6 karakter olmalı.'; return; }
+          if (p1.value !== p2.value) { err.textContent = 'Şifreler aynı değil.'; return; }
+          var v = p1.value; closeSheet(); resolve(v);
+        }
+        body.querySelector('#nv-ok').addEventListener('click', go);
+        p2.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+        setTimeout(function () { p1.focus(); }, 80);
+      }
+    });
+  });
+}
+/* Anahtar açıksa true; değilse (gerekirse şifre oluşturtup) açtırır. */
+function nvEnsure() {
+  if (!nvSupported()) { showToast('Bu ortamda not kilidi kullanılamıyor (tarayıcı şifrelemeyi desteklemiyor)'); return Promise.resolve(false); }
+  if (NV.key) { nvTouch(); return Promise.resolve(true); }
+  if (!nvVault()) {
+    return nvSetup('Not şifresi oluştur', 'Bu şifre kilitli tüm notları korur. Unutursan kilitli notlar kurtarılamaz, bu yüzden bir yere not et.').then(function (pw) {
+      if (!pw) return false;
+      return nvCreate(pw).then(function () { showToast('Not şifresi oluşturuldu'); return true; }, function () { showToast('Şifre kaydedilemedi'); return false; });
+    });
+  }
+  return nvAsk();
+}
+function ntLockNote(id) {
+  var k = NV.key, all = ntAll(), i, hit = -1;
+  for (i = 0; i < all.length; i++) if (all[i].id === id) { hit = i; break; }
+  if (hit === -1 || !k) return Promise.reject(new Error('state'));
+  var n = all[hit];
+  if (n.locked) return Promise.resolve();
+  var payload = { html: n.html || '', text: n.text || '', photo: n.photo || null, title: n.title || null };
+  return nvEncWith(k, payload).then(function (enc) {
+    return nvDecWith(k, enc).then(function (back) {
+      if (back.text !== payload.text || back.html !== payload.html) throw new Error('verify');   /* çözülemeyen şifreli kayıt oluşmasın */
+      var cur = ntAll(), j;
+      for (j = 0; j < cur.length; j++) if (cur[j].id === id) break;
+      if (j === cur.length) throw new Error('state');
+      delete cur[j].html; delete cur[j].text; delete cur[j].photo; delete cur[j].thumb; delete cur[j].thumbSig; delete cur[j].title;
+      cur[j].enc = enc; cur[j].locked = true;
+      if (saveNotes(cur) === false) throw new Error('save');
+    });
+  });
+}
+function ntDecryptNote(n) {
+  var k = NV.key;
+  if (!k) return Promise.reject(new Error('locked'));
+  nvTouch();
+  return nvDecWith(k, n.enc);
+}
+function nvChangePw() {
+  nvEnsure().then(function (ok) {
+    if (!ok) return;
+    nvSetup('Yeni not şifresi', 'Yeni şifre tüm kilitli notlar için geçerli olur.').then(function (pw) {
+      if (!pw) return;
+      var v = nvVault();
+      nvWrap(pw, NV.raw, v.id).then(function (nv) { if (set('noteVault', nv) === false) throw new Error('save'); showToast('Şifre değiştirildi'); }, function () { showToast('Şifre değiştirilemedi'); });
+    });
+  });
+}
+function nvReset() {
+  var n = ntAll().filter(function (x) { return x.locked; }).length;
+  confirmDialog({
+    title: 'Kilit sıfırlansın mı?',
+    message: n ? n + ' kilitli not kalıcı olarak silinecek ve geri getirilemez. Şifreni hatırlıyorsan önce notların kilidini tek tek kaldır.' : 'Not şifresi kaldırılacak.',
+    danger: true, confirmText: n ? 'Notları sil ve sıfırla' : 'Sıfırla'
+  }).then(function (ok) {
+    if (!ok) return;
+    nvLock();
+    saveNotes(ntAll().filter(function (x) { return !x.locked; }));
+    try { localStorage.removeItem(resolveStorageKey('noteVault')); } catch (e) {}
+    nvBioDisable();
+    renderNotes();
+    showToast('Not kilidi sıfırlandı');
+  });
+}
+function nvMenuHTML() {
+  var h = '<div class="field"><label>Not kilidi</label>';
+  if (!nvVault()) return h + '<p class="muted" style="margin:.2rem 0">Bir notu kilitlemek için notu aç, ⋯ menüsünden “Notu kilitle”yi seç. İlk seferde şifre belirlersin.</p></div>';
+  return h + '<div class="stack">' + (NV.key ? '<button class="btn btn-secondary btn-block" id="nvm-lock">Kilitli notları şimdi kilitle</button>' : '') +
+    '<button class="btn btn-secondary btn-block" id="nvm-bio" hidden></button>' +
+    '<button class="btn btn-secondary btn-block" id="nvm-pw">Şifreyi değiştir</button>' +
+    '<button class="btn btn-danger btn-block" id="nvm-reset">Şifremi unuttum / kilidi sıfırla</button></div></div>';
+}
+function nvMenuBind(body) {
+  if (!nvVault()) return;
+  var q = function (s) { return body.querySelector(s); }, lk = q('#nvm-lock');
+  if (lk) lk.addEventListener('click', function () { nvLock(); closeSheet(); renderNotes(); showToast('Kilitli notlar kilitlendi'); });
+  nvBioSupported().then(function (sup) {
+    var bb = q('#nvm-bio');
+    if (!bb || !sup) return;
+    var on = !!nvBioInfo();
+    bb.hidden = false; bb.textContent = on ? 'Face ID / parmak izini kapat' : 'Face ID / parmak iziyle açmayı etkinleştir';
+    bb.addEventListener('click', function () {
+      closeSheet();
+      if (on) { nvBioDisable().then(function () { showToast('Face ID / parmak izi kapatıldı'); }); return; }
+      nvEnsure().then(function (ok) {
+        if (!ok) return;
+        nvBioEnable().then(function () { showToast('Face ID / parmak izi etkinleştirildi'); }, function (e) { showToast(e && e.name === 'NotAllowedError' ? 'Doğrulama iptal edildi' : 'Bu bağlantıda Face ID / parmak izi kullanılamıyor (sayfa https üzerinden açılmalı)'); });
+      });
+    });
+  });
+  q('#nvm-pw').addEventListener('click', function () { closeSheet(); nvChangePw(); });
+  q('#nvm-reset').addEventListener('click', function () { closeSheet(); nvReset(); });
+}
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'hidden') NV.hiddenAt = Date.now();
+  else if (NV.key && NV.hiddenAt && Date.now() - NV.hiddenAt > 60000) { nvLock(); renderNotes(); }
+});
+
 function initNotes() {
   ntMigrateDayEnd();
   ntLoadPrefs(); ntFolder = 'all'; ntQ = ''; ntEd = null;
@@ -11554,10 +11846,20 @@ function ntThumb(src, cb) {
   img.onerror = function () { cb(null); };
   img.src = src;
 }
-function openNoteEditor(id) {
+function openNoteEditor(id, pre) {
   if (ntEd) return;
+  var f0 = id && !pre ? ntFind(id) : null;
+  if (f0 && f0.locked) {   /* kilitli not: önce şifre / Face ID, sonra çöz */
+    if (!nvVault()) { showToast('Bu notun şifre anahtarı bu cihazda yok (yedekte kilit bilgisi eksik olabilir)'); return; }
+    nvEnsure().then(function (ok) {
+      if (!ok) return;
+      ntDecryptNote(f0).then(function (p) { openNoteEditor(id, p); }, function () { showToast('Not açılamadı: şifre veya kayıt uyuşmuyor'); });
+    });
+    return;
+  }
   var found = id ? ntFind(id) : null, isNew = !found, nowISO = new Date().toISOString();
   var note = found ? JSON.parse(JSON.stringify(found)) : { id: uid(), createdAt: nowISO, updatedAt: nowISO, folder: ntUserFolder(), pinned: false };
+  if (pre && found) { note.html = pre.html; note.text = pre.text; if (pre.photo) note.photo = pre.photo; if (pre.title) note.title = pre.title; delete note.enc; }
   var html = note.html ? ntSanitize(note.html) : String(note.text || '').split('\n').map(function (l) { return '<div>' + (l ? esc(l) : '<br>') + '</div>'; }).join('') + (note.photo ? '<div><img class="ne-img" src="' + note.photo + '"></div>' : '');
   if (!html) html = '<div><br></div>';
   var root = document.createElement('div');
@@ -11571,8 +11873,9 @@ function openNoteEditor(id) {
     '<input type="file" id="nt-file" accept="image/*" class="sr-only">';
   document.body.appendChild(root);
   var prevOverflow = document.body.style.overflow; document.body.style.overflow = 'hidden';
-  var body = root.querySelector('#ne-body'), fmt = root.querySelector('#nt-fmt'), done = root.querySelector('#nt-done'), saved = !isNew, timer = null, range = null, deleted = false;
+  var body = root.querySelector('#ne-body'), fmt = root.querySelector('#nt-fmt'), done = root.querySelector('#nt-done'), saved = !isNew, timer = null, range = null, deleted = false, busyLock = false, lockedBase = note.locked ? { h: note.html, t: note.text } : null;
   body.innerHTML = html;
+  if (note.locked) { var c0 = ntSanitize(body.innerHTML); lockedBase = { h: c0, t: ntPlainFromHTML(c0) }; }
   try { document.execCommand('styleWithCSS', false, false); document.execCommand('defaultParagraphSeparator', false, 'div'); } catch (e) {}
   function stampLabel() { var s = note.updatedAt || note.createdAt; return formatDateTR(ntLocalISO(s)) + ' ' + ntTime(s); }
   root.querySelector('#nt-date').textContent = stampLabel();
@@ -11605,11 +11908,31 @@ function openNoteEditor(id) {
   }
   function commit(final) {
     clearTimeout(timer);
-    if (deleted) return;
+    if (deleted || busyLock) return;
     var clean = ntSanitize(body.innerHTML), text = ntPlainFromHTML(clean), hasImg = /<img\b/i.test(clean), list = ntAll(), idx = -1, i;
     for (i = 0; i < list.length; i++) if (list[i].id === note.id) { idx = i; break; }
     if (!text.trim() && !hasImg) {
       if (final && idx !== -1) { list[idx].deletedAt = new Date().toISOString(); list[idx].pinned = false; saveNotes(list); }
+      return;
+    }
+    if (note.locked) {   /* kilitli not: içerik şifrelenerek yazılır, düz metin saklanmaz */
+      var lk = NV.key;
+      if (!lk) { showToast('Kilit kapandı: son değişiklik kaydedilemedi'); return; }
+      if (lockedBase && lockedBase.h === clean && lockedBase.t === text) return;
+      lockedBase = { h: clean, t: text };
+      note.updatedAt = new Date().toISOString(); note.html = clean; note.text = text; delete note.photo;
+      var snap = JSON.parse(JSON.stringify(note));
+      nvEncWith(lk, { html: clean, text: text, title: snap.title || null }).then(function (enc) {
+        var cur = ntAll(), j, q;
+        for (q = 0, j = -1; q < cur.length; q++) if (cur[q].id === snap.id) { j = q; break; }
+        delete snap.html; delete snap.text; delete snap.photo; delete snap.thumb; delete snap.thumbSig; delete snap.title;
+        snap.enc = enc; snap.locked = true;
+        if (j === -1) cur.push(snap); else cur[j] = snap;
+        if (saveNotes(cur) === false) return;
+        saved = true;
+        var dEl = root.querySelector('#nt-date'); if (dEl) dEl.textContent = stampLabel();
+        if (!ntEd) renderNotes();
+      }, function () { showToast('Not şifrelenemedi, değişiklik kaydedilmedi'); });
       return;
     }
     var changed = idx === -1 || list[idx].html !== clean || list[idx].text !== text;
@@ -11703,7 +12026,7 @@ function openNoteEditor(id) {
     commit(false);
     openSheet({
       title: 'Not',
-      bodyHTML: '<div class="stack">' + [['pin', note.pinned ? 'Sabitlemeyi kaldır' : 'Notu sabitle'], ['move', 'Klasöre taşı'], ['share', 'Paylaş'], ['copy', 'Metni kopyala']].map(function (r) { return '<button class="list-row" data-a="' + r[0] + '" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="row-main"><span class="row-title">' + r[1] + '</span></span></button>'; }).join('') +
+      bodyHTML: '<div class="stack">' + [['pin', note.pinned ? 'Sabitlemeyi kaldır' : 'Notu sabitle'], ['move', 'Klasöre taşı'], ['lock', note.locked ? 'Kilidi kaldır' : 'Notu kilitle'], ['share', 'Paylaş'], ['copy', 'Metni kopyala']].map(function (r) { return '<button class="list-row" data-a="' + r[0] + '" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="row-main"><span class="row-title">' + r[1] + '</span></span></button>'; }).join('') +
         '<button class="list-row" data-a="del" style="width:100%;text-align:left;background:none;border:none;cursor:pointer"><span class="row-main"><span class="row-title" style="color:var(--danger)">Notu sil</span></span></button></div>',
       onOpen: function (b) {
         b.querySelectorAll('[data-a]').forEach(function (btn) {
@@ -11711,6 +12034,23 @@ function openNoteEditor(id) {
             var a = btn.getAttribute('data-a');
             if (a === 'pin') { note.pinned = !note.pinned; if (saved) ntUpdate(note.id, function (x) { x.pinned = note.pinned; }); closeSheet(); showToast(note.pinned ? 'Sabitlendi' : 'Sabitleme kaldırıldı'); }
             else if (a === 'move') { closeSheet(); ntMoveSheet(note.id, function (fid) { note.folder = fid; if (saved) ntUpdate(note.id, function (x) { x.folder = fid; }); }); }
+            else if (a === 'lock') {
+              closeSheet();
+              if (note.locked) {
+                confirmDialog({ title: 'Kilit kaldırılsın mı?', message: 'Bu not artık şifre sormadan açılır.', confirmText: 'Kilidi kaldır' }).then(function (ok) {
+                  if (!ok) return;
+                  note.locked = false; delete note.locked; delete note.enc; lockedBase = null;
+                  commit(false); showToast('Kilit kaldırıldı');
+                });
+              } else {
+                if (!saved) { showToast('Önce notu yaz, sonra kilitle'); return; }
+                busyLock = true;
+                nvEnsure().then(function (ok) {
+                  if (!ok) { busyLock = false; return; }
+                  return ntLockNote(note.id).then(function () { deleted = true; busyLock = false; close(false); showToast('Not kilitlendi'); });
+                }).then(null, function () { busyLock = false; showToast('Not kilitlenemedi'); });
+              }
+            }
             else if (a === 'share' || a === 'copy') {
               closeSheet();
               var txt = note.text || '';
@@ -11730,7 +12070,7 @@ function openNoteEditor(id) {
       }
     });
   });
-  ntEd = { close: close };
+  ntEd = { close: close, isLocked: function () { return !!note.locked; } };
   try { history.pushState({ nt: 1, pg: 'notes', i: navI() + 1 }, ''); } catch (e) {}
   if (isNew) { body.focus(); var r = document.createRange(); r.selectNodeContents(body); r.collapse(true); var sl = window.getSelection(); sl.removeAllRanges(); sl.addRange(r); }
 }
@@ -12780,7 +13120,7 @@ function renderAdminDataList(uid, activeTab, canEdit) {
     storeKey = 'notes';
     items = get('notes', [], uid);
     renderRow = function (n) {
-      var preview = (n.text || '').slice(0, 60);
+      var preview = n.locked ? '(kilitli not)' : (n.text || '').slice(0, 60);
       return '<div class="list-row" data-id="' + n.id + '">' +
         '<span class="row-main"><span class="row-title">' + esc(preview || '(boş not)') + '</span><span class="row-sub">' + esc((n.createdAt || '').slice(0, 10)) + '</span></span>' +
         delBtn + '</div>';
