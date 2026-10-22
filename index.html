@@ -1824,6 +1824,8 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
     <button data-v="overview" class="active">Genel Bakış</button>
     <button data-v="users">Kullanıcılar</button>
     <button data-v="logs">Loglar</button>
+    <button data-v="system">Sistem</button>
+    <button data-v="app">Uygulama</button>
     <button data-v="settings">Ayarlar</button>
   </div>
 
@@ -2823,12 +2825,13 @@ if (!lsGet('gunlukAjandam_firstSeen')) lsSet('gunlukAjandam_firstSeen', todayISO
   window.addEventListener('error', function (e) {
     if (e.message && /ResizeObserver|Script error/.test(e.message)) return;
     console.error('Beklenmeyen hata:', e.error || e.message);
+    if (typeof sysLogError === 'function') sysLogError(e.message || String(e.error), (e.filename || '').split('/').pop() + (e.lineno ? ':' + e.lineno : ''));
     var n = Date.now();
     if (n - last < 10000) return;
     last = n;
     showToast('Bir şeyler ters gitti. Sorun sürerse sayfayı yenile.');
   });
-  window.addEventListener('unhandledrejection', function (e) { console.error('Yakalanmamış söz hatası:', e.reason); });
+  window.addEventListener('unhandledrejection', function (e) { console.error('Yakalanmamış söz hatası:', e.reason); if (typeof sysLogError === 'function') sysLogError('Söz hatası: ' + (e.reason && e.reason.message || e.reason), ''); });
 })();
 
 /* Veriler yalnızca bu cihazda durduğu için düzenli yedek hatırlatılır. */
@@ -12453,8 +12456,10 @@ document.addEventListener('click', function (e) {
    "id": 'default' olan kişi, uygulamanın önceden var olan (taşınmamış)
    verisini kullanır — bu yüzden Bektaş Baykara 'default' id'sini taşıyor. */
 var ADMIN_ROLES = [
+  { key: 'superadmin', label: 'Süper Yönetici' },
   { key: 'yonetici', label: 'Yönetici' },
   { key: 'moderator', label: 'Moderatör' },
+  { key: 'destek', label: 'Destek Personeli' },
   { key: 'uye', label: 'Üye' }
 ];
 var AUTHORIZED_USERS = [
@@ -12473,7 +12478,9 @@ var ADMIN_PERMISSIONS = [
   { group: 'Panel', items: [
     { key: 'panel.access', label: 'Yönetici paneline girebilir' },
     { key: 'logs.view', label: 'Aktivite kaydını görebilir' },
-    { key: 'system.settings', label: 'Cihaz ayarlarını sıfırlayabilir' }
+    { key: 'system.settings', label: 'Cihaz ayarlarını sıfırlayabilir' },
+    { key: 'app.settings', label: 'Uygulama ayarlarını değiştirebilir (ad, bakım modu, sistem mesajı)' },
+    { key: 'msg.send', label: 'Kullanıcılara mesaj gönderebilir' }
   ] },
   { group: 'Kullanıcılar', items: [
     { key: 'users.view', label: 'Kullanıcıları ve özetlerini görebilir' },
@@ -12486,8 +12493,10 @@ var ADMIN_PERMISSIONS = [
     { key: 'perms.manage', label: 'Yetkileri düzenleyebilir' }
   ] },
   { group: 'Veri', items: [
-    { key: 'data.view', label: 'Görev, rutin ve notları görebilir' },
-    { key: 'data.delete', label: 'Kayıt silebilir' },
+    { key: 'data.view', label: 'Tüm sayfa içeriklerini görebilir' },
+    { key: 'data.add', label: 'Sayfalara kayıt ekleyebilir' },
+    { key: 'data.edit', label: 'Sayfa içeriklerini düzenleyebilir' },
+    { key: 'data.delete', label: 'Kayıt silebilir / bölümü boşaltabilir' },
     { key: 'data.export', label: 'Veriyi dışa aktarabilir' },
     { key: 'data.import', label: 'Veriyi içe aktarabilir' },
     { key: 'data.reset', label: 'Bir kullanıcının verisini sıfırlayabilir' },
@@ -12497,11 +12506,13 @@ var ADMIN_PERMISSIONS = [
 var PERM_LABELS = {}, ALL_PERMS = [];
 ADMIN_PERMISSIONS.forEach(function (g) { g.items.forEach(function (it) { PERM_LABELS[it.key] = it.label; ALL_PERMS.push(it.key); }); });
 var ROLE_PERMISSIONS = {
-  yonetici: ALL_PERMS.slice(),
-  moderator: ['panel.access', 'users.view', 'data.view', 'data.export', 'logs.view', 'system.settings'],
+  superadmin: ALL_PERMS.slice(),
+  yonetici: ALL_PERMS.filter(function (p) { return ['perms.manage', 'system.resetAll'].indexOf(p) === -1; }),
+  moderator: ['panel.access', 'users.view', 'data.view', 'data.export', 'logs.view', 'system.settings', 'msg.send'],
+  destek: ['panel.access', 'users.view', 'data.view', 'msg.send'],
   uye: []
 };
-var ADMIN_TAB_PERM = { overview: 'users.view', users: 'users.view', logs: 'logs.view', settings: 'system.settings' };
+var ADMIN_TAB_PERM = { overview: 'users.view', users: 'users.view', logs: 'logs.view', system: 'system.settings', app: 'app.settings', settings: 'system.settings' };
 function userPermissions(u) { return !u ? [] : (Array.isArray(u.perms) ? u.perms : (ROLE_PERMISSIONS[u.role] || [])); }
 function hasPerm(u, p) { return userPermissions(u).indexOf(p) !== -1; }
 function can(p) { return hasPerm(adminSessionUser, p); }
@@ -12696,6 +12707,7 @@ function openAdminLoginSheet() {
         errEl.textContent = '';
         adminLockReset();
         adminSessionUser = result;
+        admMaintenanceGate();
         logAdminActivity('login', result.name + ' giriş yaptı (' + roleLabel(result.role) + ')');
         closeSheet();
         setTimeout(function () { navigateTo('admin'); }, 150);
@@ -12719,7 +12731,7 @@ function initAdmin() {
     navigateTo('today');
     return;
   }
-  adminActiveTab = ['overview', 'users', 'logs', 'settings'].filter(function (t) { return can(ADMIN_TAB_PERM[t]); })[0] || 'overview';
+  adminActiveTab = ['overview', 'users', 'logs', 'system', 'app', 'settings'].filter(function (t) { return can(ADMIN_TAB_PERM[t]); })[0] || 'overview';
   document.querySelectorAll('#admin-tabs button').forEach(function (b) {
     b.style.display = can(ADMIN_TAB_PERM[b.dataset.v]) ? '' : 'none';
     b.classList.toggle('active', b.dataset.v === adminActiveTab);
@@ -12727,6 +12739,7 @@ function initAdmin() {
   document.getElementById('admin-session-info').textContent = 'Giriş yapan: ' + adminSessionUser.name + ' (' + roleLabel(adminSessionUser.role) + ')';
   document.getElementById('admin-exit-btn').addEventListener('click', function () {
     adminSessionUser = null;
+    admMaintenanceGate();
     navigateTo('settings');
   });
   document.querySelectorAll('#admin-tabs button').forEach(function (b) {
@@ -12773,6 +12786,12 @@ function renderAdminTabBody() {
   } else if (adminActiveTab === 'logs') {
     el.innerHTML = renderAdminLogsTab();
     wireAdminLogsTab(el);
+  } else if (adminActiveTab === 'app') {
+    el.innerHTML = renderAdminAppTab();
+    wireAdminAppTab(el);
+  } else if (adminActiveTab === 'system') {
+    el.innerHTML = renderAdminSystemTab();
+    wireAdminSystemTab(el);
   } else {
     el.innerHTML = renderAdminSettingsTab();
     wireAdminSettingsTab(el);
@@ -12782,7 +12801,7 @@ function renderAdminTabBody() {
 var adminOverviewSearch = '';
 
 function renderAdminOverviewTab() {
-  var html = '<div class="section-title" style="margin-top:0"><h2>Kullanıcılar</h2></div>';
+  var html = renderAdminDashboardHTML() + '<div class="section-title"><h2>Kullanıcılar</h2></div>';
   html += '<div class="field"><input type="text" id="admin-overview-search" placeholder="İsim ile ara..." value="' + esc(adminOverviewSearch) + '"></div>';
   html += '<div class="card" id="admin-overview-list" style="padding:.2rem .8rem"></div>';
   return html;
@@ -12832,7 +12851,7 @@ function renderAdminUsersTab() {
     html += '<div class="card" style="padding:.9rem .9rem .3rem">';
     html += '<div class="field"><label>Ad Soyad</label><input type="text" id="admin-newuser-name" placeholder="Adı Soyadı"></div>';
     html += '<div class="field"><label>PIN</label><input type="text" id="admin-newuser-pin" inputmode="numeric" maxlength="12" placeholder="Örn. 4821"></div>';
-    html += '<div class="field"><label>Rol</label><div class="segmented" id="admin-newuser-role">' + ADMIN_ROLES.map(function (r, i) {
+    html += '<div class="field"><label>Rol</label><div class="segmented" id="admin-newuser-role">' + ADMIN_ROLES.filter(admRoleAssignable).map(function (r, i) {
       return '<button data-v="' + r.key + '" class="' + (r.key === 'uye' ? 'active' : '') + '">' + r.label + '</button>';
     }).join('') + '</div></div>';
     html += '<div class="gate-error" id="admin-newuser-error"></div>';
@@ -12879,11 +12898,11 @@ function renderAdminUsersList() {
   var list = document.getElementById('admin-users-list');
   if (!list) return;
   var canEdit = can('users.remove');
-  var yoneticiCount = AUTHORIZED_USERS.filter(function (u) { return u.role === 'yonetici'; }).length;
+  var yoneticiCount = AUTHORIZED_USERS.filter(function (u) { return u.role === 'superadmin'; }).length;
   list.innerHTML = '<div class="card" style="padding:.2rem .8rem">' + AUTHORIZED_USERS.map(function (u, i) {
     var statusBadge = u.status === 'banned' ? ' · <span style="color:var(--danger)">Engelli</span>' : (u.status === 'inactive' ? ' · Pasif' : '');
     var isSelfRow = adminSessionUser && adminSessionUser.id === u.id;
-    var canRemoveThis = AUTHORIZED_USERS.length > 1 && !isSelfRow && !(u.role === 'yonetici' && yoneticiCount <= 1);
+    var canRemoveThis = AUTHORIZED_USERS.length > 1 && !isSelfRow && !(u.role === 'superadmin' && yoneticiCount <= 1) && !(u.role === 'superadmin' && !(adminSessionUser && adminSessionUser.role === 'superadmin'));
     return '<div class="list-row" data-idx="' + i + '" data-admin-user-id="' + esc(u.id) + '" data-open-admin-user style="cursor:pointer">' +
       '<span class="row-main"><span class="row-title">' + esc(u.name) + ' <span class="muted" style="font-weight:400">· ' + esc(roleLabel(u.role)) + '</span></span><span class="row-sub">' + 'PIN korumalı' + statusBadge + '</span></span>' +
       (canEdit && canRemoveThis ? '<button class="icon-btn admin-user-del" aria-label="Kaldır">' + icon('trash') + '</button>' : '') +
@@ -12922,7 +12941,7 @@ var adminLogTypeFilter = 'all';
 var ADMIN_LOG_TYPE_LABELS = {
   login: 'Giriş', login_failed: 'Başarısız giriş', create: 'Kişi ekleme', remove: 'Kişi kaldırma', role: 'Rol değişikliği',
   status: 'Durum değişikliği', pin: 'PIN değişikliği', delete: 'Veri silme', reset: 'Veri sıfırlama',
-  switch: 'Kullanıcı geçişi', perms: 'Yetki değişikliği'
+  switch: 'Kullanıcı geçişi', perms: 'Yetki değişikliği', edit: 'Veri düzenleme', add: 'Kayıt ekleme', restore: 'Geri yükleme', message: 'Mesaj', config: 'Uygulama ayarı', suspicious: 'Şüpheli'
 };
 
 function renderAdminLogsTab() {
@@ -12933,6 +12952,7 @@ function renderAdminLogsTab() {
     Object.keys(ADMIN_LOG_TYPE_LABELS).map(function (k) {
       return '<button data-v="' + k + '" class="' + (adminLogTypeFilter === k ? 'active' : '') + '">' + ADMIN_LOG_TYPE_LABELS[k] + '</button>';
     }).join('') + '</div>';
+  if (can('data.export')) html += '<button class="btn btn-secondary btn-block" id="admin-log-export" style="margin-bottom:.8rem">' + icon('download') + ' Kaydı CSV olarak indir</button>';
   html += '<div id="admin-log-list"></div>';
   return html;
 }
@@ -12943,7 +12963,8 @@ function renderAdminLogList() {
   var log = getAdminActivityLog();
   var q = adminLogSearch.trim().toLocaleLowerCase('tr-TR');
   var filtered = log.filter(function (entry) {
-    if (adminLogTypeFilter !== 'all' && entry.type !== adminLogTypeFilter) return false;
+    if (adminLogTypeFilter === 'suspicious') { if (!admSuspiciousIds()[entry.id]) return false; }
+    else if (adminLogTypeFilter !== 'all' && entry.type !== adminLogTypeFilter) return false;
     if (q && entry.description.toLocaleLowerCase('tr-TR').indexOf(q) === -1) return false;
     return true;
   });
@@ -12956,6 +12977,7 @@ function renderAdminLogList() {
 
 function wireAdminLogsTab() {
   renderAdminLogList();
+  var exb = document.getElementById('admin-log-export'); if (exb) exb.addEventListener('click', admExportLogCSV);
   var searchEl = document.getElementById('admin-log-search');
   searchEl.addEventListener('input', function () { adminLogSearch = searchEl.value; renderAdminLogList(); });
   document.querySelectorAll('#admin-log-type-filter button').forEach(function (b) {
@@ -12965,6 +12987,108 @@ function wireAdminLogsTab() {
       renderAdminLogList();
     });
   });
+}
+
+
+/* ---- Sistem sekmesi: depolama, profil boyutları, yedek, bütünlük, hata kaydı ---- */
+var SYS_ERR_KEY = 'gunlukAjandam_errorLog';
+function sysGetErrors() { try { return JSON.parse(lsGet(SYS_ERR_KEY) || '[]') || []; } catch (e) { return []; } }
+function sysLogError(msg, where) {
+  try {
+    var l = sysGetErrors();
+    var m = String(msg || '').slice(0, 200);
+    if (l[0] && l[0].msg === m) { l[0].n = (l[0].n || 1) + 1; l[0].at = new Date().toISOString(); }
+    else l.unshift({ at: new Date().toISOString(), msg: m, where: String(where || '').slice(0, 60), n: 1 });
+    lsSet(SYS_ERR_KEY, JSON.stringify(l.slice(0, 50)));
+  } catch (e) { /* kayıt başarısız olursa sessiz geç */ }
+}
+function sysFmtBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b / 1024).toFixed(1).replace('.', ',') + ' KB';
+  return (b / 1048576).toFixed(2).replace('.', ',') + ' MB';
+}
+function sysKeyBytes(k) {
+  var v = null; try { v = localStorage.getItem(k); } catch (e) {}
+  return (k.length + (v ? v.length : 0)) * 2;
+}
+function sysUserBytes(uid) {
+  var t = 0;
+  USER_SCOPED_KEYS.forEach(function (key) {
+    var sk = resolveStorageKey(key, uid);
+    if (FIN_BIG[sk] && FIN_MEM[sk]) t += JSON.stringify(FIN_MEM[sk]).length * 2;
+    else t += sysKeyBytes(sk);
+  });
+  return t;
+}
+function sysIntegrity() {
+  var bad = [];
+  AUTHORIZED_USERS.forEach(function (u) {
+    USER_SCOPED_KEYS.forEach(function (key) {
+      var sk = resolveStorageKey(key, u.id);
+      if (FIN_BIG[sk]) return;
+      var raw = null; try { raw = localStorage.getItem(sk); } catch (e) {}
+      if (raw === null) return;
+      try { JSON.parse(raw); } catch (e) { bad.push(u.name + ' · ' + key); }
+    });
+  });
+  return bad;
+}
+function renderAdminSystemTab() {
+  var total = 0, keys = [];
+  try {
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i), b = sysKeyBytes(k);
+      total += b; keys.push({ k: k, b: b });
+    }
+  } catch (e) {}
+  keys.sort(function (a, b) { return b.b - a.b; });
+  var QUOTA = 5 * 1048576; // tarayıcıların tipik localStorage sınırı (yaklaşık)
+  var pct = Math.min(100, Math.round(total / QUOTA * 100));
+  var bigKeys = Object.keys(FIN_BIG || {}).filter(function (k) { return FIN_BIG[k]; });
+  var lb = lsGet('gunlukAjandam_lastBackup'), fs = lsGet('gunlukAjandam_firstSeen');
+  var days = lb ? Math.round((parseISO(todayISO()) - parseISO(lb)) / 864e5) : null;
+  var bad = sysIntegrity();
+  var errs = sysGetErrors();
+  var h = '<div class="section-title" style="margin-top:0"><h2>Depolama</h2></div>';
+  h += '<div class="card"><div class="row-title">localStorage: ' + sysFmtBytes(total) + ' <span class="muted">(~' + pct + '% / yaklaşık 5 MB)</span></div>' +
+    '<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '" style="margin:.5rem 0"><div style="width:' + pct + '%"></div></div>' +
+    '<div class="row-sub" id="sys-est">Tarayıcı toplamı (IndexedDB dahil) hesaplanıyor…</div>' +
+    '<div class="row-sub">Büyük liste (IndexedDB’ye taşınan): ' + bigKeys.length + ' anahtar</div></div>';
+  h += '<div class="section-title"><h2>En büyük 6 anahtar</h2></div><div class="card" style="padding:.2rem .8rem">' +
+    keys.slice(0, 6).map(function (x) {
+      return '<div class="list-row"><span class="row-main"><span class="row-title">' + esc(x.k.replace('gunlukAjandam_', '')) + '</span></span><span class="muted">' + sysFmtBytes(x.b) + '</span></div>';
+    }).join('') + '</div>';
+  h += '<div class="section-title"><h2>Profil bazlı boyut</h2></div><div class="card" style="padding:.2rem .8rem">' +
+    AUTHORIZED_USERS.map(function (u) {
+      return '<div class="list-row"><span class="row-main"><span class="row-title">' + esc(u.name) + '</span><span class="row-sub">' + esc(roleLabel(u.role)) + '</span></span><span class="muted">' + sysFmtBytes(sysUserBytes(u.id)) + '</span></div>';
+    }).join('') + '</div>';
+  h += '<div class="section-title"><h2>Yedek</h2></div><div class="card"><div class="row-title">' +
+    (lb ? 'Son yedek: ' + formatDateTR(lb) + ' (' + days + ' gün önce)' : 'Henüz yedek alınmadı') + '</div>' +
+    (fs ? '<div class="row-sub">İlk kullanım: ' + formatDateTR(fs) + '</div>' : '') +
+    (can('data.export') ? '<button class="btn btn-secondary btn-block" id="sys-backup" style="margin-top:.7rem">' + icon('download') + ' Etkin profilin yedeğini indir</button>' : '') + '</div>';
+  h += '<div class="section-title"><h2>Veri bütünlüğü</h2></div><div class="card">' +
+    (bad.length ? '<div class="row-title" style="color:var(--danger)">' + bad.length + ' bozuk kayıt</div>' + bad.map(function (x) { return '<div class="row-sub">' + esc(x) + '</div>'; }).join('')
+      : '<div class="row-title" style="color:var(--success)">Tüm kayıtlar okunabiliyor</div><div class="row-sub">' + AUTHORIZED_USERS.length + ' profil, ' + USER_SCOPED_KEYS.length + ' anahtar tarandı</div>') + '</div>';
+  h += '<div class="section-title"><h2>Hata kaydı</h2></div>';
+  h += errs.length ? '<div class="card" style="padding:.2rem .8rem">' + errs.slice(0, 15).map(function (x) {
+      return '<div class="list-row"><span class="row-main"><span class="row-title">' + esc(x.msg) + (x.n > 1 ? ' ×' + x.n : '') + '</span><span class="row-sub">' + formatLogTime(x.at) + (x.where ? ' · ' + esc(x.where) : '') + '</span></span></div>';
+    }).join('') + '</div><button class="btn btn-secondary btn-block" id="sys-clear-err" style="margin-top:.7rem">Hata kaydını temizle</button>'
+    : '<div class="empty"><p>Kayıtlı hata yok</p></div>';
+  return h;
+}
+function wireAdminSystemTab(root) {
+  if (navigator.storage && navigator.storage.estimate) {
+    navigator.storage.estimate().then(function (r) {
+      var el = document.getElementById('sys-est');
+      if (el && r && r.usage != null) el.textContent = 'Tarayıcı toplamı (IndexedDB dahil): ' + sysFmtBytes(r.usage) + (r.quota ? ' / ' + sysFmtBytes(r.quota) + ' kota' : '');
+    }).catch(function () { var el = document.getElementById('sys-est'); if (el) el.textContent = 'Toplam kullanım okunamadı'; });
+  } else {
+    var el0 = document.getElementById('sys-est'); if (el0) el0.textContent = 'Bu tarayıcı toplam kullanımı bildirmiyor';
+  }
+  var bb = document.getElementById('sys-backup');
+  if (bb) bb.addEventListener('click', function () { exportData(); markBackup(); renderAdminTabBody(); });
+  var ce = document.getElementById('sys-clear-err');
+  if (ce) ce.addEventListener('click', function () { lsSet(SYS_ERR_KEY, '[]'); logAdminActivity('reset', 'Hata kaydı temizlendi'); renderAdminTabBody(); });
 }
 
 function renderAdminSettingsTab() {
@@ -13034,6 +13158,7 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
   var xp = get('xp', 0, uid);
   var appUser = get('user', {}, uid);
   var P = { role: can('users.role'), status: can('users.status'), pin: can('users.pin'), sw: can('users.switch'), exp: can('data.export'), imp: can('data.import'), reset: can('data.reset'), perms: can('perms.manage') };
+  if (targetUser.role === 'superadmin' && !(adminSessionUser && adminSessionUser.role === 'superadmin')) { P.role = P.status = P.pin = P.reset = P.perms = P.sw = false; }
   var canEdit = can('data.delete');
   var isSelf = adminSessionUser && adminSessionUser.id === targetUser.id;
 
@@ -13046,7 +13171,7 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
   html += '<div class="stack">';
   html += '<div class="field"><label>Rol</label>';
   if (P.role) {
-    html += '<div class="segmented" id="admin-role-select">' + ADMIN_ROLES.map(function (r) {
+    html += '<div class="segmented" id="admin-role-select">' + ADMIN_ROLES.filter(admRoleAssignable).map(function (r) {
       return '<button data-v="' + r.key + '" class="' + (targetUser.role === r.key ? 'active' : '') + '">' + r.label + '</button>';
     }).join('') + '</div>';
   } else {
@@ -13085,15 +13210,15 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
     '<div class="list-row"><span class="row-main"><span class="row-title">Kelime / okuma</span></span><span class="muted">' + vocab.length + ' kelime, ' + reading.length + ' kitap</span></div>' +
     '</div>';
 
-  html += '<div class="eyebrow" style="margin-top:1.2rem">Görev / rutin / not</div>';
-  var tabs = [
-    { key: 'tasks', label: 'Görevler' },
-    { key: 'routines', label: 'Rutinler' },
-    { key: 'notes', label: 'Notlar' }
-  ];
-  html += '<div class="segmented" id="admin-data-tabs">' + tabs.map(function (t) {
-    return '<button data-v="' + t.key + '" class="' + (t.key === activeTab ? 'active' : '') + '">' + t.label + '</button>';
-  }).join('') + '</div>';
+  var usLast = (admJ(ADM_USE_KEY, {})[uid] || {})._last;
+  html += '<div class="eyebrow" style="margin-top:1.2rem">Kullanım</div><div class="stack">' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Son kullanım</span></span><span class="muted">' + (usLast ? formatLogTime(usLast) : 'kayıt yok') + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Oturum (7 / 30 gün)</span></span><span class="muted">' + admSessions(uid, 7) + ' / ' + admSessions(uid, 30) + '</span></div></div>';
+  if (can('msg.send')) html += admMsgSectionHTML(uid);
+  html += '<div class="eyebrow" style="margin-top:1.2rem">Sayfa içerikleri</div>';
+  html += '<div class="field"><select id="admin-data-select" aria-label="Sayfa içeriği seç">' + ADM_COLS.map(function (c) {
+    return '<option value="' + c.key + '"' + (c.key === activeTab ? ' selected' : '') + '>' + esc(c.page + ' › ' + c.label) + ' (' + admCount(c.key, uid) + ')</option>';
+  }).join('') + '</select></div>';
   html += '<div id="admin-data-list" style="margin-top:.8rem" data-readonly="' + (canEdit ? '0' : '1') + '"></div>';
 
   html += '<div class="eyebrow" style="margin-top:1.2rem">Bu kullanıcı için veri işlemleri</div>';
@@ -13115,14 +13240,13 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
     title: targetUser.name, bodyHTML: html, onOpen: function () {
       renderAdminDataList(uid, activeTab, canEdit);
       wireAdminPerms(targetUser, isSelf, function () { renderAdminUserDetailBody(targetUser, activeTab); });
-      document.querySelectorAll('#admin-data-tabs button').forEach(function (btn) {
-        btn.addEventListener('click', function () { renderAdminUserDetailBody(targetUser, btn.dataset.v); });
-      });
+      var dsel = document.getElementById('admin-data-select');
+      if (dsel) dsel.addEventListener('change', function () { admDataLimit = 40; admDataQuery = ''; renderAdminUserDetailBody(targetUser, dsel.value); });
       {
         document.querySelectorAll('#admin-role-select button').forEach(function (btn) {
           btn.addEventListener('click', function () {
-            if (isSelf && btn.dataset.v !== 'yonetici') {
-              showToast('Kendi rolünü Yönetici dışına düşüremezsin');
+            if (isSelf && btn.dataset.v !== targetUser.role && (targetUser.role === 'superadmin' || targetUser.role === 'yonetici')) {
+              showToast('Kendi yönetici rolünü düşüremezsin');
               return;
             }
             var oldRole = targetUser.role;
@@ -13166,6 +13290,15 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
           renderAdminUserDetailBody(targetUser, activeTab);
         });
       }
+      var msgBtn = document.getElementById('admin-msg-send');
+      if (msgBtn) msgBtn.addEventListener('click', function () {
+        var tx = document.getElementById('admin-msg-text').value.trim();
+        if (!tx) { showToast('Mesaj yaz'); return; }
+        admSendMessage(uid, tx.slice(0, 500));
+        logAdminActivity('message', esc(targetUser.name) + ' kullanıcısına mesaj gönderildi');
+        showToast('Mesaj gönderildi');
+        renderAdminUserDetailBody(targetUser, activeTab);
+      });
       var switchBtn = document.getElementById('admin-switch-user');
       if (switchBtn) {
         switchBtn.addEventListener('click', function () {
@@ -13187,7 +13320,7 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
       if (importBtn) {
         importBtn.addEventListener('click', function () { document.getElementById('admin-import-file').click(); });
         document.getElementById('admin-import-file').addEventListener('change', function (e) {
-          if (e.target.files[0]) importDataFile(e.target.files[0], uid);
+          if (e.target.files[0]) { logAdminActivity('restore', admOwnerName(uid) + ' kullanıcısına veri içe aktarılıyor (' + esc(e.target.files[0].name) + ')'); importDataFile(e.target.files[0], uid); }
         });
       }
       var resetBtn = document.getElementById('admin-reset-user');
@@ -13205,66 +13338,429 @@ function renderAdminUserDetailBody(targetUser, activeTab) {
   });
 }
 
+/* ---- Sayfa içerikleri: tüm koleksiyonlar için görüntüle / düzenle / sil ---- */
+var ADM_COLS = [
+  { key: 'tasks', label: 'Görevler', page: 'Görevler' },
+  { key: 'routines', label: 'Rutinler', page: 'Rutinler' },
+  { key: 'events', label: 'Etkinlikler', page: 'Takvim' },
+  { key: 'goals', label: 'Hedefler', page: 'Hedefler' },
+  { key: 'notes', label: 'Notlar', page: 'Notlar' },
+  { key: 'noteFolders', label: 'Not klasörleri', page: 'Notlar' },
+  { key: 'vocab', label: 'Kelimeler', page: 'Öğrenme' },
+  { key: 'reading', label: 'Okuma listesi', page: 'Öğrenme' },
+  { key: 'prayers', label: 'İbadet kayıtları', page: 'İbadet' },
+  { key: 'finance', label: 'İşlemler', page: 'Finans' },
+  { key: 'accounts', label: 'Hesaplar', page: 'Finans' },
+  { key: 'installments', label: 'Taksitler', page: 'Finans' },
+  { key: 'recurringFinance', label: 'Düzenli işlemler', page: 'Finans' },
+  { key: 'savingsGoals', label: 'Birikim hedefleri', page: 'Finans' },
+  { key: 'transfers', label: 'Transferler', page: 'Finans' },
+  { key: 'budget', label: 'Bütçe', page: 'Finans' },
+  { key: 'finPlan', label: 'Finans planı', page: 'Finans' },
+  { key: 'xp', label: 'XP', page: 'Başarılar' },
+  { key: 'user', label: 'Profil', page: 'Ayarlar' }
+];
+var admDataLimit = 40, admDataQuery = '';
+function admColDef(key) { return ADM_COLS.filter(function (c) { return c.key === key; })[0] || { key: key, label: key, page: '' }; }
+function admEmptyFor(key) { return key === 'prayers' ? { dailyLog: {} } : key === 'budget' || key === 'user' ? {} : key === 'finPlan' ? null : key === 'xp' ? 0 : []; }
+function admRows(key, uid) {
+  var v = get(key, null, uid), rows = [], kind = 'empty', cont = null;
+  if (Array.isArray(v)) {
+    kind = 'array';
+    v.forEach(function (it, i) { rows.push({ id: String(i), rid: (it && typeof it === 'object') ? it.id : undefined, value: it }); });
+  } else if (typeof v === 'number') {
+    kind = 'number'; rows.push({ id: '0', label: 'Değer', value: v });
+  } else if (v && typeof v === 'object') {
+    kind = 'object';
+    cont = (key === 'prayers' && v.dailyLog && typeof v.dailyLog === 'object') ? v.dailyLog : v;
+    Object.keys(cont).forEach(function (k) { rows.push({ id: k, label: k, value: cont[k] }); });
+  }
+  return { kind: kind, data: v, cont: cont, rows: rows };
+}
+function admCount(key, uid) { var r = admRows(key, uid); return r.kind === 'number' ? r.data : r.rows.length; }
+function admRowText(r) {
+  var it = r.value, o = (it && typeof it === 'object' && !Array.isArray(it));
+  if (r.label) {
+    return { t: r.label, s: o ? Object.keys(it).length + ' alan' : (Array.isArray(it) ? it.length + ' öğe' : String(it)) };
+  }
+  if (!o) return { t: String(it), s: '' };
+  if (it.locked) return { t: '(kilitli not)', s: String((it.createdAt || '').slice(0, 10)) };
+  var t = '', ks = ['title', 'name', 'word', 'term', 'text', 'desc', 'description', 'note', 'category', 'label', 'kind'];
+  for (var i = 0; i < ks.length && !t; i++) { if (typeof it[ks[i]] === 'string' && it[ks[i]].trim()) t = it[ks[i]].trim().slice(0, 60); }
+  var sub = [];
+  if (it.amount != null) sub.push(String(it.amount));
+  if (it.status) sub.push(String(it.status));
+  if (it.frequency) sub.push(String(it.frequency));
+  if (it.archived) sub.push('arşivde');
+  var d = it.date || it.due || it.start || it.createdAt; if (d) sub.push(String(d).slice(0, 10));
+  return { t: t || '(adsız)', s: sub.join(' · ') };
+}
+function admWrite(key, uid, info, row, newVal, del) {
+  if (info.kind === 'array') {
+    var arr = get(key, [], uid), idx = -1;
+    if (row.rid !== undefined) arr.forEach(function (x, i) { if (idx < 0 && x && x.id === row.rid) idx = i; });
+    if (idx < 0) idx = parseInt(row.id, 10);
+    if (idx < 0 || idx >= arr.length) return false;
+    if (del) arr.splice(idx, 1); else arr[idx] = newVal;
+    return set(key, arr, uid) !== false;
+  }
+  if (info.kind === 'object') {
+    var d = get(key, {}, uid), c = (key === 'prayers' && d.dailyLog && typeof d.dailyLog === 'object') ? d.dailyLog : d;
+    if (del) delete c[row.id]; else c[row.id] = newVal;
+    return set(key, d, uid) !== false;
+  }
+  if (info.kind === 'number') return set(key, newVal, uid) !== false;
+  return false;
+}
+function admBack(uid, tab) {
+  var u = AUTHORIZED_USERS.filter(function (x) { return x.id === uid; })[0];
+  if (u) renderAdminUserDetailBody(u, tab);
+}
+function admOwnerName(uid) { var u = AUTHORIZED_USERS.filter(function (x) { return x.id === uid; })[0]; return u ? esc(u.name) : uid; }
+
+function admBlank(x) { return typeof x === 'string' ? '' : typeof x === 'number' ? 0 : typeof x === 'boolean' ? false : Array.isArray(x) ? [] : (x && typeof x === 'object') ? {} : null; }
+function admTemplate(info) {
+  var f = info.rows[0] && info.rows[0].value, t = {};
+  if (f && typeof f === 'object' && !Array.isArray(f)) Object.keys(f).forEach(function (k) { t[k] = k === 'id' ? uid() : k === 'createdAt' ? todayISO() : admBlank(f[k]); });
+  else t = { id: uid(), createdAt: todayISO() };
+  return t;
+}
+function admAddRow(key, userId, val) { var arr = get(key, [], userId); arr.push(val); return set(key, arr, userId) !== false; }
+
+function admOpenEditor(uid, key, rowId, tab, isNew) {
+  var info = admRows(key, uid);
+  var row = isNew ? { id: '__new', value: admTemplate(info) } : info.rows.filter(function (r) { return r.id === rowId; })[0];
+  if (!row) { showToast('Kayıt bulunamadı'); return; }
+  var v = row.value, isObj = v && typeof v === 'object' && !Array.isArray(v);
+  var fields = isObj ? Object.keys(v) : ['(değer)'];
+  var html = '<p class="muted" style="margin-top:0">' + esc(admColDef(key).page + ' › ' + admColDef(key).label) + '</p>';
+  fields.forEach(function (f, i) {
+    var fv = isObj ? v[f] : v, id = 'adm-f-' + i, t, ro = (f === 'id'), lab = '<label for="' + id + '">' + esc(f) + '</label>', inp;
+    if (typeof fv === 'boolean') { t = 'b'; inp = '<input type="checkbox" id="' + id + '"' + (fv ? ' checked' : '') + '>'; }
+    else if (typeof fv === 'number') { t = 'n'; inp = '<input type="number" step="any" id="' + id + '" value="' + esc(String(fv)) + '"' + (ro ? ' readonly' : '') + '>'; }
+    else if (fv !== null && typeof fv === 'object') {
+      var js = JSON.stringify(fv, null, 1);
+      if (js.length > 20000) { t = 'ro'; inp = '<p class="muted" style="margin:.2rem 0">(büyük veri, ' + Math.round(js.length / 1024) + ' KB — düzenlenemez)</p>'; }
+      else { t = 'j'; inp = '<textarea id="' + id + '" rows="5" spellcheck="false" style="font-family:var(--font-mono);font-size:.82rem">' + esc(js) + '</textarea>'; }
+    } else {
+      var sv = fv == null ? '' : String(fv); t = fv == null ? 'z' : 's';
+      if (sv.indexOf('data:') === 0 || sv.length > 5000) { t = 'ro'; inp = '<p class="muted" style="margin:.2rem 0">(büyük veri, ' + Math.round(sv.length / 1024) + ' KB — düzenlenemez)</p>'; }
+      else if (sv.length > 80 || sv.indexOf('\n') !== -1) inp = '<textarea id="' + id + '" rows="4">' + esc(sv) + '</textarea>';
+      else inp = '<input type="text" id="' + id + '" value="' + esc(sv) + '"' + (ro ? ' readonly' : '') + '>';
+    }
+    if (ro && t !== 'ro') t = 'ro';
+    html += '<div class="field" data-f="' + esc(f) + '" data-t="' + t + '" data-i="' + i + '">' + lab + inp + '</div>';
+  });
+  html += '<div class="stack"><button class="btn btn-primary btn-block" id="adm-save">Kaydet</button><button class="btn btn-secondary btn-block" id="adm-cancel">Vazgeç</button></div>';
+  openSheet({ title: isNew ? 'Yeni kayıt' : 'Kaydı düzenle', bodyHTML: html, onOpen: function () {
+    document.getElementById('adm-cancel').addEventListener('click', function () { admBack(uid, tab); });
+    document.getElementById('adm-save').addEventListener('click', function () {
+      var out = isObj ? Object.assign({}, v) : v, changed = [], bad = null;
+      document.querySelectorAll('#dlg-sheet-body [data-f]').forEach(function (fe) {
+        if (bad) return;
+        var f = fe.dataset.f, t = fe.dataset.t, el = document.getElementById('adm-f-' + fe.dataset.i), nv, ov = isObj ? v[f] : v;
+        if (t === 'ro' || !el) return;
+        if (t === 'b') nv = el.checked;
+        else if (t === 'n') { nv = el.value.trim() === '' ? null : parseFloat(el.value); if (nv !== null && isNaN(nv)) { bad = 'Geçersiz sayı: ' + f; return; } }
+        else if (t === 'j') { try { nv = JSON.parse(el.value); } catch (e) { bad = 'Geçersiz JSON: ' + f; return; } }
+        else if (t === 'z') nv = el.value === '' ? null : el.value;
+        else nv = el.value;
+        if (JSON.stringify(nv) !== JSON.stringify(ov)) { changed.push(f); if (isObj) out[f] = nv; else out = nv; }
+      });
+      if (bad) { showToast(bad); return; }
+      if (!changed.length && !isNew) { admBack(uid, tab); return; }
+      if (!(isNew ? admAddRow(key, uid, out) : admWrite(key, uid, info, row, out, false))) { showToast('Kaydedilemedi'); return; }
+      if (isNew) logAdminActivity('add', admOwnerName(uid) + ' kullanıcısına ' + esc(admColDef(key).label) + ' kaydı eklendi');
+      else logAdminActivity('edit', admOwnerName(uid) + ' kullanıcısının ' + esc(admColDef(key).label) + ' kaydı düzenlendi (' + changed.map(esc).join(', ') + ')');
+      showToast('Kaydedildi');
+      admBack(uid, tab);
+    });
+  } });
+}
+
 function renderAdminDataList(uid, activeTab, canEdit) {
   var list = document.getElementById('admin-data-list');
   if (!list) return;
   if (!can('data.view')) { list.innerHTML = '<div class="empty"><p>Bu içerikleri görme yetkin yok</p></div>'; return; }
-  var items, renderRow, storeKey;
-  var delBtn = canEdit ? '<button class="icon-btn admin-del" aria-label="Sil">' + icon('trash') + '</button>' : '';
-
-  if (activeTab === 'tasks') {
-    storeKey = 'tasks';
-    items = get('tasks', [], uid);
-    renderRow = function (t) {
-      var statusLabel = t.status === 'done' ? 'Tamamlandı' : (t.status === 'doing' ? 'Devam ediyor' : 'Yapılacak');
-      return '<div class="list-row" data-id="' + t.id + '">' +
-        '<span class="row-main"><span class="row-title">' + esc(t.title || '(başlıksız)') + '</span><span class="row-sub">' + statusLabel + (t.due ? ' · ' + esc(t.due) : '') + '</span></span>' +
-        delBtn + '</div>';
-    };
-  } else if (activeTab === 'routines') {
-    storeKey = 'routines';
-    items = get('routines', [], uid);
-    renderRow = function (r) {
-      return '<div class="list-row" data-id="' + r.id + '">' +
-        '<span class="row-main"><span class="row-title">' + esc(r.title || '(başlıksız)') + '</span><span class="row-sub">' + esc(r.frequency || '') + (r.archived ? ' · arşivde' : '') + '</span></span>' +
-        delBtn + '</div>';
-    };
-  } else {
-    storeKey = 'notes';
-    items = get('notes', [], uid);
-    renderRow = function (n) {
-      var preview = n.locked ? '(kilitli not)' : (n.text || '').slice(0, 60);
-      return '<div class="list-row" data-id="' + n.id + '">' +
-        '<span class="row-main"><span class="row-title">' + esc(preview || '(boş not)') + '</span><span class="row-sub">' + esc((n.createdAt || '').slice(0, 10)) + '</span></span>' +
-        delBtn + '</div>';
-    };
-  }
-
-  if (!items.length) {
-    list.innerHTML = '<div class="empty"><p>Kayıt yok</p></div>';
+  var key = activeTab, def = admColDef(key), canDel = canEdit, canMod = can('data.edit');
+  var info = admRows(key, uid);
+  var canAdd = can('data.add') && info.kind === 'array';
+  if (!info.rows.length) {
+    list.innerHTML = '<div class="empty"><p>Kayıt yok</p></div>' + (canAdd ? '<button class="btn btn-secondary btn-block" id="admin-data-add">+ Yeni kayıt ekle</button>' : '');
+    var ab0 = document.getElementById('admin-data-add');
+    if (ab0) ab0.addEventListener('click', function () { admOpenEditor(uid, key, null, key, true); });
     return;
   }
-
-  list.innerHTML = '<div class="stack">' + items.map(renderRow).join('') + '</div>';
-  if (!canEdit) return;
-  list.querySelectorAll('.admin-del').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var id = btn.closest('[data-id]').dataset.id;
-      confirmDialog({ title: 'Bu kayıt silinsin mi?', message: 'Bu işlem geri alınamaz.', confirmText: 'Sil', danger: true })
-        .then(function (ok) {
-          if (!ok) return;
-          var arr = get(storeKey, [], uid).filter(function (x) { return x.id !== id; });
-          var removed = get(storeKey, [], uid).find(function (x) { return x.id === id; });
-          set(storeKey, arr, uid);
-          var ownerUser = AUTHORIZED_USERS.find(function (u) { return u.id === uid; });
-          var ownerLabel = ownerUser ? esc(ownerUser.name) : uid;
-          var recordLabel = (removed && (removed.title || removed.text)) ? ('"' + esc((removed.title || removed.text).slice(0, 40)) + '"') : 'bir kayıt';
-          logAdminActivity('delete', ownerLabel + ' kullanıcısının ' + recordLabel + ' (' + storeKey + ') kaydı silindi');
-          showToast('Silindi');
-          renderAdminDataList(uid, activeTab, canEdit);
-        });
+  info.rows.forEach(function (r) { var tx = admRowText(r); r.tx = tx; r.hay = (tx.t + ' ' + tx.s + ' ' + (typeof r.value === 'object' ? JSON.stringify(r.value) : String(r.value))).toLocaleLowerCase('tr-TR'); });
+  list.innerHTML = '<div class="field"><input type="search" id="admin-data-search" placeholder="' + esc(def.label) + ' içinde ara..." value="' + esc(admDataQuery) + '"></div>' +
+    '<div class="row-sub" id="admin-data-count" style="margin-bottom:.4rem"></div><div id="admin-data-rows"></div><div id="admin-data-foot" class="stack" style="margin-top:.6rem"></div>';
+  function draw() {
+    var q = admDataQuery.trim().toLocaleLowerCase('tr-TR');
+    var f = info.rows.filter(function (r) { return !q || r.hay.indexOf(q) !== -1; });
+    var shown = f.slice(0, admDataLimit);
+    document.getElementById('admin-data-count').textContent = f.length + ' kayıt' + (q ? ' (toplam ' + info.rows.length + ')' : '');
+    var rowsEl = document.getElementById('admin-data-rows');
+    rowsEl.innerHTML = shown.length ? '<div class="stack">' + shown.map(function (r) {
+      var locked = r.value && r.value.locked;
+      var showEdit = canMod && !locked && info.kind !== 'empty';
+      var showDel = canDel && info.kind !== 'number' && key !== 'user';
+      return '<div class="list-row" data-rid="' + esc(r.id) + '"><span class="row-main"><span class="row-title">' + esc(r.tx.t) + '</span>' + (r.tx.s ? '<span class="row-sub">' + esc(r.tx.s) + '</span>' : '') + '</span>' +
+        (showEdit ? '<button class="icon-btn admin-edit" aria-label="Düzenle">' + icon('pencil') + '</button>' : '') +
+        (showDel ? '<button class="icon-btn admin-del" aria-label="Sil">' + icon('trash') + '</button>' : '') + '</div>';
+    }).join('') + '</div>' : '<div class="empty"><p>Sonuç yok</p></div>';
+    var foot = document.getElementById('admin-data-foot'), fh = canAdd ? '<button class="btn btn-secondary btn-block" id="admin-data-add">+ Yeni kayıt ekle</button>' : '';
+    if (f.length > shown.length) fh += '<button class="btn btn-secondary btn-block" id="admin-data-more">Daha fazla göster (' + (f.length - shown.length) + ')</button>';
+    if (canDel && info.kind !== 'number' && key !== 'user' && !q) fh += '<button class="btn btn-danger btn-block" id="admin-data-clear">' + icon('trash') + ' Bu bölümü boşalt (' + info.rows.length + ')</button>';
+    foot.innerHTML = fh;
+    var ab = document.getElementById('admin-data-add');
+    if (ab) ab.addEventListener('click', function () { admOpenEditor(uid, key, null, key, true); });
+    var more = document.getElementById('admin-data-more');
+    if (more) more.addEventListener('click', function () { admDataLimit += 40; draw(); });
+    var clr = document.getElementById('admin-data-clear');
+    if (clr) clr.addEventListener('click', function () {
+      confirmDialog({ title: def.label + ' bölümü boşaltılsın mı?', message: info.rows.length + ' kayıt kalıcı olarak silinecek. Bu işlem geri alınamaz.', confirmText: 'Boşalt', danger: true }).then(function (ok) {
+        if (!ok) return;
+        if (set(key, admEmptyFor(key), uid) === false) { showToast('Silinemedi'); return; }
+        logAdminActivity('delete', admOwnerName(uid) + ' kullanıcısının ' + esc(def.label) + ' bölümü boşaltıldı (' + info.rows.length + ' kayıt)');
+        showToast('Bölüm boşaltıldı');
+        admBack(uid, key);
+      });
     });
+    rowsEl.querySelectorAll('.admin-edit').forEach(function (b) {
+      b.addEventListener('click', function () { admOpenEditor(uid, key, b.closest('[data-rid]').dataset.rid, key); });
+    });
+    rowsEl.querySelectorAll('.admin-del').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var rid = b.closest('[data-rid]').dataset.rid;
+        var row = info.rows.filter(function (r) { return r.id === rid; })[0];
+        if (!row) return;
+        confirmDialog({ title: 'Bu kayıt silinsin mi?', message: 'Bu işlem geri alınamaz.', confirmText: 'Sil', danger: true }).then(function (ok) {
+          if (!ok) return;
+          if (!admWrite(key, uid, info, row, null, true)) { showToast('Silinemedi'); return; }
+          logAdminActivity('delete', admOwnerName(uid) + ' kullanıcısının "' + esc(row.tx.t.slice(0, 40)) + '" (' + key + ') kaydı silindi');
+          showToast('Silindi');
+          admBack(uid, key);
+        });
+      });
+    });
+  }
+  var se = document.getElementById('admin-data-search');
+  se.addEventListener('input', function () { admDataQuery = se.value; admDataLimit = 40; draw(); });
+  draw();
+}
+
+
+/* ---- Yönetim: roller, kullanım kaydı, panel özeti, mesajlar, uygulama ayarları ---- */
+var ADM_USE_KEY = 'gunlukAjandam_usageLog', ADM_INBOX_KEY = 'gunlukAjandam_inbox', ADM_CFG_KEY = 'gunlukAjandam_appCfg';
+function admJ(k, def) { try { var v = JSON.parse(lsGet(k) || 'null'); return v == null ? def : v; } catch (e) { return def; } }
+function admRoleAssignable(r) { return r.key !== 'superadmin' || !!(adminSessionUser && adminSessionUser.role === 'superadmin'); }
+function admEnsureSuper() {
+  if (AUTHORIZED_USERS.some(function (u) { return u.role === 'superadmin'; })) return false;
+  var t = AUTHORIZED_USERS.filter(function (u) { return u.id === 'default'; })[0] || AUTHORIZED_USERS.filter(function (u) { return u.role === 'yonetici'; })[0];
+  if (!t) return false;
+  t.role = 'superadmin'; return true;
+}
+function admDaysBack(n) { var a = []; for (var i = 0; i < n; i++) { var d = new Date(); d.setDate(d.getDate() - i); a.push(toISO(d)); } return a; }
+function admRecordUse() {
+  try {
+    var log = admJ(ADM_USE_KEY, {}), id = getActiveUserId(), d = todayISO();
+    var u = log[id] || (log[id] = {});
+    u[d] = (u[d] || 0) + 1; u._last = new Date().toISOString();
+    var keep = admDaysBack(90);
+    Object.keys(log).forEach(function (x) { Object.keys(log[x]).forEach(function (k) { if (k !== '_last' && keep.indexOf(k) === -1) delete log[x][k]; }); });
+    lsSet(ADM_USE_KEY, JSON.stringify(log));
+  } catch (e) { /* kullanım kaydı opsiyonel */ }
+}
+function admSessions(userId, days) {
+  var log = admJ(ADM_USE_KEY, {}), keys = admDaysBack(days), n = 0;
+  Object.keys(log).forEach(function (id) { if (userId && id !== userId) return; keys.forEach(function (k) { n += log[id][k] || 0; }); });
+  return n;
+}
+function admActiveUsers(days) {
+  var log = admJ(ADM_USE_KEY, {}), keys = admDaysBack(days);
+  return Object.keys(log).filter(function (id) { return keys.some(function (k) { return log[id][k]; }); }).length;
+}
+function admSuspiciousIds() {
+  var log = getAdminActivityLog().filter(function (e) { return e.type === 'login_failed'; }), out = {};
+  log.forEach(function (a) {
+    var t = new Date(a.at).getTime(), n = log.filter(function (b) { return b.actor === a.actor && Math.abs(new Date(b.at).getTime() - t) <= 864e5; }).length;
+    if (n >= 3) out[a.id] = true;
   });
+  return out;
+}
+function admBarsHTML(vals, labels, color) {
+  var mx = Math.max.apply(null, vals.concat([1]));
+  return '<div style="display:flex;align-items:flex-end;gap:3px;height:70px">' + vals.map(function (v, i) {
+    return '<div title="' + esc(labels[i]) + ': ' + v + '" style="flex:1;background:' + color + ';border-radius:3px 3px 0 0;height:' + Math.max(v ? 4 : 1, Math.round(v / mx * 100)) + '%;opacity:' + (v ? 1 : .25) + '"></div>';
+  }).join('') + '</div>';
+}
+function admStat(v, l) { return '<div class="stat-card"><div class="stat-value">' + v + '</div><div class="stat-label">' + l + '</div></div>'; }
+
+function renderAdminDashboardHTML() {
+  var us = AUTHORIZED_USERS;
+  function cnt(st) { return us.filter(function (u) { return (u.status || 'active') === st; }).length; }
+  var h = '<div class="section-title" style="margin-top:0"><h2>Genel durum</h2></div><div class="stat-grid">' +
+    admStat(us.length, 'Kullanıcı') + admStat(cnt('active'), 'Aktif') + admStat(cnt('inactive'), 'Pasif') + admStat(cnt('banned'), 'Engelli') + '</div>';
+  // kullanım
+  var log = admJ(ADM_USE_KEY, {}), d14 = admDaysBack(14).reverse();
+  var vals = d14.map(function (k) { var n = 0; Object.keys(log).forEach(function (id) { n += log[id][k] || 0; }); return n; });
+  h += '<div class="section-title"><h2>Kullanım</h2></div><div class="stat-grid">' +
+    admStat(admSessions(null, 1), 'Bugün') + admStat(admSessions(null, 7), '7 gün') + admStat(admSessions(null, 30), '30 gün') + admStat(admActiveUsers(7), '7 günde aktif kişi') + '</div>' +
+    '<div class="card">' + admBarsHTML(vals, d14, 'var(--accent)') + '<div class="row-sub" style="margin-top:.3rem">Son 14 gün, uygulama açılışı. Sayım bu sürümden itibaren tutuluyor; öncesi için kayıt yok.</div></div>';
+  // gelir / gider
+  if (can('data.view')) {
+    h += '<div class="section-title"><h2>Gelir ve gider</h2></div>';
+    if (!FIN_BIG_READY) h += '<div class="card"><div class="row-sub">Finans verisi yükleniyor, birkaç saniye sonra sekmeyi yenile.</div></div>';
+    else {
+      var mk = [], i, cur = todayISO().slice(0, 7);
+      for (i = 5; i >= 0; i--) { var dd = new Date(); dd.setDate(1); dd.setMonth(dd.getMonth() - i); mk.push(toISO(dd).slice(0, 7)); }
+      var inc = 0, exp = 0, mi = 0, me = 0, si = mk.map(function () { return 0; }), se = mk.map(function () { return 0; });
+      us.forEach(function (u) {
+        get('finance', [], u.id).forEach(function (f) {
+          var a = Number(f.amount) || 0, m = (f.date || '').slice(0, 7), ix = mk.indexOf(m);
+          if (f.type === 'income') { inc += a; if (m === cur) mi += a; if (ix >= 0) si[ix] += a; }
+          else if (f.type === 'expense') { exp += a; if (m === cur) me += a; if (ix >= 0) se[ix] += a; }
+        });
+      });
+      h += '<div class="stat-grid">' + admStat(formatMoney(inc), 'Toplam gelir') + admStat(formatMoney(exp), 'Toplam gider') + admStat(formatMoney(mi), 'Bu ay gelir') + admStat(formatMoney(me), 'Bu ay gider') + '</div>' +
+        '<div class="card"><div class="row-sub">Gelir, son 6 ay</div>' + admBarsHTML(si, mk, 'var(--success)') + '<div class="row-sub" style="margin-top:.6rem">Gider, son 6 ay</div>' + admBarsHTML(se, mk, 'var(--danger)') + '<div class="row-sub" style="margin-top:.3rem">' + mk[0] + ' → ' + mk[5] + ' · tüm profillerin toplamı</div></div>';
+    }
+  }
+  // uyarılar
+  var now = Date.now(), day = 864e5, logArr = getAdminActivityLog();
+  var errs = sysGetErrors().filter(function (e) { return now - new Date(e.at).getTime() < day; }).length;
+  var fl = logArr.filter(function (e) { return e.type === 'login_failed' && now - new Date(e.at).getTime() < day; }).length;
+  var sus = Object.keys(admSuspiciousIds()).length;
+  var lb = lsGet('gunlukAjandam_lastBackup'), bd = lb ? Math.round((parseISO(todayISO()) - parseISO(lb)) / 864e5) : null;
+  var bad = sysIntegrity().length, warns = [];
+  if (errs) warns.push(errs + ' hata (son 24 saat)');
+  if (fl) warns.push(fl + ' başarısız giriş (son 24 saat)');
+  if (sus) warns.push(sus + ' şüpheli giriş kaydı (Loglar › Şüpheli)');
+  if (bd === null) warns.push('Yedek hiç alınmadı'); else if (bd > 30) warns.push('Son yedek ' + bd + ' gün önce');
+  if (bad) warns.push(bad + ' bozuk veri kaydı (Sistem sekmesi)');
+  if (admCfg().maintenance.on) warns.push('Bakım modu açık');
+  h += '<div class="section-title"><h2>Hata ve uyarılar</h2></div><div class="card" style="padding:.2rem .8rem">' +
+    (warns.length ? warns.map(function (w) { return '<div class="list-row"><span class="row-main"><span class="row-title" style="color:var(--warning)">' + esc(w) + '</span></span></div>'; }).join('') : '<div class="list-row"><span class="row-main"><span class="row-title" style="color:var(--success)">Uyarı yok</span></span></div>') + '</div>';
+  // son işlemler
+  if (can('logs.view')) {
+    h += '<div class="section-title"><h2>Son işlemler</h2></div><div class="card" style="padding:.2rem .8rem">' +
+      (logArr.length ? logArr.slice(0, 5).map(function (e) { return '<div class="list-row"><span class="row-main"><span class="row-title">' + esc(e.description) + '</span><span class="row-sub">' + esc(e.actor) + ' · ' + formatLogTime(e.at) + '</span></span></div>'; }).join('') : '<div class="list-row"><span class="row-main"><span class="row-title muted">Kayıt yok</span></span></div>') + '</div>';
+  }
+  return h;
+}
+
+/* mesajlar */
+function admSendMessage(userId, text) {
+  var box = admJ(ADM_INBOX_KEY, {}), l = box[userId] || [];
+  l.unshift({ id: uid(), at: new Date().toISOString(), from: adminSessionUser ? adminSessionUser.name : '—', text: text, read: false });
+  box[userId] = l.slice(0, 30);
+  lsSet(ADM_INBOX_KEY, JSON.stringify(box));
+}
+function admMsgSectionHTML(userId) {
+  var l = (admJ(ADM_INBOX_KEY, {})[userId] || []).slice(0, 3);
+  return '<div class="eyebrow" style="margin-top:1.2rem">Mesaj gönder</div>' +
+    '<div class="field"><textarea id="admin-msg-text" rows="3" maxlength="500" placeholder="Kullanıcıya bilgilendirme veya destek mesajı"></textarea></div>' +
+    '<button class="btn btn-secondary btn-block" id="admin-msg-send">Gönder</button>' +
+    '<p class="hint" style="margin-top:.3rem">Mesaj, kullanıcı uygulamayı bu cihazda açtığında gösterilir.</p>' +
+    (l.length ? '<div class="stack">' + l.map(function (m) { return '<div class="list-row"><span class="row-main"><span class="row-title">' + esc(m.text.slice(0, 80)) + '</span><span class="row-sub">' + formatLogTime(m.at) + ' · ' + (m.read ? 'okundu' : 'okunmadı') + '</span></span></div>'; }).join('') + '</div>' : '');
+}
+function admShowMessages() {
+  if (document.getElementById('adm-maint')) return;
+  var sh = document.getElementById('dlg-sheet');
+  if (sh && sh.classList.contains('open')) { setTimeout(admShowMessages, 8000); return; }
+  var userId = getActiveUserId(), box = admJ(ADM_INBOX_KEY, {}), un = (box[userId] || []).filter(function (m) { return !m.read; });
+  var sm = admCfg().sysMsg, seenKey = 'gunlukAjandam_sysMsgSeen_' + userId, showSys = !!(sm && sm.id && sm.text && lsGet(seenKey) !== sm.id);
+  if (!un.length && !showSys) return;
+  var h = '';
+  if (showSys) h += '<div class="card"><div class="row-sub">Sistem mesajı</div><div style="white-space:pre-wrap">' + esc(sm.text) + '</div></div>';
+  un.forEach(function (m) { h += '<div class="card"><div class="row-sub">' + esc(m.from) + ' · ' + formatLogTime(m.at) + '</div><div style="white-space:pre-wrap">' + esc(m.text) + '</div></div>'; });
+  h += '<button class="btn btn-primary btn-block" id="adm-msg-ok">Tamam</button>';
+  openSheet({ title: 'Yönetici mesajı', bodyHTML: h, onOpen: function () {
+    document.getElementById('adm-msg-ok').addEventListener('click', function () {
+      var b = admJ(ADM_INBOX_KEY, {}); (b[userId] || []).forEach(function (m) { m.read = true; });
+      lsSet(ADM_INBOX_KEY, JSON.stringify(b));
+      if (showSys) lsSet(seenKey, sm.id);
+      closeSheet();
+    });
+  } });
+}
+
+/* uygulama ayarları */
+function admCfg() { var c = admJ(ADM_CFG_KEY, {}); c.maintenance = c.maintenance || { on: false, text: '' }; c.sysMsg = c.sysMsg || { id: '', text: '' }; c.name = c.name || ''; return c; }
+function admSaveCfg(c) { lsSet(ADM_CFG_KEY, JSON.stringify(c)); }
+function admApplyCfg() {
+  var c = admCfg();
+  document.title = c.name || 'Günlük Ajandam';
+  var m = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+  if (m) m.setAttribute('content', c.name || 'Ajandam');
+}
+function admMaintenanceGate() {
+  var c = admCfg(), el = document.getElementById('adm-maint'), on = c.maintenance.on && !adminSessionUser;
+  if (!on) { if (el) el.remove(); return; }
+  if (el) return;
+  el = document.createElement('div');
+  el.id = 'adm-maint';
+  el.style.cssText = 'position:fixed;inset:0;z-index:39;background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:2rem;text-align:center';
+  el.innerHTML = '<h2 style="margin:0">Bakım modu</h2><p class="muted" style="margin:0;max-width:22rem">' + esc(c.maintenance.text || 'Uygulama kısa süreliğine bakımda. Daha sonra tekrar dene.') + '</p>' +
+    '<button class="btn btn-secondary" id="adm-maint-login">' + icon('lock') + ' Yönetici girişi</button>';
+  document.body.appendChild(el);
+  document.getElementById('adm-maint-login').addEventListener('click', openAdminLoginSheet);
+}
+function admBoot() {
+  try { admRecordUse(); admApplyCfg(); admMaintenanceGate(); setTimeout(admShowMessages, 1800); } catch (e) { console.warn('admBoot', e); }
+}
+function renderAdminAppTab() {
+  var c = admCfg(), theme = get('theme', 'auto'), acc = get('accent', 'ink-blue');
+  var h = '<div class="section-title" style="margin-top:0"><h2>Uygulama kimliği</h2></div><div class="card">' +
+    '<div class="field"><label for="adm-app-name">Uygulama adı</label><input type="text" id="adm-app-name" maxlength="30" placeholder="Günlük Ajandam" value="' + esc(c.name) + '"></div>' +
+    '<p class="hint" style="margin:0 0 .6rem">Sekme başlığında ve ana ekran adında kullanılır.</p>' +
+    '<button class="btn btn-secondary btn-block" id="adm-app-name-save">Adı kaydet</button></div>';
+  h += '<div class="section-title"><h2>Varsayılan görünüm</h2></div><div class="card">' +
+    '<div class="field"><label for="adm-theme">Tema</label><select id="adm-theme">' + [['auto', 'Otomatik'], ['light', 'Açık'], ['dark', 'Koyu']].map(function (t) { return '<option value="' + t[0] + '"' + (theme === t[0] ? ' selected' : '') + '>' + t[1] + '</option>'; }).join('') + '</select></div>' +
+    '<div class="field"><label for="adm-accent">Marka / vurgu rengi</label><select id="adm-accent">' + ACCENTS.map(function (a) { return '<option value="' + a.id + '"' + (acc === a.id ? ' selected' : '') + '>' + esc(a.label) + '</option>'; }).join('') + '</select></div>' +
+    '<p class="hint" style="margin:0">Bu cihaz için geçerlidir. Kullanıcılar Ayarlar > Görünüm\'den değiştirebilir.</p></div>';
+  h += '<div class="section-title"><h2>Bakım modu</h2></div><div class="card">' +
+    '<div class="field"><label><input type="checkbox" id="adm-maint-on"' + (c.maintenance.on ? ' checked' : '') + '> Bakım modunu aç</label></div>' +
+    '<div class="field"><label for="adm-maint-text">Gösterilecek mesaj</label><textarea id="adm-maint-text" rows="2" maxlength="200" placeholder="Uygulama kısa süreliğine bakımda.">' + esc(c.maintenance.text) + '</textarea></div>' +
+    '<p class="hint" style="margin:0 0 .6rem">Açıkken uygulama kilitlenir; yalnızca yönetici girişi yapılabilir.</p>' +
+    '<button class="btn btn-secondary btn-block" id="adm-maint-save">Kaydet</button></div>';
+  h += '<div class="section-title"><h2>Genel sistem mesajı</h2></div><div class="card">' +
+    '<div class="field"><textarea id="adm-sysmsg" rows="3" maxlength="400" placeholder="Tüm kullanıcılara bir kez gösterilir">' + esc(c.sysMsg.text) + '</textarea></div>' +
+    '<div class="stack"><button class="btn btn-secondary btn-block" id="adm-sysmsg-pub">Yayınla</button>' +
+    (c.sysMsg.text ? '<button class="btn btn-secondary btn-block" id="adm-sysmsg-del">Mesajı kaldır</button>' : '') + '</div></div>';
+  h += '<p class="muted" style="font-size:.85rem">Dil ve saat dilimi: uygulama Türkçedir ve cihazın saat dilimini kullanır. Kayıt kuralları: kişi ekleme yalnızca Kullanıcılar sekmesinden yapılır.</p>';
+  return h;
+}
+function wireAdminAppTab() {
+  function logCfg(t) { logAdminActivity('config', esc(t)); }
+  document.getElementById('adm-app-name-save').addEventListener('click', function () {
+    var c = admCfg(); c.name = document.getElementById('adm-app-name').value.trim(); admSaveCfg(c); admApplyCfg();
+    logCfg('Uygulama adı ' + (c.name ? '"' + c.name + '" olarak' : 'varsayılana') + ' ayarlandı'); showToast('Kaydedildi');
+  });
+  document.getElementById('adm-theme').addEventListener('change', function (e) { setTheme(e.target.value); logCfg('Varsayılan tema: ' + e.target.value); });
+  document.getElementById('adm-accent').addEventListener('change', function (e) { setAccent(e.target.value); logCfg('Vurgu rengi: ' + e.target.value); });
+  document.getElementById('adm-maint-save').addEventListener('click', function () {
+    var c = admCfg(); c.maintenance = { on: document.getElementById('adm-maint-on').checked, text: document.getElementById('adm-maint-text').value.trim() }; admSaveCfg(c);
+    logCfg('Bakım modu ' + (c.maintenance.on ? 'açıldı' : 'kapatıldı')); showToast(c.maintenance.on ? 'Bakım modu açık. Çıkışta uygulama kilitlenir.' : 'Bakım modu kapalı');
+  });
+  document.getElementById('adm-sysmsg-pub').addEventListener('click', function () {
+    var tx = document.getElementById('adm-sysmsg').value.trim();
+    if (!tx) { showToast('Mesaj yaz'); return; }
+    var c = admCfg(); c.sysMsg = { id: uid(), text: tx, at: new Date().toISOString() }; admSaveCfg(c);
+    logCfg('Sistem mesajı yayınlandı'); showToast('Yayınlandı'); renderAdminTabBody();
+  });
+  var del = document.getElementById('adm-sysmsg-del');
+  if (del) del.addEventListener('click', function () { var c = admCfg(); c.sysMsg = { id: '', text: '' }; admSaveCfg(c); logCfg('Sistem mesajı kaldırıldı'); renderAdminTabBody(); });
+}
+function admExportLogCSV() {
+  var log = getAdminActivityLog(), ta = document.createElement('textarea');
+  function dec(x) { ta.innerHTML = String(x == null ? '' : x); return ta.value; }
+  function q(x) { return '"' + String(x).replace(/"/g, '""') + '"'; }
+  var rows = [['Tarih', 'Tür', 'Kişi', 'Açıklama']].concat(log.map(function (e) { return [formatLogTime(e.at), ADMIN_LOG_TYPE_LABELS[e.type] || e.type, dec(e.actor), dec(e.description)]; }));
+  var csv = '\ufeff' + rows.map(function (r) { return r.map(q).join(';'); }).join('\r\n');
+  var url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })), a = document.createElement('a');
+  a.href = url; a.download = 'denetim-kaydi-' + todayISO() + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
 }
 
 /* ---- Yetkili kişi listesi kalıcılığı ----------------------------------- */
@@ -13305,7 +13801,7 @@ function nextAdminUserId() {
 
 
 loadAuthorizedUsersOverride();
-if (migrateAdminPins()) saveAuthorizedUsers();
+var _admM1 = migrateAdminPins(), _admM2 = admEnsureSuper(); if (_admM1 || _admM2) saveAuthorizedUsers();
 
 initCore();
 navigateTo('today', { initial: true });
@@ -13313,6 +13809,7 @@ bigLoadAll();
 remStart();
 focusInit();
 pwaInit();
+admBoot();
 </script>
 </body>
 </html>
