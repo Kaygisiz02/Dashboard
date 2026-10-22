@@ -5551,7 +5551,6 @@ function openEventSheet(id) {
         document.getElementById('ef-delete').addEventListener('click', function () {
           confirmDialog({ title: 'Etkinlik silinsin mi?', danger: true, confirmText: 'Sil' }).then(function (ok) {
             if (ok) {
-              removeFinanceLinkedToEvent(draft.id);
               saveEvents(getEvents().filter(function (x) { return x.id !== draft.id; }));
               closeSheet(); renderCalendar(); if (document.getElementById('dash-agenda')) renderTodayAgenda();
             }
@@ -5562,10 +5561,8 @@ function openEventSheet(id) {
   });
 }
 
-/* Bir etkinliğin ödendi/ödenmedi durumunu değiştirir. Ödendi olarak
-   işaretlenince Finans bölümüne bağlı bir gider kaydı düşer (kategori
-   "Taksi" varsayılır, başlıkta etkinlik ismi görünür); geri alınırsa o
-   kayıt silinir, böylece finans verisiyle tutarsızlık oluşmaz. */
+/* Bir etkinliğin ödendi/ödenmedi durumunu değiştirir. Bu durum yalnızca
+   takvimde görünür; Finans bölümüyle eşitleme yoktur (gider kaydı oluşmaz). */
 function toggleEventPaid(eventId) {
   var all = getEvents();
   var idx = all.findIndex(function (x) { return x.id === eventId; });
@@ -5574,32 +5571,8 @@ function toggleEventPaid(eventId) {
   ev.paid = !ev.paid;
   all[idx] = ev;
   saveEvents(all);
-
-  if (ev.paid) {
-    var fin = getFinance();
-    fin.push({
-      id: uid(),
-      title: ev.title,
-      amount: Number(ev.amount) || 0,
-      type: 'expense',
-      category: 'Taksi',
-      date: ev.date || todayISO(),
-      source: 'event',
-      accountId: getDefaultAccountId(),
-      eventId: ev.id
-    });
-    saveFinance(fin);
-    showToast('Ödendi olarak işaretlendi, gider kaydedildi');
-  } else {
-    removeFinanceLinkedToEvent(ev.id);
-    showToast('Ödenmedi olarak işaretlendi');
-  }
+  showToast(ev.paid ? 'Ödendi olarak işaretlendi' : 'Ödenmedi olarak işaretlendi');
   renderCalendar();
-}
-
-function removeFinanceLinkedToEvent(eventId) {
-  var fin = getFinance().filter(function (x) { return x.eventId !== eventId; });
-  saveFinance(fin);
 }
 
 function initCalendar() {
