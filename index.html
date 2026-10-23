@@ -2781,7 +2781,7 @@ function buildTabbar(pageKey) {
     document.body.appendChild(bar);
     document.getElementById('more-tab').addEventListener('click', openMoreSheet);
   }
-  bar.querySelectorAll('a[data-tabkey]').forEach(function (a) { a.classList.toggle('active', a.dataset.tabkey === pageKey); });
+  bar.querySelectorAll('a[data-tabkey]').forEach(function (a) { a.classList.toggle('active', a.dataset.tabkey === pageKey); a.style.display = admPageOff(a.dataset.tabkey) ? 'none' : ''; });
   var moreActive = !!pageKey && TAB_ORDER.indexOf(pageKey) === -1 && pageKey !== 'settings';
   document.getElementById('more-tab').classList.toggle('active', moreActive);
 }
@@ -2801,6 +2801,7 @@ function openMoreSheet() {
   groups.forEach(function (g) {
     html += '<div class="pl-h">' + esc(g.h) + '</div><div class="stack">';
     g.keys.forEach(function (key) {
+      if (admPageOff(key)) return;
       var p = PAGES[key];
       html += '<a class="list-row" href="javascript:void(0)" data-nav="' + key + '" style="text-decoration:none;color:inherit">' +
         '<span class="icon-btn">' + icon(p.icon) + '</span>' +
@@ -3002,10 +3003,14 @@ function settingsCards(body) {
 
 function settingsNotif(body) {
   body.innerHTML = '<div class="set-panel"><p class="row-sub" id="notif-status" role="status" aria-live="polite" style="margin:0 0 .6rem"></p>' +
-    '<button type="button" class="btn btn-secondary btn-block" id="notif-enable">' + icon('bell') + ' Bütçe aşımı bildirimlerini aç</button></div>' +
-    '<p class="set-desc">Bütçeni aştığında tarayıcı bildirimi gösterilir. Sekme tamamen kapalıyken bildirim gelmez.</p>';
+    '<button type="button" class="btn btn-secondary btn-block" id="notif-enable">' + icon('bell') + ' Bildirim iznini iste</button>' +
+    '<button type="button" class="btn btn-secondary btn-block" id="notif-test" style="margin-top:.6rem">Bildirimi test et</button>' +
+    '<pre id="notif-diag" class="row-sub" style="white-space:pre-wrap;margin:.6rem 0 0;font-family:inherit"></pre></div>' +
+    '<p class="set-desc">Hatırlatmalar ve bütçe uyarıları uygulama açıkken (ya da arka planda canlıyken) çalışır. Uygulama kapalıyken veya telefon uygulamayı uyutmuşken bildirim gelmez.</p>';
   renderNotifStatus();
   document.getElementById('notif-enable').addEventListener('click', requestNotifPermission);
+  document.getElementById('notif-test').addEventListener('click', notifDiagnose);
+  notifDiagnose(true);
 }
 
 function settingsData(body) {
@@ -8538,6 +8543,30 @@ function renderNotifStatus() {
   }
 }
 
+function notifDiagnose(quiet) {
+  var out = document.getElementById('notif-diag'); if (!out) return;
+  var L = [], now = Date.now();
+  L.push('Adres: ' + location.protocol + (/^https?:/.test(location.protocol) ? '' : ' (servis çalışanı bu adreste kayıt olmaz)'));
+  L.push('İzin: ' + notifPermission());
+  var items = []; try { items = remItems().filter(function (x) { return x.at > now; }).sort(function (a, b) { return a.at - b.at; }); } catch (e) {}
+  L.push('Zamanlanmış hatırlatma: ' + items.length + (items.length ? ' · sıradaki: ' + items[0].title + ' ' + new Date(items[0].at).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ' (görevde tarih + hatırlat, rutinde saat, etkinlikte saat gerekir)'));
+  var done = function (extra) { out.textContent = L.concat(extra || []).join('\n'); };
+  if (!('serviceWorker' in navigator)) { L.push('Servis çalışanı: desteklenmiyor'); }
+  var p = (/^https?:/.test(location.protocol) && navigator.serviceWorker && navigator.serviceWorker.getRegistration) ? navigator.serviceWorker.getRegistration() : Promise.resolve(null);
+  p.then(function (reg) {
+    L.push('Servis çalışanı: ' + (reg ? 'kayıtlı' : 'KAYITSIZ (sw.js yüklenemedi veya adres uygun değil)'));
+    if (quiet === true) { done(); return; }
+    if (!notifSupported()) { done(['Test: bu tarayıcı bildirim desteklemiyor']); return; }
+    if (Notification.permission !== 'granted') { done(['Test: izin verilmemiş']); return; }
+    var opts = { body: 'Bu bir test bildirimidir.', tag: 'test', icon: 'icon-192.png' };
+    if (reg && reg.showNotification) {
+      reg.showNotification('Test', opts).then(function () { done(['Test: servis çalışanı ile gönderildi. Görünmediyse telefonun uygulama bildirim ayarlarına bak.']); }).catch(function (e) { done(['Test: servis çalışanı hatası: ' + e.message]); });
+    } else {
+      try { new Notification('Test', opts); done(['Test: doğrudan gönderildi']); } catch (e) { done(['Test başarısız: ' + e.message + ' (mobil tarayıcılar servis çalışanı ister)']); }
+    }
+  }).catch(function (e) { done(['Hata: ' + e.message]); });
+}
+
 function requestNotifPermission() {
   if (!notifSupported()) { showToast('Bu tarayıcı bildirimleri desteklemiyor'); return; }
   Notification.requestPermission().then(function () {
@@ -12382,6 +12411,7 @@ PAGE_VIEWS.forEach(function (k) {
 function navI() { return (history.state && history.state.i) || 0; }
 function navigateTo(pageKey, opts) {
   if (PAGE_VIEWS.indexOf(pageKey) === -1) return;
+  if (!(opts && opts.initial) && admPageOff(pageKey)) { showToast('Bu sayfa şu an yönetici tarafından kapatıldı'); return; }
   if (typeof tdMic !== 'undefined' && tdMic) tdMic.kill();
   opts = opts || {};
   var el = document.getElementById('view-' + pageKey);
@@ -13686,7 +13716,9 @@ function admShowMessages() {
 }
 
 /* uygulama ayarları */
-function admCfg() { var c = admJ(ADM_CFG_KEY, {}); c.maintenance = c.maintenance || { on: false, text: '' }; c.sysMsg = c.sysMsg || { id: '', text: '' }; c.name = c.name || ''; return c; }
+function admCfg() { var c = admJ(ADM_CFG_KEY, {}); c.maintenance = c.maintenance || { on: false, text: '' }; c.sysMsg = c.sysMsg || { id: '', text: '' }; c.name = c.name || ''; c.disabledPages = c.disabledPages || []; return c; }
+var ADM_TOGGLE_PAGES = ['tasks', 'routines', 'calendar', 'goals', 'learning', 'worship', 'finance', 'notes', 'achievements', 'yearreport'];
+function admPageOff(k) { return ADM_TOGGLE_PAGES.indexOf(k) !== -1 && !adminSessionUser && admCfg().disabledPages.indexOf(k) !== -1; }
 function admSaveCfg(c) { lsSet(ADM_CFG_KEY, JSON.stringify(c)); }
 function admApplyCfg() {
   var c = admCfg();
@@ -13728,6 +13760,9 @@ function renderAdminAppTab() {
     '<div class="field"><textarea id="adm-sysmsg" rows="3" maxlength="400" placeholder="Tüm kullanıcılara bir kez gösterilir">' + esc(c.sysMsg.text) + '</textarea></div>' +
     '<div class="stack"><button class="btn btn-secondary btn-block" id="adm-sysmsg-pub">Yayınla</button>' +
     (c.sysMsg.text ? '<button class="btn btn-secondary btn-block" id="adm-sysmsg-del">Mesajı kaldır</button>' : '') + '</div></div>';
+  h += '<div class="section-title"><h2>Sayfalar</h2></div><div class="card">' + ADM_TOGGLE_PAGES.map(function (k) {
+    return '<div class="field" style="margin-bottom:.3rem"><label><input type="checkbox" class="adm-page-cb" value="' + k + '"' + (c.disabledPages.indexOf(k) === -1 ? ' checked' : '') + '> ' + esc(PAGES[k].title) + '</label></div>';
+  }).join('') + '<p class="hint" style="margin:.4rem 0 .6rem">İşareti kaldırılan sayfa kullanıcılara kapanır (menüden de kalkar). Yönetici girişi yapılmışken açık kalır.</p><button class="btn btn-secondary btn-block" id="adm-pages-save">Sayfaları kaydet</button></div>';
   h += '<p class="muted" style="font-size:.85rem">Dil ve saat dilimi: uygulama Türkçedir ve cihazın saat dilimini kullanır. Kayıt kuralları: kişi ekleme yalnızca Kullanıcılar sekmesinden yapılır.</p>';
   return h;
 }
@@ -13748,6 +13783,11 @@ function wireAdminAppTab() {
     if (!tx) { showToast('Mesaj yaz'); return; }
     var c = admCfg(); c.sysMsg = { id: uid(), text: tx, at: new Date().toISOString() }; admSaveCfg(c);
     logCfg('Sistem mesajı yayınlandı'); showToast('Yayınlandı'); renderAdminTabBody();
+  });
+  document.getElementById('adm-pages-save').addEventListener('click', function () {
+    var off = []; document.querySelectorAll('.adm-page-cb').forEach(function (cb) { if (!cb.checked) off.push(cb.value); });
+    var c = admCfg(); c.disabledPages = off; admSaveCfg(c);
+    logCfg(off.length ? 'Kapatılan sayfalar: ' + off.map(function (k) { return PAGES[k].title; }).join(', ') : 'Tüm sayfalar açık'); showToast('Kaydedildi');
   });
   var del = document.getElementById('adm-sysmsg-del');
   if (del) del.addEventListener('click', function () { var c = admCfg(); c.sysMsg = { id: '', text: '' }; admSaveCfg(c); logCfg('Sistem mesajı kaldırıldı'); renderAdminTabBody(); });
