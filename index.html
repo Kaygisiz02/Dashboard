@@ -3894,8 +3894,7 @@ function tdCloseSheet() {
         var mv = b.querySelector('#cl-move'), txt = b.querySelector('#cl-note').value.trim();
         if (mv && mv.checked) L.today.forEach(function (t) { tdMoveTask(t.id, addDays(todayISO(), 1)); });
         if (txt) {
-          var nowISO = new Date().toISOString(), head = 'Gün sonu \u00b7 ' + formatDateTR(todayISO()), deFid = ntDayEndFolderId(true);
-          var all = ntAll(); all.push({ id: uid(), text: head + '\n' + txt, html: '<div>' + esc(head) + '</div><div>' + esc(txt) + '</div>', createdAt: nowISO, updatedAt: nowISO, folder: deFid, dayEnd: true, pinned: false }); saveNotes(all);
+          var all = ntAll(); ntDayEndPush(all, formatDateTR(todayISO(), { weekday: true }), txt, ntDayEndFolderId(true)); saveNotes(all);
         }
         tdRitualMark('close'); addXP(3, { silent: true }); closeSheet(); tdRefresh(); showToast('Gün kapandı. İyi geceler');
       });
@@ -4369,7 +4368,7 @@ function initDashboard() {
 }
 
 function startDashboard() {
-  ntMigrateDayEnd();
+  ntMigrateDayEnd(); ntMergeDayEnd();
   tdDay = todayISO();
   renderGreeting();
   tdInitQuick();
@@ -11392,6 +11391,48 @@ function ntMigrateDayEnd() {
   } catch (e) { try { console.error('Günsonu taşıma hatası', e); } catch (e2) {} }
 }
 
+/* Gün sonu notları tek bir "Gün sonu notları" notunda tarihleriyle birlikte birikir.
+   Not NT_DAYEND_MAX karaktere ulaşınca yeni bir not ("Gün sonu notları (2)" …) açılır. */
+var NT_DAYEND_MAX = 10000;
+var NT_DAYEND_TITLE = 'Gün sonu notları';
+function ntDayEndPush(all, head, body, fid, whenISO) {
+  var nowISO = new Date().toISOString();
+  var lines = String(body || '').replace(/\r/g, '').split('\n');
+  var entry = '<div><b>' + esc(head) + '</b></div>' + lines.map(function (l) { return '<div>' + (l.trim() ? esc(l) : '<br>') + '</div>'; }).join('') + '<div><br></div>';
+  var add = ntPlainFromHTML(entry).length + 1;
+  var logs = all.filter(function (n) { return n && n.dayEndLog && !n.deletedAt; }), maxPart = 0, cur = null;
+  logs.forEach(function (n) { maxPart = Math.max(maxPart, n.dayEndPart || 1); });
+  logs.forEach(function (n) { if (!n.locked && (n.dayEndPart || 1) === maxPart) cur = n; });
+  if (!cur || ((cur.dayEndCount || 0) > 0 && String(cur.text || '').length + add > NT_DAYEND_MAX)) {
+    var part = maxPart + 1, title = part > 1 ? NT_DAYEND_TITLE + ' (' + part + ')' : NT_DAYEND_TITLE, th = '<div><b>' + esc(title) + '</b></div><div><br></div>';
+    cur = { id: uid(), html: th, text: ntPlainFromHTML(th), createdAt: whenISO || nowISO, updatedAt: nowISO, folder: fid, dayEnd: true, dayEndLog: true, dayEndPart: part, dayEndCount: 0, pinned: false };
+    all.push(cur);
+  }
+  cur.html = String(cur.html || '') + entry;
+  cur.text = ntPlainFromHTML(cur.html);
+  cur.updatedAt = nowISO;
+  cur.dayEndCount = (cur.dayEndCount || 0) + 1;
+  return cur;
+}
+/* Eskiden tek tek kaydedilmiş gün sonu notlarını tarih sırasıyla ortak nota taşır;
+   eski notlar silinmez, "Son Silinenler"e (30 gün kurtarılabilir) alınır. */
+function ntMergeDayEnd() {
+  try {
+    var all = ntAll(), old = all.filter(function (n) { return n && !n.deletedAt && !n.locked && !n.dayEndLog && ntIsDayEnd(n); });
+    if (!old.length) return;
+    old.sort(function (a, b) { return String(a.createdAt || '') < String(b.createdAt || '') ? -1 : 1; });
+    var fid = ntDayEndFolderId(true), nowISO = new Date().toISOString();
+    old.forEach(function (n) {
+      var ls = String(n.text || '').split('\n'), m = /^Gün sonu \u00b7 (.+)$/.exec(ls[0] || ''), head, body;
+      if (m) { head = m[1].trim(); body = ls.slice(1).join('\n'); }
+      else { head = formatDateTR(toISO(new Date(n.createdAt || Date.now())), { weekday: true }); body = ls.join('\n'); }
+      ntDayEndPush(all, head, body, fid, n.createdAt);
+      n.deletedAt = nowISO; n.pinned = false;
+    });
+    saveNotes(all);
+  } catch (e) { try { console.error('Günsonu birleştirme hatası', e); } catch (e2) {} }
+}
+
 function resizeImageFile(file, maxW) {
   return new Promise(function (resolve, reject) {
     var reader = new FileReader();
@@ -11976,7 +12017,7 @@ document.addEventListener('visibilitychange', function () {
 });
 
 function initNotes() {
-  ntMigrateDayEnd();
+  ntMigrateDayEnd(); ntMergeDayEnd();
   ntLoadPrefs(); ntFolder = 'all'; ntQ = ''; ntEd = null;
   var fab = document.getElementById('note-add-fab');
   fab.innerHTML = icon('pencil'); fab.onclick = function () { openNoteEditor(null); };
