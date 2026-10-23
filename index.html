@@ -3005,12 +3005,17 @@ function settingsCards(body) {
 function settingsNotif(body) {
   body.innerHTML = '<div class="set-panel"><p class="row-sub" id="notif-status" role="status" aria-live="polite" style="margin:0 0 .6rem"></p>' +
     '<button type="button" class="btn btn-secondary btn-block" id="notif-enable">' + icon('bell') + ' Bildirim iznini iste</button>' +
+    '<div class="field" style="margin-top:.8rem"><label><input type="checkbox" id="notif-vakit"' + (lsGet('gunlukAjandam_vakitNotify') === '1' ? ' checked' : '') + '> Namaz vakti girince bildir</label></div>' +
     '<button type="button" class="btn btn-secondary btn-block" id="notif-test" style="margin-top:.6rem">Bildirimi test et</button>' +
     '<pre id="notif-diag" class="row-sub" style="white-space:pre-wrap;margin:.6rem 0 0;font-family:inherit"></pre></div>' +
     '<p class="set-desc">Hatırlatmalar ve bütçe uyarıları uygulama açıkken (ya da arka planda canlıyken) çalışır. Uygulama kapalıyken veya telefon uygulamayı uyutmuşken bildirim gelmez.</p>';
   renderNotifStatus();
   document.getElementById('notif-enable').addEventListener('click', requestNotifPermission);
   document.getElementById('notif-test').addEventListener('click', notifDiagnose);
+  document.getElementById('notif-vakit').addEventListener('change', function (e) {
+    lsSet('gunlukAjandam_vakitNotify', e.target.checked ? '1' : '0');
+    if (e.target.checked) { if (!ibLoc()) showToast('Vakit bildirimi için İbadet sayfasında konum seç'); remAsk(); }
+  });
   notifDiagnose(true);
 }
 
@@ -4579,6 +4584,12 @@ function remItems() {
     if (r.archived || tm == null || !isRoutineDue(r, today) || (r.log && r.log[today])) return;
     out.push({ key: 'r:' + r.id + ':' + today + ':' + r.reminderTime, at: at(today, tm), title: r.title, body: 'Rutin hatırlatması' });
   });
+  if (lsGet('gunlukAjandam_vakitNotify') === '1') {
+    var VT = ibDayTimes(ibNowD());
+    if (VT) PRAYER_KEYS.forEach(function (k) {
+      out.push({ key: 'v:' + k + ':' + today, at: VT[k].getTime(), title: PRAYER_LABELS[k] + ' vakti girdi', body: PRAYER_LABELS[k] + ' · ' + ibFmt(VT[k]) });
+    });
+  }
   getEvents().filter(function (e) { return occursOn(e, today); }).forEach(function (e) {
     var tm = tdMin(e.time);
     if (tm == null) return;
@@ -4601,7 +4612,7 @@ function remCheck() {
 }
 function remStart() {
   if (REM_TIMER) return;
-  REM_TIMER = setInterval(remCheck, 20000);
+  REM_TIMER = setInterval(remCheck, 5000);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) remCheck(); });
   remCheck();
 }
@@ -6398,7 +6409,8 @@ function openWorshipAddMenu() {
 /* ---- İbadet modülü: namaz vakitleri, kıble, zikir, hatim planı, takvim --------------------- */
 /* ---- Namaz vakti hesabı (bağımsız, çevrimdışı) -------------------------------------------
    Güneş konumu + saat açısı yöntemi. Diyanet (Türkiye) parametreleri: imsak 18°, yatsı 17°,
-   ihtiyat: güneş -7 dk, öğle +5, ikindi +4, akşam +7 (adhan-js "Turkey" yöntemiyle aynı değerler). */
+   ihtiyat: adhan-js "Turkey" değerleri (güneş -7, öğle +5, ikindi +4, akşam +7), ek olarak Diyanet'in yayımladığı
+   İstanbul ve Ankara vakitlerine (2026 Eyl-Kas, 65 gün) göre dakika bazında kalibre edildi: imsak +1, güneş +1, ikindi -0,3, akşam -0,25, yatsı -0,3. */
 function ibRad(d) { return d * Math.PI / 180; }
 function ibDeg(r) { return r * 180 / Math.PI; }
 function ibFix(a, b) { a = a - b * Math.floor(a / b); return a < 0 ? a + b : a; }
@@ -6433,7 +6445,7 @@ function ibPrayerMinutes(y, m, d, lat, lng, tz) {
     T = { fajr: sunAngle(18, P.fajr, true), sunrise: sunAngle(0.833, P.sunrise, true), dhuhr: noon(P.dhuhr), asr: asr(1, P.asr), sunset: sunAngle(0.833, P.sunset, false), isha: sunAngle(17, P.isha, false) };
   }
   var off = tz - lng / 15;
-  return { fajr: (T.fajr + off) * 60, sunrise: (T.sunrise + off) * 60 - 7, dhuhr: (T.dhuhr + off) * 60 + 5, asr: (T.asr + off) * 60 + 4, maghrib: (T.sunset + off) * 60 + 7, isha: (T.isha + off) * 60 };
+  return { fajr: (T.fajr + off) * 60 + 1, sunrise: (T.sunrise + off) * 60 - 6, dhuhr: (T.dhuhr + off) * 60 + 5.05, asr: (T.asr + off) * 60 + 3.7, maghrib: (T.sunset + off) * 60 + 6.75, isha: (T.isha + off) * 60 - 0.3 };
 }
 function ibQibla(lat, lng) {
   var K = { lat: 21.4225, lng: 39.8262 }, dl = ibRad(K.lng - lng), p1 = ibRad(lat), p2 = ibRad(K.lat);
