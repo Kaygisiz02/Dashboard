@@ -1106,6 +1106,7 @@ body.simple #xp-chip,body.simple #dash-suggestions{display:none!important}
 .ib-btn.ghost{background:rgba(255,255,255,.2);color:inherit}
 .ib-times{display:flex;justify-content:space-between;gap:.3rem}
 .ib-time{flex:1;display:flex;flex-direction:column;align-items:center;gap:.25rem;background:none;border:0;cursor:pointer;color:inherit;border-radius:var(--radius-m);padding:.45rem .1rem .35rem;font:inherit}
+.ib-time.future{opacity:.45}
 .ib-time.cur{background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent)}
 .ib-time .nm{font-size:.7rem}
 .ib-time .tm{font-family:var(--font-mono);font-size:.74rem;font-weight:600;color:var(--ink-soft)}
@@ -4116,6 +4117,7 @@ function tdInitEvents() {
         if (k === 'prayer') togglePrayer(id); else if (k === 'routine') toggleRoutineToday(id); else if (k === 'task') toggleTaskDone(id);
         tdRefresh();
       };
+      if (k === 'prayer' && !wasDone && prayerNotYet(id)) { togglePrayer(id); return; }
       flip();
       if (!wasDone && !recur) showToast('Tamamlandı', { label: 'Geri al', onClick: flip });
       return;
@@ -6107,9 +6109,15 @@ function initLearning() {
 var PRAYER_LABELS = { sabah: 'Sabah', ogle: 'Öğle', ikindi: 'İkindi', aksam: 'Akşam', yatsi: 'Yatsı' };
 
 /* ---- Namaz ----------------------------------------------------------------*/
+/* Vakti henüz girmemiş namaz işaretlenemez (konum seçilmemişse vakit bilinmediği için kısıt uygulanmaz) */
+function prayerNotYet(key) { var now = ibNowD(), T = ibDayTimes(now); return !!(T && T[key] && T[key] > now); }
 function togglePrayer(key) {
   var p = getPrayers();
   var today = todayISO();
+  if (!(p.dailyLog[today] && p.dailyLog[today][key]) && prayerNotYet(key)) {
+    showToast(PRAYER_LABELS[key] + ' vakti henüz girmedi (' + ibFmt(ibDayTimes(ibNowD())[key]) + ')');
+    return false;
+  }
   p.dailyLog[today] = p.dailyLog[today] || {};
   var wasAllDone = PRAYER_KEYS.every(function (k) { return p.dailyLog[today][k]; });
   p.dailyLog[today][key] = !p.dailyLog[today][key];
@@ -6125,8 +6133,8 @@ function renderPrayerToday() {
   var p = getPrayers(), now = ibNowD(), todayLog = p.dailyLog[todayISO()] || {}, st = ibStatus(now), T = ibDayTimes(now);
   document.getElementById('prayer-today').innerHTML = '<div class="ib-times">' +
     PRAYER_KEYS.map(function (k) {
-      var done = !!todayLog[k], cur = st && st.cur === k;
-      return '<button data-k="' + k + '" class="prayer-toggle ib-time' + (cur ? ' cur' : '') + '" aria-pressed="' + done + '" aria-label="' + PRAYER_LABELS[k] + (T ? ' ' + ibFmt(T[k]) : '') + '">' +
+      var done = !!todayLog[k], cur = st && st.cur === k, fut = !done && prayerNotYet(k);
+      return '<button data-k="' + k + '" class="prayer-toggle ib-time' + (cur ? ' cur' : '') + (fut ? ' future' : '') + '"' + (fut ? ' aria-disabled="true"' : '') + ' aria-pressed="' + done + '" aria-label="' + PRAYER_LABELS[k] + (T ? ' ' + ibFmt(T[k]) : '') + '">' +
         '<span class="checkbox' + (done ? ' checked' : '') + '" style="width:2.15rem;height:2.15rem;pointer-events:none">' + icon('check') + '</span>' +
         '<span class="nm">' + PRAYER_LABELS[k] + '</span><span class="tm">' + (T ? ibFmt(T[k]) : '\u2013') + '</span></button>';
     }).join('') + '</div>' + (T ? '<div class="ib-gunes">Güneş <b>' + ibFmt(T.gunes) + '</b> <span>\u00b7 sabah vaktinin sonu</span></div>' : '');
