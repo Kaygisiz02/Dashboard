@@ -687,6 +687,22 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .rep-chips{display:flex;gap:.4rem;overflow-x:auto;margin:.2rem 0 .7rem;padding-bottom:.2rem;-webkit-overflow-scrolling:touch}
 .rep-chips button{flex:0 0 auto;border:1px solid rgba(128,128,128,.35);background:transparent;color:inherit;border-radius:999px;padding:.35rem .8rem;font:inherit;font-size:.82rem;white-space:nowrap;cursor:pointer}
 .rep-chips button.on{background:#4f7cff;color:#fff;border-color:transparent}
+.fin-nav{margin:0 calc(-1*var(--gutter)) .8rem}
+.fin-tabs{position:relative;display:flex;overflow-x:auto;padding:0 var(--gutter);border-bottom:1px solid var(--rule);scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.fin-tabs::-webkit-scrollbar{display:none}
+.fin-tabs button{position:relative;flex:1 0 auto;min-height:2.75rem;padding:.55rem .7rem;border:0;background:none;color:var(--ink-soft);font:inherit;font-size:.86rem;font-weight:600;white-space:nowrap;cursor:pointer}
+.fin-tabs button[aria-current="page"]{color:var(--ink)}
+.fin-tabs button[aria-current="page"]::after{content:"";position:absolute;left:.7rem;right:.7rem;bottom:-1px;height:2px;border-radius:2px;background:var(--accent)}
+.fin-tabs button:focus-visible,.fin-seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:8px}
+.fin-seg{display:flex;gap:.2rem;margin:.7rem var(--gutter) 0;padding:.2rem;border-radius:999px;background:var(--paper-raised);border:1px solid var(--rule)}
+.fin-seg button{flex:1 1 0;min-height:2.1rem;padding:.3rem .5rem;border:0;border-radius:999px;background:none;color:var(--ink-soft);font:inherit;font-size:.82rem;font-weight:600;white-space:nowrap;cursor:pointer}
+.fin-seg button[aria-current="page"]{background:var(--accent);color:#fff}
+/* Sekmeler sayfa adını zaten söylüyor: yinelenen başlık, geri oku ve açıklama yazıları gizlenir; eylem düğmeleri kalır. */
+.fin-sub .fin-lead,.fin-sub:not([data-sub="home"]) .fin-back,.fin-sub .fin-subtitle .eyebrow,.fin-sub[data-sub="home"]>.eyebrow{display:none}
+.fin-sub>h1,.fin-subtitle h1{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.fin-subhead{justify-content:flex-end;margin:.1rem 0 .6rem}
+.fin-subtitle{flex:0 0 0!important;min-width:0}
+.fin-subhead:not(:has(.fin-subact>*)){display:none}
 .fin-sub{animation:finIn .28s cubic-bezier(.2,.7,.2,1) both}
 @keyframes finIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.fin-sub{animation:none}.fin-feat{transition:none}}
@@ -1544,6 +1560,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
   <section class="fin-sub" data-sub="home">
     <div class="eyebrow">Genel bakış</div>
     <h1>Finans</h1>
+    <div data-navslot></div>
     <div data-accslot><div class="fin-accbar" id="fin-accbar"></div></div>
     <div class="fin-search"><span class="ic" id="fin-search-ic"></span><input type="search" id="fin-search" placeholder="İşlem ara (ör. market, turkcell)" enterkeyhint="search" autocomplete="off" aria-label="İşlemlerde ara"></div>
     <div data-monthslot>
@@ -1561,20 +1578,21 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
     <div id="fin-daycard"></div>
     <div class="fin-hero" id="fin-overview"></div>
     <div class="fin-actions" id="fin-actions"></div>
-    <div id="fin-upc"></div>
-    <div class="section-title"><h2>Bölümler</h2></div>
-    <div class="fin-feats" id="fin-feats"></div>
-    <div id="fin-accnote"></div>
     <div id="fin-start"></div>
     <div id="fin-attn"></div>
+    <div id="fin-upc"></div>
+    <div class="section-title"><h2>Durum</h2></div>
+    <div class="fin-feats" id="fin-feats"></div>
     <div class="section-title"><h2>Son işlemler</h2><button type="button" class="link-btn" data-fin-go="history">Tümü</button></div>
     <div id="fin-recent"></div>
+    <div id="fin-accnote"></div>
   </section>
   <section class="fin-sub" data-sub="analysis" hidden>
     <header class="fin-subhead">
       <button type="button" class="fin-back" data-fin-go="home" aria-label="Finans ana sayfasına dön"></button>
       <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>Analiz</h1></div>
     </header>
+    <div data-navslot></div>
     <div data-accslot></div>
     <p class="fin-lead">Finansal sağlık, kategori dağılımı, nakit akışı ve bu ayın özeti.</p>
     <div data-monthslot></div>
@@ -1588,6 +1606,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
       <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>Hesaplar</h1></div>
       <div class="fin-subact"><button type="button" class="fin-pill ghost" id="fin-transfer-btn">Transfer</button><button type="button" class="fin-pill ghost" id="fin-audit-btn">Veri kontrolü</button><button type="button" class="fin-pill" id="fin-account-add-btn">+ Hesap</button></div>
     </header>
+    <div data-navslot></div>
     <p class="fin-lead">Banka, kart ve nakit hesaplarını tek yerden yönet; hesaplar arası para aktar.</p>
     <div data-accslot></div>
 
@@ -1601,6 +1620,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
       <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>İşlemler</h1></div>
       <div class="fin-subact"></div>
     </header>
+    <div data-navslot></div>
     <p class="fin-lead">Seçili hesabın gelir ve giderleri. Ara, filtrele, banka ekstresi içe aktar.</p>
     <div data-accslot></div>
 
@@ -1630,6 +1650,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
       <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>Yaklaşan ödemeler</h1></div>
       <div class="fin-subact"><button type="button" class="fin-pill ghost" data-fin-detect>Otomatik bul</button></div>
     </header>
+    <div data-navslot></div>
     <div data-accslot></div>
     <p class="fin-lead">Önümüzdeki 30 günde seni bekleyen sabit gider, taksit ve kart ödemeleri.</p>
 
@@ -1642,6 +1663,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
       <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>Taksitler</h1></div>
       <div class="fin-subact"><button type="button" class="fin-pill" id="fin-installment-add-btn">+ Taksit</button></div>
     </header>
+    <div data-navslot></div>
     <div data-accslot></div>
     <p class="fin-lead">Taksitli alışverişlerini ve kalan borcunu takip et.</p>
 
@@ -1654,6 +1676,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
       <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>Bütçe</h1></div>
       <div class="fin-subact"><button type="button" class="fin-pill ghost" id="fin-budget-btn">Limitler</button><button type="button" class="fin-pill" id="plan-edit-btn">Planı ayarla</button></div>
     </header>
+    <div data-navslot></div>
     <div data-accslot></div>
     <p class="fin-lead">Gelirini, sabit ödemelerini ve esnek harcama bütçeni tek ekranda gör; gelecek 12 ayı tahmin et.</p>
     <div data-monthslot></div>
@@ -1672,6 +1695,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
       <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>Raporlar</h1></div>
       <div class="fin-subact"><button type="button" class="fin-pill" id="rep-csv" aria-label="Bu dönemin raporunu CSV olarak indir">CSV</button></div>
     </header>
+    <div data-navslot></div>
     <p class="fin-lead">Her harcamayı kategori, gün ve yer/kişi bazında gör; satıra dokunarak düzenle.</p>
     <div data-accslot></div>
     <div data-monthslot></div>
@@ -1742,6 +1766,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
       <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>Birikim hedefleri</h1></div>
       <div class="fin-subact"><button type="button" class="fin-pill" id="fin-goal-add-btn">+ Hedef</button></div>
     </header>
+    <div data-navslot></div>
     <div data-accslot></div>
     <p class="fin-lead">Tatil, acil durum fonu gibi hedefler belirle; birikimini izle.</p>
 
@@ -1754,6 +1779,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
       <div class="fin-subtitle"><div class="eyebrow">Finans</div><h1>Sabit gelir / gider</h1></div>
       <div class="fin-subact"><button type="button" class="fin-pill ghost" data-fin-detect>Otomatik bul</button><button type="button" class="fin-pill" id="fin-recurring-add-btn">+ Ekle</button></div>
     </header>
+    <div data-navslot></div>
     <div data-accslot></div>
     <p class="fin-lead">Her ay tekrarlayan maaş, kira, fatura gibi kalemler.</p>
 
@@ -10315,6 +10341,36 @@ function finUpcomingView() {
   return act === 'all' ? finUpcomingAll : finUpcomingAll.filter(function (x) { return x.acc === act; });
 }
 var FIN_SUBS = ['home', 'history', 'accounts', 'budgets', 'upcoming', 'installments', 'reports', 'savings', 'recurring', 'analysis'];
+/* Finans bilgi mimarisi (muadil uygulamalardaki gibi): 6 ana başlık; çok bölümlü başlıklarda segmentli alt kontrol.
+   [anahtar, sekme adı, [[alt sayfa, segment adı], ...]]  Alt sayfa anahtarları FIN_SUBS ile birebir aynıdır. */
+var FIN_TABS = [
+  ['home', 'Özet', [['home', '']]],
+  ['history', 'İşlemler', [['history', '']]],
+  ['accounts', 'Hesaplar', [['accounts', '']]],
+  ['budgets', 'Bütçe', [['budgets', 'Bütçe & plan'], ['savings', 'Birikim hedefleri']]],
+  ['bills', 'Ödemeler', [['upcoming', 'Yaklaşan'], ['installments', 'Taksitler'], ['recurring', 'Sabit işlemler']]],
+  ['insights', 'Raporlar', [['analysis', 'Genel analiz'], ['reports', 'Detaylı rapor']]]
+];
+var finTabMem = {};
+function finTabOf(sub) {
+  for (var i = 0; i < FIN_TABS.length; i++) if (FIN_TABS[i][2].some(function (x) { return x[0] === sub; })) return FIN_TABS[i];
+  return FIN_TABS[0];
+}
+function finPlaceSubNav(sub, cur) {
+  var tab = finTabOf(sub); finTabMem[tab[0]] = sub;
+  var nav = document.getElementById('fin-subnav');
+  if (!nav) { nav = document.createElement('div'); nav.id = 'fin-subnav'; nav.className = 'fin-nav'; }
+  nav.innerHTML = '<nav class="fin-tabs" aria-label="Finans bölümleri">' + FIN_TABS.map(function (t) {
+    var on = t === tab;
+    return '<button type="button" data-fin-go="' + (on ? sub : (finTabMem[t[0]] || t[2][0][0])) + '"' + (on ? ' aria-current="page"' : '') + '>' + esc(t[1]) + '</button>';
+  }).join('') + '</nav>' + (tab[2].length > 1 ? '<div class="fin-seg" role="group" aria-label="' + esc(tab[1]) + ' bölümleri">' + tab[2].map(function (x) {
+    return '<button type="button" data-fin-go="' + x[0] + '"' + (x[0] === sub ? ' aria-current="page"' : '') + '>' + esc(x[1]) + '</button>';
+  }).join('') + '</div>' : '');
+  var slot = cur && cur.querySelector('[data-navslot]');
+  if (slot && nav.parentNode !== slot) slot.appendChild(nav);
+  var tabs = nav.querySelector('.fin-tabs'), on2 = tabs && tabs.querySelector('[aria-current]');
+  if (on2) tabs.scrollLeft = on2.offsetLeft - (tabs.clientWidth - on2.offsetWidth) / 2;
+}
 ICON_PATHS.chart = '<path d="M4 20V11"/><path d="M10 20V4"/><path d="M16 20v-6"/><path d="M22 20H2"/>';
 ICON_PATHS.clock = '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>';
 ICON_PATHS.card = '<rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20"/><path d="M6 15h4"/>';
@@ -10349,6 +10405,7 @@ function finShow(sub) {
   if (mb) { if (slot) { slot.appendChild(mb); mb.hidden = false; } else mb.hidden = true; }
   var ab = document.getElementById('fin-accbar'), aslot = cur && cur.querySelector('[data-accslot]');
   if (ab) { if (aslot) { aslot.appendChild(ab); ab.hidden = false; renderAccountBar(); } else ab.hidden = true; }
+  finPlaceSubNav(sub, cur);
   if (sub === 'reports') { renderTrendChart(); renderFinReports(); }
   if (sub === 'budgets') planSetTab(planTab);
   window.scrollTo(0, 0);
@@ -10739,6 +10796,7 @@ function renderFinHub() {
     { sub: 'savings', ic: 'coins', hue: 140, t: 'Birikim hedefleri', v: T ? '%' + Math.round(sp2) : '\u2014', s: sv.length ? sv.length + ' hedef · ' + finMoney(V) : 'Hedef belirle', bar: T ? sp2 : null },
     { sub: 'recurring', ic: 'repeat', hue: 45, t: 'Sabit gelir/gider', v: rc.length + ' kalem', s: rc.length ? 'aylık net ' + finMoney(rnet) : 'Maaş, kira, fatura…' }
   ];
+  cards = cards.filter(function (c) { return ['history', 'reports', 'analysis'].indexOf(c.sub) === -1; }); // bunlar zaten ana sekme
   el.innerHTML = cards.map(function (c) {
     return '<button type="button" class="fin-feat' + (c.wide ? ' wide' : '') + '" data-fin-go="' + c.sub + '" style="--c:hsl(' + c.hue + ' 68% 46%)">' +
       '<span class="ic">' + icon(c.ic) + '</span>' +
