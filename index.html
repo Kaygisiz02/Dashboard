@@ -8901,25 +8901,45 @@ function renderInsights() {
   document.getElementById('fin-insights').innerHTML = tiles.map(function (t) { return '<div class="fin-tile"><span>' + t[0] + '</span><b>' + t[1] + '</b><i>' + t[2] + '</i></div>'; }).join('');
 }
 
+function finDueLabel(n) { return n < 0 ? (-n) + ' gün gecikmiş' : inDaysLabel(n); }
+function finUpOpen(kind, id) {
+  if (kind === 'rec') openRecurringSheet(id);
+  else if (kind === 'inst') openInstallmentDetailSheet(id);
+  else if (kind === 'acc') finGo('accounts');
+}
 function renderFinUpcoming() {
-  var items = [], curM = todayISO().slice(0, 7), nextM = (function () { var d = parseISO(curM + '-01'); d.setMonth(d.getMonth() + 1); return d.getFullYear() + '-' + pad2(d.getMonth() + 1); })();
-  getRecurringView().forEach(function (r) { items.push({ d: finRecNext(r), acc: recurringAccountId(r), t: r.title, amt: Number(r.amount), inc: r.type === 'income', ic: r.type === 'income' ? 'arrowUp' : 'arrowDown', sub: 'Sabit ' + (r.type === 'income' ? 'gelir' : 'gider') + (r.variable ? ' \u00b7 tahmini tutar' : '') }); });
+  var items = [], today = parseISO(todayISO()), curM = todayISO().slice(0, 7), nextM = (function () { var d = parseISO(curM + '-01'); d.setMonth(d.getMonth() + 1); return d.getFullYear() + '-' + pad2(d.getMonth() + 1); })();
+  getRecurringView().forEach(function (r) { items.push({ kind: 'rec', id: r.id, d: finRecNext(r), acc: recurringAccountId(r), t: r.title, amt: Number(r.amount), inc: r.type === 'income', ic: r.type === 'income' ? 'arrowUp' : 'arrowDown', sub: 'Sabit ' + (r.type === 'income' ? 'gelir' : 'gider') + (r.variable ? ' \u00b7 tahmini tutar' : '') }); });
+  /* Taksit: ödenmemiş her ay (bu ay ve gelecek aya kadar) ayrı satır. Ödeme günü girilmişse o güne göre,
+     girilmemişse "Bu ay / Gelecek ay / Gecikmiş" diye gösterilir (uydurma gün sayısı yok). */
   getInstallmentsView().forEach(function (it) {
-    var m = installmentMonths(it).filter(function (x) { return (it.paidMonths || []).indexOf(x) === -1; })[0];
-    if (!m || m > nextM) return;
-    items.push({ d: m <= curM ? parseISO(todayISO()) : parseISO(m + '-01'), acc: it.accountId, t: it.title, amt: Number(it.monthlyAmount), ic: 'wallet', sub: 'Taksit ' + ((it.paidMonths || []).length + 1) + '/' + it.installmentCount + (m < curM ? ' \u00b7 gecikmiş' : '') });
+    var day = Number(it.dayOfMonth) || 0, paid = it.paidMonths || [];
+    installmentMonths(it).forEach(function (m, idx) {
+      if (paid.indexOf(m) !== -1 || m > nextM) return;
+      var mo = parseISO(m + '-01'), sub = 'Taksit ' + (idx + 1) + '/' + it.installmentCount, d, lbl = '', nd = false;
+      if (day) d = new Date(mo.getFullYear(), mo.getMonth(), Math.min(day, daysInMonth(m + '-01')));
+      else {
+        nd = true; d = m <= curM ? today : mo;
+        lbl = m < curM ? 'Gecikmiş' : (m === curM ? 'Bu ay' : 'Gelecek ay');
+        if (m < curM) sub += ' \u00b7 ' + MONTHS_TR[mo.getMonth()];
+      }
+      items.push({ kind: 'inst', id: it.id, d: d, acc: it.accountId, t: it.title, amt: Number(it.monthlyAmount), ic: 'wallet', sub: sub, lbl: lbl, nd: nd });
+    });
   });
   getAccounts().forEach(function (a) {
-    var used = Math.max(0, -accountBalance(a.id)), sd = Number(a.statementDay);
-    if (a.type === 'credit_card' && sd && used && finScopeAcc(a.id)) items.push({ d: nextDayOfMonth(sd), acc: a.id, t: a.name, amt: used, ic: 'wallet', sub: 'Kart hesap kesimi' });
+    var used = Math.max(0, -accountBalance(a.id)), sd = Number(a.statementDay), dd = Number(a.dueDay);
+    if (a.type === 'credit_card' && (dd || sd) && used && finScopeAcc(a.id)) items.push({ kind: 'acc', id: a.id, d: nextDayOfMonth(dd || sd), acc: a.id, t: a.name, amt: used, ic: 'wallet', sub: dd ? 'Kart son ödeme günü' : 'Kart hesap kesimi' });
   });
-  items = items.filter(function (x) { return daysFromToday(x.d) <= 31; }).sort(function (a, b) { return a.d - b.d; });
-  finUpcomingAll = items.slice(); items = items.slice(0, 30);
+  items = items.filter(function (x) { return daysFromToday(x.d) <= 30; }).sort(function (a, b) { return a.d - b.d; });
+  items.forEach(function (x) { if (!x.lbl) x.lbl = finDueLabel(daysFromToday(x.d)); });
+  finUpcomingAll = items.slice();
   var el = document.getElementById('fin-upcoming');
   if (!items.length) { el.innerHTML = '<p class="muted">Önümüzdeki 30 günde planlı ödeme yok. Sabit gider veya taksit ekleyerek takip edebilirsin.</p>'; return; }
   el.innerHTML = '<div class="card" style="padding:.2rem .8rem">' + items.map(function (x) {
-    return '<div class="list-row"><span class="fin-cat" style="background:var(--accent-soft);color:var(--accent)">' + icon(x.ic, 'ic-s') + '</span><div class="row-main"><div class="row-title">' + esc(x.t) + '</div><div class="row-sub">' + inDaysLabel(daysFromToday(x.d)) + ' \u00b7 ' + x.sub + '</div></div><span class="mono" style="' + (x.inc ? 'color:var(--success)' : '') + '">' + (x.inc ? '+' : '') + finMask(formatMoney(x.amt)) + '</span></div>';
+    var late = !x.inc && (daysFromToday(x.d) < 0 || x.lbl === 'Gecikmiş');
+    return '<div class="list-row" data-up-kind="' + x.kind + '" data-up-id="' + esc(x.id) + '" style="cursor:pointer"><span class="fin-cat" style="background:var(--accent-soft);color:var(--accent)">' + icon(x.ic, 'ic-s') + '</span><div class="row-main"><div class="row-title">' + esc(x.t) + '</div><div class="row-sub">' + x.lbl + ' \u00b7 ' + x.sub + '</div></div><span class="mono" style="' + (x.inc ? 'color:var(--success)' : late ? 'color:var(--danger,#c0392b);font-weight:600' : '') + '">' + (x.inc ? '+' : '') + finMask(formatMoney(x.amt)) + '</span></div>';
   }).join('') + '</div>';
+  el.querySelectorAll('[data-up-kind]').forEach(function (row) { row.addEventListener('click', function () { finUpOpen(row.getAttribute('data-up-kind'), row.getAttribute('data-up-id')); }); });
 }
 
 function computeTrendData(period) {
@@ -9017,6 +9037,7 @@ function renderAccounts() {
       val = finMask(formatMoney(used));
       if (limit) extra += '<div class="bar"><i style="width:' + Math.min(100, used / limit * 100) + '%"></i></div><div class="s">Limit ' + finMask(formatMoney(limit)) + ' \u00b7 %' + Math.round(used / limit * 100) + ' kullanıldı</div>';
       if (sd) extra += '<div class="s">Hesap kesimi: ' + inDaysLabel(daysFromToday(nextDayOfMonth(sd))).toLowerCase() + '</div>';
+      if (Number(a.dueDay)) extra += '<div class="s">Son ödeme: ' + inDaysLabel(daysFromToday(nextDayOfMonth(Number(a.dueDay)))).toLowerCase() + '</div>';
     } else { val = finMask(formatMoney(bal)); if (a.bank) extra = '<div class="s">' + esc(a.bank) + '</div>'; }
     return '<button type="button" class="fin-acc' + (a.id === actAccId ? ' sel' : '') + '" data-account-id="' + a.id + '" style="background:' + esc(a.color || '#2563EB') + '"><span class="n">' + esc(a.name) + '</span><span class="t">' + accountTypeLabel(a.type) + (cc ? ' \u00b7 borç' : '') + (a.id === actAccId ? ' \u00b7 seçili' : a.id === defAccId ? ' \u00b7 varsayılan' : '') + '</span><span class="v">' + val + '</span>' + extra + '</button>';
   }).join('') + '<button type="button" class="fin-acc add" id="fin-acc-new">' + icon('plus') + ' Hesap ekle</button>';
@@ -9044,6 +9065,7 @@ function openAccountSheet(id) {
       '<div id="acf-cc-fields" style="display:' + (draft.type === 'credit_card' ? '' : 'none') + '">' +
       '<div class="field-row"><div class="field"><label>Kart limiti</label><input type="number" id="acf-limit" value="' + esc(draft.cardLimit === undefined ? '' : String(draft.cardLimit)) + '" placeholder="Ör. 50000"></div>' +
       '<div class="field"><label>Hesap kesim günü</label><input type="number" min="1" max="31" id="acf-statement" value="' + esc(draft.statementDay === undefined ? '' : String(draft.statementDay)) + '" placeholder="Ör. 15"></div></div>' +
+      '<div class="field"><label>Son ödeme günü (opsiyonel)</label><input type="number" min="1" max="31" id="acf-due" value="' + esc(draft.dueDay === undefined ? '' : String(draft.dueDay)) + '" placeholder="Ör. 25"></div>' +
       '</div>' +
       '<label class="rep-switch" style="margin:.2rem 0 .9rem"><input type="checkbox" id="acf-default"' + (isNew || isCurDefault ? ' checked' : '') + (isCurDefault ? ' disabled' : '') + '><span>' +
         (isCurDefault ? 'Varsayılan hesap: yeni işlemler buna yazılır' : 'Yeni işlemler için varsayılan hesap yap') + '</span></label>' +
@@ -9071,8 +9093,9 @@ function openAccountSheet(id) {
         if (draft.type === 'credit_card') {
           draft.cardLimit = Number(document.getElementById('acf-limit').value) || '';
           draft.statementDay = Number(document.getElementById('acf-statement').value) || '';
+          draft.dueDay = Number(document.getElementById('acf-due').value) || '';
         } else {
-          draft.cardLimit = ''; draft.statementDay = '';
+          draft.cardLimit = ''; draft.statementDay = ''; draft.dueDay = '';
         }
         var all = getAccounts();
         var idx = all.findIndex(function (x) { return x.id === draft.id; });
@@ -9147,6 +9170,7 @@ function openInstallmentSheet() {
       '<div class="field-row"><div class="field"><label>Toplam tutar</label><input type="number" step="0.01" id="if-total" placeholder="Ör. 15000"></div>' +
       '<div class="field"><label>Taksit sayısı</label><input type="number" min="2" max="36" id="if-count" value="' + draft.installmentCount + '"></div></div>' +
       '<div class="field"><label>Başlangıç ayı</label><input type="month" id="if-startmonth" value="' + esc(draft.startMonth) + '"></div>' +
+      '<div class="field"><label>Ödeme günü (opsiyonel)</label><input type="number" min="1" max="31" id="if-day" placeholder="Ör. 15"></div>' +
       '<div class="field"><label>Hesap / Kart</label><select id="if-account" style="width:100%;background:var(--paper-raised);border:1px solid var(--rule-strong);border-radius:6px;padding:.62rem .7rem">' +
       accounts.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>'; }).join('') + '</select></div>' +
       '<div class="field" style="position:relative"><label>Kategori</label>' +
@@ -9177,6 +9201,8 @@ function openInstallmentSheet() {
         draft.installmentCount = count;
         draft.monthlyAmount = Math.round((total / count) * 100) / 100;
         draft.startMonth = document.getElementById('if-startmonth').value || finSelectedMonth;
+        var dayV = parseInt(document.getElementById('if-day').value, 10);
+        if (dayV >= 1 && dayV <= 31) draft.dayOfMonth = dayV;
         draft.accountId = document.getElementById('if-account').value;
         draft.category = document.getElementById('if-category').value.trim() || 'Diğer';
         var all = getInstallments();
@@ -9197,6 +9223,7 @@ function openInstallmentDetailSheet(id) {
   var paid = inst.paidMonths || [];
 
   var html = '<p class="muted" style="margin-top:0">' + formatMoney(inst.monthlyAmount) + ' / ay · ' + inst.installmentCount + ' taksit · toplam ' + formatMoney(inst.totalAmount) + '</p>';
+  html += '<div class="field"><label>Ödeme günü (opsiyonel)</label><input type="number" min="1" max="31" id="if-day" value="' + esc(inst.dayOfMonth || '') + '" placeholder="Ör. 15"></div>';
   html += '<div class="stack">' + months.map(function (m, i) {
     var isPaid = paid.indexOf(m) !== -1;
     var d = parseISO(m + '-01');
@@ -9218,6 +9245,12 @@ function openInstallmentDetailSheet(id) {
           renderInstallments();
           renderAll();
         });
+      });
+      document.getElementById('if-day').addEventListener('change', function () {
+        var v = parseInt(this.value, 10), all = getInstallments(), x = all.find(function (q) { return q.id === inst.id; });
+        if (!x) return;
+        if (v >= 1 && v <= 31) x.dayOfMonth = v; else delete x.dayOfMonth;
+        saveInstallments(all); renderAll(); showToast('Ödeme günü kaydedildi');
       });
       document.getElementById('if-delete').addEventListener('click', function () {
         confirmDialog({ title: 'Taksitli ödeme silinsin mi?', message: 'Ödendi işaretlenen taksitlerin finans kayıtları da silinir.', confirmText: 'Sil', danger: true })
@@ -9799,7 +9832,7 @@ function renderRecurring() {
   el.innerHTML = '<div class="card" style="padding:.2rem .8rem">' + list.map(function (r) {
     return '<div class="list-row" data-id="' + r.id + '">' +
       '<div class="row-main" data-open style="cursor:pointer"><div class="row-title">' + esc(r.title) + '</div>' +
-      '<div class="row-sub">' + (r.type === 'income' ? 'Gelir' : 'Gider') + ' \u00b7 ' + (r.variable ? '\u2248' : '') + formatMoney(r.amount) + ' \u00b7 her ayın ' + r.dayOfMonth + '. günü' + (r.noAuto ? ' \u00b7 hatırlatma' : '') + ' \u00b7 ' + (finRecPaidThisMonth(r) ? 'bu ay ödendi' : 'sıradaki: ' + inDaysLabel(daysFromToday(finRecNext(r))).toLowerCase()) + '</div></div></div>';
+      '<div class="row-sub">' + (r.type === 'income' ? 'Gelir' : 'Gider') + ' \u00b7 ' + (r.variable ? '\u2248' : '') + formatMoney(r.amount) + ' \u00b7 her ayın ' + r.dayOfMonth + '. günü' + (r.noAuto ? ' \u00b7 hatırlatma' : '') + ' \u00b7 ' + (finRecPaidThisMonth(r) ? 'bu ay ödendi' : 'sıradaki: ' + finDueLabel(daysFromToday(finRecNext(r))).toLowerCase()) + '</div></div></div>';
   }).join('') + '</div>';
   el.querySelectorAll('[data-open]').forEach(function (row) { row.addEventListener('click', function () { openRecurringSheet(row.closest('[data-id]').dataset.id); }); });
 }
@@ -10219,7 +10252,7 @@ function finAttention() {
   var near = finUpcomingView().filter(function (x) { return !x.inc && daysFromToday(x.d) <= 3; });
   if (near.length) {
     var d0 = daysFromToday(near[0].d), tot = near.reduce(function (a, x) { return a + (Number(x.amt) || 0); }, 0);
-    rows.push({ tone: d0 <= 1 ? 'warn' : 'info', ic: 'clock', go: 'upcoming', t: near.length === 1 ? esc(near[0].t) + ' \u00b7 ' + inDaysLabel(d0).toLowerCase() : near.length + ' ödeme 3 gün içinde', s: finMoney(tot) + (near.length > 1 ? ' toplam \u00b7 ilki ' + inDaysLabel(d0).toLowerCase() : '') });
+    rows.push({ tone: d0 <= 1 ? 'warn' : 'info', ic: 'clock', go: 'upcoming', t: near.length === 1 ? esc(near[0].t) + ' \u00b7 ' + (near[0].lbl || inDaysLabel(d0)).toLowerCase() : near.length + ' ödeme 3 gün içinde', s: finMoney(tot) + (near.length > 1 ? ' toplam \u00b7 ilki ' + (near[0].lbl || inDaysLabel(d0)).toLowerCase() : '') });
   }
   var PSa = planStats(todayISO().slice(0, 7)), ppa = planPace(PSa);
   if (PSa.flexBudget > 0 && ppa.day >= 5 && ppa.proj > PSa.flexBudget * 1.05 && PSa.flexSpent < PSa.flexBudget * 1.3)
@@ -10249,7 +10282,7 @@ function finRenderHomeUpcoming() {
   var w7 = exp.filter(function (x) { return daysFromToday(x.d) <= 7; });
   var rows = all.slice(0, 5).map(function (x) {
     var dd = daysFromToday(x.d), soon = !x.inc && dd <= 3, acc = (act === 'all' && multi) ? ((accountById(x.acc) || {}).name || '') : '';
-    return '<div class="list-row" data-fin-go="upcoming" style="cursor:pointer"><span class="fin-cat" style="background:var(--accent-soft);color:var(--accent)">' + icon(x.ic, 'ic-s') + '</span><div class="row-main"><div class="row-title">' + esc(x.t) + '</div><div class="row-sub">' + inDaysLabel(dd) + ' \u00b7 ' + pad2(x.d.getDate()) + ' ' + MONTHS_TR[x.d.getMonth()].slice(0, 3) + (acc ? ' \u00b7 ' + esc(acc) : '') + '</div></div><span class="mono" style="' + (x.inc ? 'color:var(--success)' : soon ? 'color:var(--danger,#c0392b);font-weight:600' : '') + '">' + (x.inc ? '+' : '') + finMoney(x.amt) + '</span></div>';
+    return '<div class="list-row" data-fin-go="upcoming" style="cursor:pointer"><span class="fin-cat" style="background:var(--accent-soft);color:var(--accent)">' + icon(x.ic, 'ic-s') + '</span><div class="row-main"><div class="row-title">' + esc(x.t) + '</div><div class="row-sub">' + (x.lbl || inDaysLabel(dd)) + (x.nd ? '' : ' \u00b7 ' + pad2(x.d.getDate()) + ' ' + MONTHS_TR[x.d.getMonth()].slice(0, 3)) + (acc ? ' \u00b7 ' + esc(acc) : '') + '</div></div><span class="mono" style="' + (x.inc ? 'color:var(--success)' : soon ? 'color:var(--danger,#c0392b);font-weight:600' : '') + '">' + (x.inc ? '+' : '') + finMoney(x.amt) + '</span></div>';
   }).join('');
   el.innerHTML = head +
     '<div class="muted" style="font-size:.85rem;margin:-.2rem 0 .5rem">7 gün: <b>' + w7.length + ' ödeme \u00b7 ' + finMoney(sum(w7)) + '</b> \u00b7 30 gün: <b>' + exp.length + ' ödeme \u00b7 ' + finMoney(sum(exp)) + '</b></div>' +
@@ -10525,8 +10558,8 @@ function renderFinKpis() {
   var accs = getAccounts(), assets = 0, debt = 0;
   accs.forEach(function (a) { var b = accountBalance(a.id); if (a.type === 'credit_card') debt += Math.max(0, -b); else assets += b; });
   put('fin-acc-kpi', [['Varlık', finMoney(assets), accs.length + ' hesap'], ['Kart borcu', finMoney(debt), debt ? 'ödenecek' : 'borç yok']]);
-  var up = finUpcomingAll, out = up.filter(function (x) { return !x.inc; }).reduce(function (s, x) { return s + (Number(x.amt) || 0); }, 0);
-  put('fin-up-kpi', [['31 gün çıkış', finMoney(out), 'planlı ödeme'], ['Kalem', String(up.length), up.length ? 'sıradaki: ' + inDaysLabel(daysFromToday(up[0].d)).toLowerCase() : 'planlı ödeme yok']]);
+  var up = finUpcomingAll.filter(function (x) { return !x.inc; }), out = up.reduce(function (s, x) { return s + (Number(x.amt) || 0); }, 0);
+  put('fin-up-kpi', [['30 gün çıkış', finMoney(out), 'planlı ödeme'], ['Kalem', String(up.length), up.length ? 'sıradaki: ' + (up[0].lbl || inDaysLabel(daysFromToday(up[0].d))).toLowerCase() : 'planlı ödeme yok']]);
   var act = getInstallmentsView().filter(function (i) { return installmentRemaining(i) > 0; });
   put('fin-inst-kpi', [['Aylık yük', finMoney(act.reduce(function (s, i) { return s + (Number(i.monthlyAmount) || 0); }, 0)), act.length + ' aktif taksit'],
     ['Kalan toplam', finMoney(act.reduce(function (s, i) { return s + installmentRemainingAmount(i); }, 0)), 'ödenecek']]);
@@ -10848,6 +10881,12 @@ function finRecPaidThisMonth(r) {
 }
 function finRecNext(r) {
   var d = nextDayOfMonth(Number(r.dayOfMonth) || 1, true), t = parseISO(todayISO());
+  /* Yalnızca hatırlatma olan (otomatik kaydedilmeyen) kalem bu ay hâlâ ödenmediyse ve günü geldiyse
+     gelecek aya atlamasın: bugün / gecikmiş olarak kalsın. Ödeme ekstreden gelince kendiliğinden düşer. */
+  if (r.noAuto && r.src && !finRecPaidThisMonth(r)) {
+    var due = new Date(t.getFullYear(), t.getMonth(), Math.min(Number(r.dayOfMonth) || 1, new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate()));
+    if (due <= t) return due;
+  }
   if (finRecPaidThisMonth(r) && d.getMonth() === t.getMonth() && d.getFullYear() === t.getFullYear()) { d = new Date(d.getTime()); d.setMonth(d.getMonth() + 1); }
   return d;
 }
