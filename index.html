@@ -7021,10 +7021,38 @@ function accountById(id) {
 function getTransfers() { return get('transfers', []); }
 function saveTransfers(l) { set('transfers', l); }
 function accountBalance(accountId) {
+  var acc = accountById(accountId);
   var b = getFinance().filter(function (f) { return f.accountId === accountId; })
-    .reduce(function (s, f) { return s + (f.type === 'income' ? 1 : -1) * (Number(f.amount) || 0); }, 0);
+    .reduce(function (s, f) { return s + (f.type === 'income' ? 1 : -1) * (Number(f.amount) || 0); }, acc ? Number(acc.opening) || 0 : 0);
   getTransfers().forEach(function (t) { var n = Number(t.amount) || 0; if (t.to === accountId) b += n; if (t.from === accountId) b -= n; });
   return round2(b);
+}
+/* Hesabın "açılış/düzeltme bakiyesi" (a.opening): içe aktarılan işlemler hesabın tüm geçmişini kapsamayabilir
+   (ör. son 6 ay / 1 yıllık ekstre). Bakiye = opening + tüm işlemlerin neti. Ekstredeki son bakiye biliniyorsa
+   opening, o tarihteki bakiyeyi birebir tutturacak şekilde ayarlanır. */
+function finOpeningFor(actId) {
+  var accs = getAccounts();
+  if (actId === 'all') return accs.reduce(function (s, a) { return s + (Number(a.opening) || 0); }, 0);
+  var a = accs.find(function (x) { return x.id === actId; });
+  return a ? Number(a.opening) || 0 : 0;
+}
+function finNetAsOf(accId, date) { // opening hariç, date (dahil) tarihine kadar işlemlerin neti
+  var b = getFinance().filter(function (f) { return f.accountId === accId && (!f.date || f.date <= date); })
+    .reduce(function (s, f) { return s + (f.type === 'income' ? 1 : -1) * (Number(f.amount) || 0); }, 0);
+  getTransfers().forEach(function (t) { if (t.date && t.date > date) return; var n = Number(t.amount) || 0; if (t.to === accId) b += n; if (t.from === accId) b -= n; });
+  return round2(b);
+}
+/* Ekstredeki son bakiye (close, date tarihinde) hesabın bakiyesi olsun. Kredi kartında uygulanmaz; hesabın
+   bakiye tarihinden eski bir ekstre güncel bakiyeyi bozmaz. Geri alma için önceki değerleri döndürür. */
+function finApplyAnchor(accId, close, date) {
+  var accs = getAccounts(), a = accs.find(function (x) { return x.id === accId; });
+  if (!a || a.type === 'credit_card' || isNaN(Number(close)) || !date) return null;
+  if (a.anchorDate && date < a.anchorDate) return null;
+  var prev = { opening: Number(a.opening) || 0, anchorDate: a.anchorDate || '' };
+  a.opening = round2(Number(close) - finNetAsOf(accId, date));
+  a.anchorDate = date;
+  saveAccounts(accs);
+  return { accId: accId, prev: prev };
 }
 
 /* ---- Taksitli ödemeler --------------------------------------------------
@@ -7630,6 +7658,13 @@ function finishStatementTable(pages, ocr) {
   if (!raw.length) { showToast('Ekstrede işlem satırı bulunamadı'); return; }
   stmtConsensusTitles(raw);
   raw.meta = { skipped: [], expected: null, ocr: !!ocr, totals: merged.totals || {}, verified: clean, dropped: dropped };
+  (function () { // ekstrenin son bakiyesi: kronolojik olarak en son satırın bakiyesi
+    var dated = merged.filter(function (r) { return r.date && !isNaN(r.B) && !isNaN(r.A) && r.A > 0; });
+    if (dated.length < 3 || !(totalsOk || clean / raw.length >= 0.9)) return;
+    var desc = dated[0].date >= dated[dated.length - 1].date, maxD = dated.reduce(function (m, r) { return r.date > m ? r.date : m; }, '');
+    var same = dated.filter(function (r) { return r.date === maxD; }), cand = desc ? same[0] : same[same.length - 1];
+    if (cand && cand.flag !== 'bad') raw.meta.close = { bal: Math.round(cand.B * 100) / 100, date: cand.date };
+  })();
   openStatementImport('', raw);
 }
 
@@ -8069,6 +8104,10 @@ function undoLastImport() {
   confirmDialog({ title: 'İçe aktarma geri alınsın mı?', message: 'Son içe aktarılan işlemlerin hepsi silinecek.', confirmText: 'Geri al', danger: true }).then(function (ok) {
     if (!ok) return;
     saveFinance(getFinance().filter(function (x) { return x.batch !== li.id; }));
+    if (li.anchor && li.anchor.prev) {
+      var accs = getAccounts(), ac = accs.find(function (x) { return x.id === li.anchor.accId; });
+      if (ac) { ac.opening = li.anchor.prev.opening; if (li.anchor.prev.anchorDate) ac.anchorDate = li.anchor.prev.anchorDate; else delete ac.anchorDate; saveAccounts(accs); }
+    }
     set('lastImport', {});
     renderAll();
     refreshUndoLink();
@@ -8269,7 +8308,7 @@ function stmtBalanceCheck(chain, raw) {
   }
   var first = asc ? c[0] : c[c.length - 1], last = asc ? c[c.length - 1] : c[0];
   var open = Math.round((first.bal - first.signed) * 100) / 100, close = Math.round(last.bal * 100) / 100;
-  return { asc: asc, n: sc.n, ok: sc.ok, bad: bad, fixed: fixed, open: open, close: close, net: Math.round((close - open) * 100) / 100 };
+  return { asc: asc, n: sc.n, ok: sc.ok, bad: bad, fixed: fixed, open: open, close: close, closeDate: (raw[last.idx] || {}).date || '', net: Math.round((close - open) * 100) / 100 };
 }
 
 function stmtKey(date, amount, type, title) {
@@ -8328,6 +8367,8 @@ function openStatementImport(text, preRaw, preRows) {
   var accounts = getAccounts();
   var state = { invert: false, onlyWarn: false, flips: {}, items: [], limit: 300, accId: getActiveAccountId() === 'all' ? '' : getActiveAccountId() };
   var accNameById = {}; accounts.forEach(function (a) { accNameById[a.id] = a.name; });
+  var stClose = chainInfo && chainInfo.closeDate ? { bal: chainInfo.close, date: chainInfo.closeDate } : ((meta && meta.close) || null);
+  state.anchorOn = true;
 
   function build() {
     /* Tekrar kontrolü YALNIZ hedef hesabın kayıtlarına bakar; başka hesapta aynı satır varsa sadece bilgi notu düşer. */
@@ -8432,6 +8473,7 @@ function openStatementImport(text, preRaw, preRows) {
       '<label style="display:flex;align-items:center;gap:.5rem;margin:.2rem 0 .7rem;font-size:.88rem"><input type="checkbox" id="si-invert"' + (state.invert ? ' checked' : '') + '> Gelir/gider yönü ters çıktıysa işaretle</label>' +
       '<p id="si-check" class="muted" style="margin:.2rem 0"></p>' +
       '<p id="si-bal" class="muted" style="margin:.2rem 0"></p>' +
+      '<label id="si-anchor-wrap" style="display:none;align-items:flex-start;gap:.5rem;margin:.2rem 0 .7rem;font-size:.88rem"><input type="checkbox" id="si-anchor" style="margin-top:.2rem"> <span id="si-anchor-txt"></span></label>' +
       '<div style="display:flex;flex-wrap:wrap;gap:.4rem;margin:.4rem 0 .5rem">' +
       '<button type="button" class="btn btn-secondary" id="si-sel-all" style="padding:.35rem .6rem">Tümünü seç</button>' +
       '<button type="button" class="btn btn-secondary" id="si-sel-none" style="padding:.35rem .6rem">Hiçbirini</button>' +
@@ -8455,7 +8497,18 @@ function openStatementImport(text, preRaw, preRows) {
     refreshSummary();
   }
 
+  function refreshAnchor() {
+    var w = document.getElementById('si-anchor-wrap'); if (!w) return;
+    var sel = document.getElementById('si-account'), a = sel && sel.value ? accountById(sel.value) : null;
+    var ok = !!(stClose && a && a.type !== 'credit_card' && !(a.anchorDate && stClose.date < a.anchorDate));
+    w.style.display = ok ? 'flex' : 'none';
+    if (!ok) return;
+    var cb = document.getElementById('si-anchor'); cb.checked = state.anchorOn !== false;
+    cb.onchange = function () { state.anchorOn = cb.checked; };
+    document.getElementById('si-anchor-txt').innerHTML = 'Hesap bakiyesini ekstredeki son bakiyeye eşitle: <b>' + esc(formatMoney(stClose.bal)) + '</b> (' + esc(formatDateTR(stClose.date)) + ')';
+  }
   function refreshSummary() {
+    refreshAnchor();
     var inc = 0, exp = 0, n = 0, unsel = state.items.filter(function (x) { return !x.dup && !x.on; }).length;
     state.items.forEach(function (x) { if (!x.on) return; n++; if (x.type === 'income') inc += x.amount; else exp += x.amount; });
     var live = document.getElementById('si-live');
@@ -8554,7 +8607,11 @@ function openStatementImport(text, preRaw, preRows) {
           if (un && !state.unselOk) { state.unselOk = true; this.textContent = un + ' yeni satır seçili değil — yine de devam için tekrar dokun'; return; }
           var btn = this, accId = document.getElementById('si-account').value;
           var picked = state.items.filter(function (x) { return x.on; });
-          if (!picked.length) return;
+          if (!picked.length) {
+            var anc0 = (stClose && state.anchorOn !== false && accId) ? finApplyAnchor(accId, stClose.bal, stClose.date) : null;
+            if (anc0) { closeSheet(); renderAll(); showToast('Hesap bakiyesi ' + formatMoney(stClose.bal) + ' olarak güncellendi'); }
+            return;
+          }
           if (!accId) { showToast('Önce hesap seç'); return; }
           btn.disabled = true;
           var fin = getFinance(), batch = uid(), pos = 0, CHUNK = 2000;
@@ -8578,11 +8635,12 @@ function openStatementImport(text, preRaw, preRows) {
             if (ok === false) throw new Error('kalıcı yazma başarısız');
             var okc = getFinance().filter(function (f) { return f.batch === batch && f.accountId === accId; }).length;
             if (okc !== picked.length) showToast('⚠ Doğrulama: ' + picked.length + ' kayıt beklenirken ' + okc + ' kayıt bulundu');
-            set('lastImport', { id: batch, count: picked.length, at: todayISO() });
+            var anc = (stClose && state.anchorOn !== false) ? finApplyAnchor(accId, stClose.bal, stClose.date) : null;
+            set('lastImport', { id: batch, count: picked.length, at: todayISO(), anchor: anc || undefined });
             closeSheet();
             renderAll();
             refreshUndoLink();
-            showToast(picked.length + ' işlem ' + (accountById(accId) ? accountById(accId).name + ' hesabına ' : '') + 'içe aktarıldı');
+            showToast(picked.length + ' işlem ' + (accountById(accId) ? accountById(accId).name + ' hesabına ' : '') + 'içe aktarıldı' + (anc ? ' · bakiye ' + formatMoney(stClose.bal) : ''));
           }).catch(function (err) {
             console.warn('İçe aktarma kaydı başarısız:', err);
             btn.disabled = false; btn.textContent = 'Tekrar dene';
@@ -8791,7 +8849,7 @@ function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
 function currentBalance() {
   var act = getActiveAccountId();
   if (act !== 'all') return accountBalance(act);
-  return round2(getFinance().reduce(function (s, f) { return s + (f.type === 'income' ? 1 : -1) * (Number(f.amount) || 0); }, 0));
+  return round2(getFinance().reduce(function (s, f) { return s + (f.type === 'income' ? 1 : -1) * (Number(f.amount) || 0); }, finOpeningFor('all')));
 }
 function monthTotals(monthPrefix) {
   var list = getFinanceView().filter(function (f) { return f.date && f.date.slice(0, 7) === monthPrefix; });
@@ -9067,6 +9125,7 @@ function openAccountSheet(id) {
       '<div class="field"><label>Hesap kesim günü</label><input type="number" min="1" max="31" id="acf-statement" value="' + esc(draft.statementDay === undefined ? '' : String(draft.statementDay)) + '" placeholder="Ör. 15"></div></div>' +
       '<div class="field"><label>Son ödeme günü (opsiyonel)</label><input type="number" min="1" max="31" id="acf-due" value="' + esc(draft.dueDay === undefined ? '' : String(draft.dueDay)) + '" placeholder="Ör. 25"></div>' +
       '</div>' +
+      '<div class="field" id="acf-bal-field" style="display:' + (draft.type === 'credit_card' ? 'none' : '') + '"><label>Güncel bakiye (hesapta şu an olan tutar)</label><input type="number" step="0.01" id="acf-bal" value="' + (isNew ? '' : esc(String(accountBalance(draft.id)))) + '" placeholder="Ör. 70000"><div class="hint">Bankadaki gerçek tutarı yaz; işlemler eksik olsa bile bakiye buna eşitlenir.</div></div>' +
       '<label class="rep-switch" style="margin:.2rem 0 .9rem"><input type="checkbox" id="acf-default"' + (isNew || isCurDefault ? ' checked' : '') + (isCurDefault ? ' disabled' : '') + '><span>' +
         (isCurDefault ? 'Varsayılan hesap: yeni işlemler buna yazılır' : 'Yeni işlemler için varsayılan hesap yap') + '</span></label>' +
       '<div class="stack" style="margin-top:.5rem">' +
@@ -9083,6 +9142,7 @@ function openAccountSheet(id) {
           body.querySelectorAll('#acf-type button').forEach(function (x) { x.classList.toggle('active', x === b); });
           document.getElementById('acf-bank-field').style.display = (draft.type === 'bank' || draft.type === 'credit_card') ? '' : 'none';
           document.getElementById('acf-cc-fields').style.display = draft.type === 'credit_card' ? '' : 'none';
+          document.getElementById('acf-bal-field').style.display = draft.type === 'credit_card' ? 'none' : '';
         });
       });
       document.getElementById('acf-save').addEventListener('click', function () {
@@ -9096,6 +9156,10 @@ function openAccountSheet(id) {
           draft.dueDay = Number(document.getElementById('acf-due').value) || '';
         } else {
           draft.cardLimit = ''; draft.statementDay = ''; draft.dueDay = '';
+        }
+        if (draft.type !== 'credit_card') {
+          var balEl = document.getElementById('acf-bal'), bv = balEl && balEl.value !== '' ? parseFloat(balEl.value) : NaN;
+          if (!isNaN(bv)) { var dB = round2(bv - accountBalance(draft.id)); if (Math.abs(dB) >= 0.01) draft.opening = round2((Number(draft.opening) || 0) + dB); }
         }
         var all = getAccounts();
         var idx = all.findIndex(function (x) { return x.id === draft.id; });
@@ -10317,7 +10381,7 @@ function renderFinHome() {
 /* ---- Finans: profesyonel görünüm modülü ---- */
 function finMonthAdd(mk, delta) { var d = parseISO(mk + '-01'); d.setMonth(d.getMonth() + delta); return d.getFullYear() + '-' + pad2(d.getMonth() + 1); }
 function finMonthEndBalances(keys) {
-  var fin = getFinanceView(), out = keys.map(function () { return 0; }), base = 0, actId = getActiveAccountId();
+  var fin = getFinanceView(), out = keys.map(function () { return 0; }), actId = getActiveAccountId(), base = finOpeningFor(actId);
   fin.forEach(function (f) {
     var v = (f.type === 'income' ? 1 : -1) * (Number(f.amount) || 0);
     if (!f.date) { base += v; return; }
