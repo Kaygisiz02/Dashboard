@@ -6253,25 +6253,14 @@ function openBulkKazaSheet() {
 }
 
 /* ---- Kaza kayıtları: yanlış girilen kayıtları düzelt / sil ----------------
-   Grafik p.kazaLog'dan çizilir. Bir kaydı silmek veya adedini değiştirmek,
-   bekleyen kaza sayılarına da yansır (kaydı geri alır gibi). */
-function kazaLogApply(p, prayer, diff) {
-  var keys = prayer === 'toplu' ? PRAYER_KEYS : (PRAYER_KEYS.indexOf(prayer) !== -1 ? [prayer] : []);
-  var per = prayer === 'toplu' ? Math.round(diff / PRAYER_KEYS.length) : diff;
-  p.kazaCounts = p.kazaCounts || {};
-  keys.forEach(function (k) { p.kazaCounts[k] = Math.max(0, (p.kazaCounts[k] || 0) + per); });
-}
+   Grafik p.kazaLog'dan çizilir. Burada yapılan silme/düzenleme SADECE grafiği
+   (kayıt geçmişini) etkiler; bekleyen kaza sayılarına dokunmaz. */
 function kazaLogLabel(l) { return l.prayer === 'toplu' ? 'Toplu (5 vakit)' : (PRAYER_LABELS[l.prayer] || String(l.prayer || '')); }
-function kazaLogEffectText(l, diff) {
-  if (!diff || (l.prayer !== 'toplu' && !PRAYER_LABELS[l.prayer])) return '';
-  var per = l.prayer === 'toplu' ? Math.round(Math.abs(diff) / PRAYER_KEYS.length) : Math.abs(diff);
-  return 'Bekleyen kaza: ' + (l.prayer === 'toplu' ? 'her vakit ' : PRAYER_LABELS[l.prayer] + ' ') + (diff > 0 ? '+' : '\u2212') + per + '.';
-}
 function openKazaLogSheet() {
   var p = getPrayers(), log = p.kazaLog || [];
   var rows = log.map(function (l, i) { return { l: l, i: i }; }).filter(function (r) { return r.l && r.l.delta; })
     .sort(function (a, b) { return a.l.date < b.l.date ? 1 : (a.l.date > b.l.date ? -1 : b.i - a.i); });
-  var html = '<p class="hint">Grafik bu kayıtlardan çizilir. Yanlış girileni düzelt ya da sil; bekleyen kaza sayıları da buna göre güncellenir.</p>';
+  var html = '<p class="hint">Grafik bu kayıtlardan çizilir. Yanlış girileni düzelt ya da sil. Bu sadece grafiği etkiler, bekleyen kaza sayıların değişmez.</p>';
   if (!rows.length) html += '<p class="muted">Henüz kayıt yok.</p>';
   else html += '<div class="card" style="padding:.2rem .8rem">' + rows.map(function (r) {
     var l = r.l, abs = Math.abs(l.delta);
@@ -6290,15 +6279,13 @@ function openKazaLogSheet() {
 function kazaLogDelete(idx) {
   var l0 = (getPrayers().kazaLog || [])[idx];
   if (!l0) return;
-  var eff = kazaLogEffectText(l0, -l0.delta);
   confirmDialog({
     title: 'Kayıt silinsin mi?', danger: true, confirmText: 'Sil',
-    message: kazaLogLabel(l0) + ' \u00b7 ' + (l0.delta < 0 ? 'kılındı \u2212' : 'eklendi +') + Math.abs(l0.delta) + ' \u00b7 ' + formatDateTR(l0.date) + (eff ? '. ' + eff : '')
+    message: kazaLogLabel(l0) + ' \u00b7 ' + (l0.delta < 0 ? 'kılındı \u2212' : 'eklendi +') + Math.abs(l0.delta) + ' \u00b7 ' + formatDateTR(l0.date) + '. Sadece grafikten kalkar, bekleyen kaza sayın değişmez.'
   }).then(function (ok) {
     if (ok) {
       var p = getPrayers(), l = (p.kazaLog || [])[idx];
       if (l && l.date === l0.date && l.delta === l0.delta && l.prayer === l0.prayer) {
-        kazaLogApply(p, l.prayer, -l.delta);
         p.kazaLog.splice(idx, 1);
         savePrayers(p); renderKaza(); showToast('Kayıt silindi');
       }
@@ -6327,7 +6314,6 @@ function openKazaLogEdit(idx) {
         var p = getPrayers(), l = (p.kazaLog || [])[idx];
         if (!l || l.date !== l0.date || l.delta !== l0.delta || l.prayer !== l0.prayer) { openKazaLogSheet(); return; }
         var newDelta = (l.delta < 0 ? -1 : 1) * amt;
-        kazaLogApply(p, l.prayer, newDelta - l.delta);
         l.delta = newDelta; l.date = date;
         savePrayers(p); renderKaza(); showToast('Kayıt güncellendi');
         openKazaLogSheet();
