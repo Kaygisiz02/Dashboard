@@ -1511,7 +1511,7 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
     <div class="section-title"><h2>Kaza</h2><button class="link-btn" id="bulk-kaza-btn">Toplu ekle</button></div>
     <div class="card" style="padding:.2rem .8rem" id="kaza-list"></div>
     <div class="card">
-      <div class="card-head mt0"><h3>Kılınan kazalar</h3></div>
+      <div class="card-head mt0"><h3>Kılınan kazalar</h3><button class="link-btn" id="kaza-log-btn">Kayıtlar</button></div>
       <div class="segmented" id="kaza-chart-period">
         <button data-v="14d" class="active">14 Gün</button>
         <button data-v="month">Aylık</button>
@@ -6252,6 +6252,90 @@ function openBulkKazaSheet() {
   });
 }
 
+/* ---- Kaza kayıtları: yanlış girilen kayıtları düzelt / sil ----------------
+   Grafik p.kazaLog'dan çizilir. Bir kaydı silmek veya adedini değiştirmek,
+   bekleyen kaza sayılarına da yansır (kaydı geri alır gibi). */
+function kazaLogApply(p, prayer, diff) {
+  var keys = prayer === 'toplu' ? PRAYER_KEYS : (PRAYER_KEYS.indexOf(prayer) !== -1 ? [prayer] : []);
+  var per = prayer === 'toplu' ? Math.round(diff / PRAYER_KEYS.length) : diff;
+  p.kazaCounts = p.kazaCounts || {};
+  keys.forEach(function (k) { p.kazaCounts[k] = Math.max(0, (p.kazaCounts[k] || 0) + per); });
+}
+function kazaLogLabel(l) { return l.prayer === 'toplu' ? 'Toplu (5 vakit)' : (PRAYER_LABELS[l.prayer] || String(l.prayer || '')); }
+function kazaLogEffectText(l, diff) {
+  if (!diff || (l.prayer !== 'toplu' && !PRAYER_LABELS[l.prayer])) return '';
+  var per = l.prayer === 'toplu' ? Math.round(Math.abs(diff) / PRAYER_KEYS.length) : Math.abs(diff);
+  return 'Bekleyen kaza: ' + (l.prayer === 'toplu' ? 'her vakit ' : PRAYER_LABELS[l.prayer] + ' ') + (diff > 0 ? '+' : '\u2212') + per + '.';
+}
+function openKazaLogSheet() {
+  var p = getPrayers(), log = p.kazaLog || [];
+  var rows = log.map(function (l, i) { return { l: l, i: i }; }).filter(function (r) { return r.l && r.l.delta; })
+    .sort(function (a, b) { return a.l.date < b.l.date ? 1 : (a.l.date > b.l.date ? -1 : b.i - a.i); });
+  var html = '<p class="hint">Grafik bu kayıtlardan çizilir. Yanlış girileni düzelt ya da sil; bekleyen kaza sayıları da buna göre güncellenir.</p>';
+  if (!rows.length) html += '<p class="muted">Henüz kayıt yok.</p>';
+  else html += '<div class="card" style="padding:.2rem .8rem">' + rows.map(function (r) {
+    var l = r.l, abs = Math.abs(l.delta);
+    return '<div class="list-row"><div class="row-main"><div class="row-title">' + esc(kazaLogLabel(l)) + ' \u00b7 ' + (l.delta < 0 ? 'kılındı \u2212' : 'eklendi +') + abs + '</div>' +
+      '<div class="row-sub">' + esc(formatDateTR(l.date)) + (l.note ? ' \u00b7 ' + esc(l.note) : '') + '</div></div>' +
+      '<div class="row-actions"><button class="icon-btn" data-kl-edit="' + r.i + '" aria-label="Düzenle">' + icon('pencil') + '</button>' +
+      '<button class="icon-btn" data-kl-del="' + r.i + '" aria-label="Sil">' + icon('trash') + '</button></div></div>';
+  }).join('') + '</div>';
+  openSheet({
+    title: 'Kaza kayıtları', bodyHTML: html, onOpen: function (body) {
+      body.querySelectorAll('[data-kl-edit]').forEach(function (b) { b.addEventListener('click', function () { openKazaLogEdit(Number(b.getAttribute('data-kl-edit'))); }); });
+      body.querySelectorAll('[data-kl-del]').forEach(function (b) { b.addEventListener('click', function () { kazaLogDelete(Number(b.getAttribute('data-kl-del'))); }); });
+    }
+  });
+}
+function kazaLogDelete(idx) {
+  var l0 = (getPrayers().kazaLog || [])[idx];
+  if (!l0) return;
+  var eff = kazaLogEffectText(l0, -l0.delta);
+  confirmDialog({
+    title: 'Kayıt silinsin mi?', danger: true, confirmText: 'Sil',
+    message: kazaLogLabel(l0) + ' \u00b7 ' + (l0.delta < 0 ? 'kılındı \u2212' : 'eklendi +') + Math.abs(l0.delta) + ' \u00b7 ' + formatDateTR(l0.date) + (eff ? '. ' + eff : '')
+  }).then(function (ok) {
+    if (ok) {
+      var p = getPrayers(), l = (p.kazaLog || [])[idx];
+      if (l && l.date === l0.date && l.delta === l0.delta && l.prayer === l0.prayer) {
+        kazaLogApply(p, l.prayer, -l.delta);
+        p.kazaLog.splice(idx, 1);
+        savePrayers(p); renderKaza(); showToast('Kayıt silindi');
+      }
+    }
+    openKazaLogSheet();
+  });
+}
+function openKazaLogEdit(idx) {
+  var l0 = (getPrayers().kazaLog || [])[idx];
+  if (!l0) { openKazaLogSheet(); return; }
+  var toplu = l0.prayer === 'toplu', today = todayISO();
+  var html = '<p class="hint">' + esc(kazaLogLabel(l0)) + ' \u00b7 ' + (l0.delta < 0 ? 'kılındı' : 'eklendi') + (l0.note ? ' \u00b7 ' + esc(l0.note) : '') + '</p>' +
+    '<div class="field"><label for="kl-date">Tarih</label><input type="date" id="kl-date" value="' + esc(l0.date) + '" max="' + today + '"></div>' +
+    (toplu ? '<p class="hint">Toplu kaydın adedi değiştirilemez; yanlışsa silip yeniden ekle.</p>'
+      : '<div class="field"><label for="kl-amt">Adet</label><input type="number" id="kl-amt" min="1" step="1" inputmode="numeric" value="' + Math.abs(l0.delta) + '"></div>') +
+    '<button class="btn btn-primary btn-block" id="kl-save">Kaydet</button>' +
+    '<button class="btn btn-secondary btn-block" id="kl-back" style="margin-top:.5rem">Geri</button>';
+  openSheet({
+    title: 'Kaydı düzenle', bodyHTML: html, onOpen: function () {
+      document.getElementById('kl-back').addEventListener('click', openKazaLogSheet);
+      document.getElementById('kl-save').addEventListener('click', function () {
+        var date = document.getElementById('kl-date').value, amtEl = document.getElementById('kl-amt');
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > today) { showToast('Geçerli bir tarih seç (bugünden ileri olamaz)'); return; }
+        var amt = toplu ? Math.abs(l0.delta) : parseInt(amtEl.value, 10);
+        if (isNaN(amt) || amt < 1 || amt > 100000) { showToast('Adet 1 veya daha büyük olmalı'); return; }
+        var p = getPrayers(), l = (p.kazaLog || [])[idx];
+        if (!l || l.date !== l0.date || l.delta !== l0.delta || l.prayer !== l0.prayer) { openKazaLogSheet(); return; }
+        var newDelta = (l.delta < 0 ? -1 : 1) * amt;
+        kazaLogApply(p, l.prayer, newDelta - l.delta);
+        l.delta = newDelta; l.date = date;
+        savePrayers(p); renderKaza(); showToast('Kayıt güncellendi');
+        openKazaLogSheet();
+      });
+    }
+  });
+}
+
 var kazaChartPeriod = '14d';
 
 /* Belirli bir tarih aralığında (dahil) FİİLEN KILINAN kaza sayısı.
@@ -6367,6 +6451,7 @@ function promptQuranPages() {
 
 function initWorship() {
   document.getElementById('bulk-kaza-btn').addEventListener('click', openBulkKazaSheet);
+  document.getElementById('kaza-log-btn').addEventListener('click', openKazaLogSheet);
   document.getElementById('worship-add-fab').innerHTML = icon('plus');
   document.getElementById('worship-add-fab').addEventListener('click', openWorshipAddMenu);
   kazaChartPeriod = '14d';
