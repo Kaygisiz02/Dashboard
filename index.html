@@ -1965,6 +1965,25 @@ body[data-page="today"] #bell-btn{display:flex}
 .nx-pick{flex:none;border:0;background:none;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;min-height:2.75rem;padding:0 .2rem}
 .nx-time{flex:none;border:1px solid var(--rule-strong);border-radius:10px;background:var(--paper-raised);color:var(--ink);padding:.4rem .5rem;font:inherit}
 .nx-danger .set-lbl,.nx-danger .set-lbl small{color:var(--danger,#E5484D)}
+.mh{font-size:.75rem;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);margin:1.2rem 0 .5rem}
+.mr{display:flex;align-items:center;gap:.8rem;padding:.7rem .9rem;margin-bottom:.55rem;background:var(--paper-raised);border:1px solid var(--rule);border-radius:16px;text-decoration:none;color:inherit}
+.yc{background:var(--paper-raised);border:1px solid var(--rule);border-radius:18px;padding:.9rem;margin-top:.8rem}
+.yc-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem}.yc-h h3{margin:0;font-size:1.05rem}
+.yc-h a{display:inline-flex;align-items:center;color:var(--accent);font-size:.85rem;text-decoration:none}.yc-h svg{width:16px;height:16px}
+#yr-tabs{margin-top:.2rem}
+.yr-hero{display:flex;gap:1rem;align-items:center}
+.yr-rg{position:relative;width:5.6rem;flex:none}.yr-rg>svg:first-child{width:100%;display:block}.yr-rg>svg:last-child{position:absolute;inset:0;margin:auto;width:2rem;height:2rem;color:var(--accent)}
+.yr-ht{flex:1;min-width:0;display:flex;flex-direction:column;gap:.2rem}.yr-ht span,.yr-ht small{font-size:.78rem;color:var(--ink-soft)}.yr-ht strong{font-size:1.7rem;line-height:1.1}
+.yr-bar{height:.4rem;border-radius:9px;background:var(--rule-strong);overflow:hidden}.yr-bar i{display:block;height:100%;border-radius:9px}
+.yr-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem;margin-top:.8rem}
+.yr-stats .yc{margin:0;padding:.6rem .35rem;text-align:center;display:flex;flex-direction:column;align-items:center;gap:.2rem}
+.yr-stats i{font-style:normal;font-size:.66rem;color:var(--ink-soft);line-height:1.2}.yr-stats b{font-size:1.15rem}.yr-stats em{font-style:normal;font-size:.7rem;font-weight:600}
+.good{color:var(--success)}.bad{color:var(--danger)}
+.yr-pr{display:flex;gap:.7rem;align-items:center;margin-top:.7rem}.yr-pr>div{flex:1;min-width:0}.yr-pl{display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:.3rem}
+.yr-row{display:flex;justify-content:space-between;align-items:center;padding:.6rem 0;font-size:.9rem;text-decoration:none;color:inherit}.yr-row+.yr-row{border-top:1px solid var(--rule)}.yr-row b{display:inline-flex;align-items:center;gap:.2rem}.yr-row svg{width:16px;height:16px;color:var(--ink-soft)}
+.yr-dw{display:flex;align-items:center;gap:1rem}.yr-dn{width:8.5rem;flex:none}.yr-dw ul{list-style:none;margin:0;padding:0;flex:1}.yr-dw li{display:flex;align-items:center;gap:.5rem;font-size:.85rem;padding:.22rem 0}.yr-dw li i{width:.6rem;height:.6rem;border-radius:50%}.yr-dw li b{margin-left:auto}
+.yr-bars{width:100%}
+.yr-bg{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.3rem;text-align:center}.yr-bg span{display:flex;align-items:center;justify-content:center;width:3rem;height:3rem;margin:0 auto .3rem;border-radius:14px;background:var(--rule);color:var(--ink-soft)}.yr-bg .on span{background:var(--accent-soft);color:var(--accent)}.yr-bg span svg{width:1.4rem;height:1.4rem}.yr-bg small{font-size:.66rem;color:var(--ink-soft);display:block}
 </style>
 <script>
   (function () {
@@ -2412,30 +2431,12 @@ body[data-page="today"] #bell-btn{display:flex}
 </div>
 
 <div id="view-yearreport" style="display:none">
-<main class="page">
-  <div class="eyebrow">Yıl Özeti</div>
-  <h1>Yıl Özeti</h1>
-
-  <div class="card" style="padding:.5rem .8rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem">
-    <button class="icon-btn" id="yr-prev" aria-label="Önceki yıl"></button>
-    <div style="text-align:center;flex:1"><div style="font-weight:700" id="yr-label"></div></div>
-    <button class="icon-btn" id="yr-next" aria-label="Sonraki yıl"></button>
-  </div>
-
-  <div class="section-title"><h2>Finans</h2></div>
-  <div class="card" id="yr-finance"></div>
-
-  <div class="section-title"><h2>Üretkenlik</h2></div>
-  <div class="card" id="yr-productivity"></div>
-
-  <div class="section-title"><h2>Öğrenme ve Okuma</h2></div>
-  <div class="card" id="yr-learning"></div>
-
-  <div class="section-title"><h2>Seviye ve Notlar</h2></div>
-  <div class="card" id="yr-misc"></div>
-</main>
+<main class="page" id="yr-main"></main>
 </div>
 
+<div id="view-more" style="display:none">
+<main class="page" id="more-main"></main>
+</div>
 <div id="view-settings" style="display:none">
 <main class="page" id="settings-main"></main>
 </div>
@@ -3455,7 +3456,7 @@ function buildTabbar(pageKey) {
     html += '<button id="more-tab">' + icon('grid') + '<span>Diğer</span></button>';
     bar.innerHTML = html;
     document.body.appendChild(bar);
-    document.getElementById('more-tab').addEventListener('click', openMoreSheet);
+    document.getElementById('more-tab').addEventListener('click', function () { navigateTo('more'); });
   }
   bar.querySelectorAll('a[data-tabkey]').forEach(function (a) { a.classList.toggle('active', a.dataset.tabkey === pageKey); a.style.display = admPageOff(a.dataset.tabkey) ? 'none' : ''; });
   var moreActive = !!pageKey && TAB_ORDER.indexOf(pageKey) === -1 && pageKey !== 'settings';
@@ -14385,15 +14386,88 @@ SETTINGS_SUBS.cards.render = function (body) {
   body.insertAdjacentHTML('beforeend', '<button type="button" class="btn btn-secondary btn-block" id="cd-reset" style="margin-top:.8rem">' + icon('refresh') + ' Varsayılan düzene dön</button>');
   document.getElementById('cd-reset').addEventListener('click', function () { setDashCardConfig(null); renderCards(); renderDashCardConfigList(body); showToast('Varsayılan düzen geri yüklendi'); });
 };
+
+/* ---- Yıl Özeti ve Diğer sayfası: görsel tasarım ---- */
+var yrMode = 'cur', YR_CATS = [['g', 'Görev', 'var(--k-gorev)'], ['r', 'Rutin', 'var(--accent)'], ['i', 'İbadet', 'var(--k-ibadet)'], ['n', 'Not', 'var(--k-not)'], ['o', 'Öğrenme', '#FF8AD8'], ['h', 'Hedef', 'var(--k-etkinlik)']];
+function yrCalc(y) {
+  var T = todayISO(), ev = [], inP = function (d) { return !!d && (!y || Number(String(d).slice(0, 4)) === y); };
+  var tasks = get('tasks', []).filter(function (t) { return inP(t.due); }), td = tasks.filter(function (t) { return t.status === 'done'; }), rc = 0, rx = 0, gh = 0, ga = 0, pages = 0, books = 0, notes = 0;
+  td.forEach(function (t) { ev.push(['g', t.due]); });
+  getRoutines().forEach(function (r) {
+    Object.keys(r.log || {}).forEach(function (d) { if (r.log[d] && inP(d)) { rc++; ev.push(['r', d]); } });
+    if (r.archived) return;
+    var cr = String(r.createdAt || '').slice(0, 10) || T, s = y ? (cr > y + '-01-01' ? cr : y + '-01-01') : cr, e = y && y + '-12-31' < T ? y + '-12-31' : T, n = 0;
+    for (; s <= e && n < 1900; s = addDays(s, 1), n++) if (isRoutineDue(r, s)) rx++;
+  });
+  getGoals().forEach(function (g) { Object.keys(g.progress || {}).forEach(function (k) { if (!inP(k)) return; ga++; if (g.progress[k] >= g.target) { gh++; ev.push(['h', k]); } }); });
+  var dl = getPrayers().dailyLog || {};
+  Object.keys(dl).forEach(function (d) { if (inP(d)) PRAYER_KEYS.forEach(function (k) { if (dl[d][k]) ev.push(['i', d]); }); });
+  get('notes', []).forEach(function (n) { if (!n.deletedAt && n.createdAt) { var d = ntLocalISO(n.createdAt); if (inP(d)) { notes++; ev.push(['n', d]); } } });
+  getReading().forEach(function (b) { if (b.finished && inP(b.finishedAt)) { books++; pages += Number(b.totalPages) || 0; ev.push(['o', b.finishedAt]); } });
+  return { tasks: tasks.length, td: td.length, rc: rc, rx: rx, gh: gh, ga: ga, ev: ev, books: books, pages: pages, notes: notes, done: td.length + rc + gh, plan: tasks.length + rx + ga };
+}
+function yrBars(m, hi) {
+  var top = Math.max(10, Math.ceil(Math.max.apply(null, m) / 10) * 10), s = '', i, h;
+  [0, .5, 1].forEach(function (f) { var yy = 120 - f * 110; s += '<line x1="26" x2="320" y1="' + yy + '" y2="' + yy + '" stroke="var(--rule)"/><text x="22" y="' + (yy + 3) + '" text-anchor="end" font-size="8" fill="var(--ink-soft)">' + Math.round(top * f) + '</text>'; });
+  for (i = 0; i < 12; i++) { h = m[i] / top * 110; s += '<rect x="' + (32 + i * 24) + '" y="' + (120 - h) + '" width="16" height="' + h + '" rx="3" fill="var(--accent)" opacity="' + (i === hi ? 1 : .55) + '"/><text x="' + (40 + i * 24) + '" y="134" text-anchor="middle" font-size="8" fill="var(--ink-soft)">' + MONTHS_TR[i].slice(0, 3) + '</text>'; }
+  return '<svg viewBox="0 0 320 140" class="yr-bars" role="img" aria-label="Aylık ilerleme">' + s + '</svg>';
+}
+function yrDonut(cnt, tot) {
+  var C = 251.3, off = 0, s = '';
+  YR_CATS.forEach(function (k) { var n = cnt[k[0]] || 0; if (!n) return; var l = n / tot * C; s += '<circle cx="50" cy="50" r="40" fill="none" stroke="' + k[2] + '" stroke-width="12" stroke-dasharray="' + l.toFixed(1) + ' ' + (C - l).toFixed(1) + '" stroke-dashoffset="' + (-off).toFixed(1) + '" transform="rotate(-90 50 50)"/>'; off += l; });
+  return '<svg viewBox="0 0 100 100" class="yr-dn" role="img" aria-label="Kategori dağılımı"><circle cx="50" cy="50" r="40" fill="none" stroke="var(--rule-strong)" stroke-width="12"/>' + s + '<text x="50" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="var(--ink)">' + tot + '</text><text x="50" y="63" text-anchor="middle" font-size="6" fill="var(--ink-soft)">Toplam işlem</text></svg>';
+}
+function yrHead(t, nav, lbl) { return '<div class="yc-h"><h3>' + t + '</h3>' + (nav ? '<a href="javascript:void(0)" data-nav="' + nav + '">' + (lbl || 'Detayları gör') + icon('chevronR') + '</a>' : '') + '</div>'; }
+function yrBar(label, ic, c, a, b, txt) { return '<div class="yr-pr"><span class="set-ic" style="--c:' + c + '">' + icon(ic) + '</span><div><div class="yr-pl"><span>' + label + '</span><b>' + txt + '</b></div><div class="yr-bar"><i style="width:' + (b ? Math.min(100, Math.round(a / b * 100)) : 0) + '%;background:' + c + '"></i></div></div></div>'; }
+renderYearReport = function () {
+  var main = document.getElementById('yr-main'); if (!main) return;
+  var cy = new Date().getFullYear(), y = yrMode === 'cur' ? cy : yrMode === 'prev' ? cy - 1 : 0, A = yrCalc(y), B = y ? yrCalc(y - 1) : null, N = function (v) { return Number(v).toLocaleString('tr-TR'); };
+  var pc = A.plan ? Math.round(A.done / A.plan * 100) : 0, C = 251.3, bd = computeBadges(), un = bd.filter(function (b) { return b.unlocked; });
+  function dl(a, b) { if (!B || !(b > 0)) return ''; var p = Math.round((a - b) / b * 100); return '<em class="' + (p < 0 ? 'bad' : 'good') + '">' + (p < 0 ? '\u2193' : '\u2191') + ' %' + Math.abs(p) + '</em>'; }
+  var cnt = {}, mo = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  A.ev.forEach(function (e) { cnt[e[0]] = (cnt[e[0]] || 0) + 1; var m = Number(String(e[1]).slice(5, 7)) - 1; if (m >= 0 && m < 12) mo[m]++; });
+  var tot = A.ev.length, xp = get('xp', 0), fin = getFinance().filter(function (f) { return f.date && (!y || f.date.slice(0, 4) === String(y)); });
+  var inc = fin.filter(function (f) { return f.type === 'income' && !isInternalTransfer(f); }).reduce(function (s, f) { return s + Number(f.amount); }, 0), exp = fin.filter(isSpend).reduce(function (s, f) { return s + Number(f.amount); }, 0);
+  var sub = { cur: 'Bu yılın hedeflerine doğru ilerliyorsun.', prev: 'Geçen yılın özeti.', all: 'Tüm zamanların özeti.' }[yrMode];
+  var st = [['Tamamlanan görev', 'check', 'var(--accent)', N(A.td), dl(A.td, B && B.td)], ['Rutin işaretleme', 'routines', '#9B6DFF', N(A.rc), dl(A.rc, B && B.rc)], ['Hedefe ulaşma', 'target', '#FF8A3D', A.gh + ' / ' + A.ga, dl(A.gh, B && B.gh)], ['Kazanılan rozet', 'trophy', '#F5B400', un.length, '']];
+  var shown = un.slice(0, 4).concat(bd.filter(function (b) { return !b.unlocked; }).slice(0, 5 - Math.min(4, un.length)));
+  main.innerHTML = '<div class="segmented" id="yr-tabs">' + [['cur', 'Bu Yıl'], ['prev', 'Önceki Yıl'], ['all', 'Tüm Zamanlar']].map(function (t) { return '<button type="button" data-v="' + t[0] + '"' + (yrMode === t[0] ? ' class="active"' : '') + '>' + t[1] + '</button>'; }).join('') + '</div>' +
+    '<div class="yc yr-hero"><div class="yr-rg"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="var(--rule-strong)" stroke-width="9"/><circle cx="50" cy="50" r="40" fill="none" stroke="var(--accent)" stroke-width="9" stroke-linecap="round" stroke-dasharray="' + (C * pc / 100).toFixed(1) + ' ' + C + '" transform="rotate(-90 50 50)"/></svg>' + icon('trophy') + '</div>' +
+    '<div class="yr-ht"><b>Genel İlerleme</b><span>' + sub + '</span><strong>%' + pc + '</strong><div class="yr-bar"><i style="width:' + pc + '%;background:var(--accent)"></i></div><small>' + N(A.done) + ' / ' + N(A.plan) + ' işlem</small></div></div>' +
+    '<div class="yr-stats">' + st.map(function (s) { return '<div class="yc"><span class="set-ic" style="--c:' + s[2] + '">' + icon(s[1]) + '</span><i>' + s[0] + '</i><b>' + s[3] + '</b>' + s[4] + '</div>'; }).join('') + '</div>' +
+    '<div class="yc">' + yrHead('Üretkenlik', 'tasks') + yrBar('Tamamlanan görev', 'check', 'var(--accent)', A.td, A.tasks, N(A.td) + ' / ' + N(A.tasks)) + yrBar('Rutin işaretleme sayısı', 'routines', '#9B6DFF', A.rc, A.rx, N(A.rc) + ' / ' + N(A.rx)) + yrBar('Hedefe ulaşma sayısı', 'target', '#FF8A3D', A.gh, A.ga, A.gh + ' / ' + A.ga) + '</div>' +
+    '<div class="yc">' + yrHead('Öğrenme ve Okuma', 'learning') + '<div class="yr-row"><span>Kelime bankası (toplam)</span><b>' + N(getVocab().length) + ' kelime</b></div><div class="yr-row"><span>Bitirilen kitap</span><b>' + A.books + ' kitap</b></div><div class="yr-row"><span>Okunan sayfa (bitirilen kitaplar)</span><b>' + N(A.pages) + ' sayfa</b></div></div>' +
+    '<div class="yc">' + yrHead('Seviye ve Notlar') + '<div class="yr-row"><span>Toplam XP</span><b>' + N(xp) + ' (Seviye ' + levelFromXP(xp) + ')</b></div><a class="yr-row" href="javascript:void(0)" data-nav="notes"><span>Eklenen not</span><b>' + A.notes + icon('chevronR') + '</b></a></div>' +
+    '<div class="yc">' + yrHead('Kategori Dağılımı') + (tot ? '<div class="yr-dw">' + yrDonut(cnt, tot) + '<ul>' + YR_CATS.filter(function (k) { return cnt[k[0]]; }).map(function (k) { return '<li><i style="background:' + k[2] + '"></i>' + k[1] + '<b>%' + Math.round(cnt[k[0]] / tot * 100) + '</b></li>'; }).join('') + '</ul></div>' : '<p class="set-desc">Bu dönemde kayıt yok.</p>') + '</div>' +
+    '<div class="yc">' + yrHead('Aylık İlerleme') + yrBars(mo, yrMode === 'cur' ? new Date().getMonth() : -1) + '</div>' +
+    '<div class="yc">' + yrHead('Rozetler', 'achievements', 'Tümünü gör') + '<div class="yr-bg">' + shown.map(function (b) { return '<div class="' + (b.unlocked ? 'on' : '') + '"><span>' + icon(b.unlocked ? b.icon : 'lock') + '</span><small>' + esc(b.unlocked ? b.label : 'Yakında') + '</small></div>'; }).join('') + '</div></div>' +
+    '<div class="yc">' + yrHead('Finans', 'finance') + '<div class="yr-row"><span>Toplam gelir</span><b style="color:var(--success)">' + formatMoney(inc) + '</b></div><div class="yr-row"><span>Toplam gider</span><b style="color:var(--danger)">' + formatMoney(exp) + '</b></div><div class="yr-row"><span>Net</span><b>' + formatMoney(inc - exp) + '</b></div></div>';
+  main.querySelectorAll('#yr-tabs button').forEach(function (b) { b.addEventListener('click', function () { yrMode = b.dataset.v; renderYearReport(); }); });
+};
+initYearReport = function () { yrMode = 'cur'; renderYearReport(); };
+
+PAGES.more = { title: 'Diğer', href: 'diger.html', tab: false, icon: 'grid' };
+initMore = function () {
+  var main = document.getElementById('more-main'); if (!main) return;
+  var G = [['Hızlı erişim', [['q', 'search', '#3B8EFF', 'Uygulamada ara', 'Görev, not, rutin, etkinlik…']]], ['Planlama', [['goals', 'target', '#9B6DFF', 'Hedefler', 'Uzun vadeli hedeflerini takip et'], ['learning', 'book', '#3B8EFF', 'Öğrenme', 'Kelime ve kitap okuma takibi']]],
+    ['Kişisel', [['notes', 'note', '#9B6DFF', 'Notlar', 'Hızlı notlar ve klasörler'], ['worship', 'moon', '#3B8EFF', 'İbadet', 'Namaz vakitleri ve ibadet takibi']]], ['İlerleme', [['achievements', 'trophy', '#F5B400', 'Başarılar', 'Puanların, seviyen ve rozetlerin'], ['yearreport', 'chart', '#3B8EFF', 'Yıl Özeti', 'Yılın kısa özeti']]], ['Yardım', [['tour', 'info', '#3B8EFF', 'Nasıl kullanılır?', 'Adım adım uygulama rehberi']]]];
+  main.innerHTML = G.map(function (g) {
+    return '<h2 class="mh">' + g[0] + '</h2>' + g[1].filter(function (r) { return !PAGES[r[0]] || !admPageOff(r[0]); }).map(function (r) {
+      var nav = PAGES[r[0]] ? ' data-nav="' + r[0] + '"' : ' data-more="' + r[0] + '"';
+      return '<a class="mr" href="javascript:void(0)"' + nav + '><span class="set-ic" style="--c:' + r[2] + '">' + icon(r[1]) + '</span><span class="set-lbl">' + r[3] + '<small>' + r[4] + '</small></span><span class="muted">' + icon('chevronR') + '</span></a>';
+    }).join('');
+  }).join('');
+  main.querySelectorAll('[data-more]').forEach(function (a) { a.addEventListener('click', function () { if (a.dataset.more === 'q') openQuickFind(); else openAppTour(0); }); });
+};
 </script>
 <script>
 window.SINGLE_FILE_APP = true;
-var PAGE_VIEWS = ['today','tasks','routines','calendar','goals','learning','worship','finance','notes','achievements','yearreport','admin','settings'];
+var PAGE_VIEWS = ['today','tasks','routines','calendar','goals','learning','worship','finance','notes','achievements','yearreport','admin','settings','more'];
 var PAGE_INIT_FN = {
   settings: 'initSettings',
   today: 'initDashboard', tasks: 'initTasks', routines: 'initRoutines', calendar: 'initCalendar',
   goals: 'initGoals', learning: 'initLearning', worship: 'initWorship', finance: 'initFinance',
-  notes: 'initNotes', achievements: 'initAchievements', yearreport: 'initYearReport', admin: 'initAdmin'
+  notes: 'initNotes', achievements: 'initAchievements', yearreport: 'initYearReport', admin: 'initAdmin', more: 'initMore'
 };
 var VIEW_TEMPLATES = {};
 PAGE_VIEWS.forEach(function (k) {
