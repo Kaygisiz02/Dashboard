@@ -1402,6 +1402,40 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .001ms !important; transition-duration: .001ms !important; }
 }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* Sade ana ekran: mevcut hızlı giriş ve ajanda öne çıkar, tekrarlayan özetler isteğe bağlı. */
+#dash-cards {margin-top:1rem}
+.compact-summaries {border-top:1px solid var(--rule);padding:.25rem 0 0}
+.compact-summaries>summary {list-style:none;display:flex;align-items:center;justify-content:space-between;cursor:pointer;min-height:48px;padding:.65rem .2rem;color:var(--ink-soft);font-size:.88rem;font-weight:650}
+.compact-summaries>summary::-webkit-details-marker {display:none}
+.compact-summaries>summary span {transition:transform .2s ease}
+.compact-summaries[open]>summary span {transform:rotate(180deg)}
+.compact-summaries>summary:focus-visible {outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+.compact-summaries-content {padding-top:.35rem}
+@media(prefers-reduced-motion:reduce){.compact-summaries>summary span{transition:none}}
+
+/* Tek başlık: sayfa başlığı yalnızca üst çubukta görünür. Sayfa içindeki tekrar eden başlık ekran okuyucular için yerinde kalır, görsel olarak gizlenir; tekrar eden etiketler gizlenir. */
+#view-tasks>.page>.eyebrow,
+#view-routines>.page>.eyebrow,
+#view-calendar>.page>.eyebrow,
+#view-goals>.page>.eyebrow,
+#view-learning>.page>.eyebrow,
+#view-worship>.page>.eyebrow,
+#view-achievements>.page>.eyebrow,
+#view-yearreport>.page>.eyebrow,
+#view-admin>.page>.eyebrow{display:none}
+#view-tasks>.page>h1,
+#view-routines>.page>h1,
+#view-calendar>.page>h1,
+#view-goals>.page>h1,
+#view-learning>.page>h1,
+#view-worship>.page>h1,
+#view-achievements>.page>h1,
+#view-yearreport>.page>h1,
+#view-admin>.page>h1,
+#view-finance .fin-sub[data-sub="home"]>h1,
+.nt-head>h1.dup-title{position:absolute;width:1px;height:1px;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.nt-head>#nt-menu{margin-left:auto}
 </style>
 <style>
 /* ===== premium.css (V3) ===== */
@@ -1574,7 +1608,7 @@ input,select,textarea {accent-color:var(--accent)}
 <main class="page" id="page-root">
   <div id="dash-content">
     <section id="dash-greeting"></section>
-    <div id="dash-quick"><div class="td-quick"><span class="ic" id="td-qic"></span><input type="text" id="td-q" placeholder="Ekle ya da git: yarın market · notlarım" enterkeyhint="done" autocomplete="off" autocapitalize="sentences" aria-label="Hızlı ekle"></div><div class="td-qhint" id="td-qhint"></div></div>
+    <div id="dash-quick"><div class="td-quick"><span class="ic" id="td-qic"></span><input type="text" id="td-q" placeholder="Aklında ne var?" enterkeyhint="done" autocomplete="off" autocapitalize="sentences" aria-label="Hızlı ekle"></div><div class="td-qhint" id="td-qhint" aria-live="polite"></div></div>
     <div id="dash-smart"></div>
     <div id="dash-ritual"></div>
     <section id="dash-hero" class="dh-feed"></section>
@@ -4694,13 +4728,31 @@ document.addEventListener('click', function (e) {
     showToast('Başlarken kartı gizlendi. Rehber Ayarlar\'da duruyor');
   }
 });
+/* Özetler kapalıyken kart hesaplarını ve HTML üretimini çalıştırma. */
+var dashSummariesExpanded = false;
 function renderCards() {
   var el = document.getElementById('dash-cards');
+  if (!el) return;
   var keys = dhVisibleKeys();
-  var startHTML = ''; try { startHTML = dhStartPost(); } catch (err0) { /* kart yüklenemezse ana sayfa bozulmasın */ }
-  if (!keys.length) { el.innerHTML = startHTML + '<p class="dh-empty" style="margin-top:1rem">Ayarlar\'dan en az bir bölüm açman gerekiyor.</p>'; return; }
+  if (!keys.length) { el.replaceChildren(); return; }
+  var prev = el.querySelector('details[data-summary-panel]');
+  if (prev) dashSummariesExpanded = prev.open;
+  if (!prev) {
+    el.innerHTML = '<details data-summary-panel class="compact-summaries"><summary>Diğer özetler <span aria-hidden="true">▾</span></summary><div class="compact-summaries-content"></div></details>';
+    prev = el.querySelector('details[data-summary-panel]');
+    prev.addEventListener('toggle', function () {
+      dashSummariesExpanded = prev.open;
+      if (prev.open) renderCards();
+      else {
+        var content = prev.querySelector('.compact-summaries-content');
+        if (content) content.replaceChildren();
+      }
+    });
+  }
+  if (!dashSummariesExpanded) return;
+  prev.open = true;
   var map = { tasks: dhTasksPost, routines: dhRoutinesPost, calendar: dhCalendarPost, finance: dhFinancePost, worship: dhWorshipPost, learning: dhLearningPost, goals: dhGoalsPost, notes: dhNotesPost, achievements: dhAchPost, yearreport: dhYearPost };
-  el.innerHTML = startHTML + keys.map(function (k) {
+  var cardsHTML = keys.map(function (k) {
     try { return map[k] ? map[k]() : ''; }
     catch (err) {
       try { console.error('Ana sayfa kartı hatası:', k, err); } catch (e2) {}
@@ -4708,8 +4760,9 @@ function renderCards() {
       return dhPost(CARD_META[k].ic, CARD_META[k].title, 'Özet yüklenemedi', '<p class="dh-empty">Özet şu an gösterilemiyor, sayfayı açarak devam edebilirsin.</p>', k, CARD_META[k].title + ' sayfasını aç');
     }
   }).join('');
+  var content = prev.querySelector('.compact-summaries-content');
+  if (content) content.innerHTML = cardsHTML;
 }
-
 
 function initDashboard() {
   var root = document.getElementById('page-root');
@@ -12181,6 +12234,7 @@ function renderNotes() {
   var ch = document.getElementById('nt-chips'); if (ch) ch.innerHTML = ntChipsHTML();
   var h = document.getElementById('nt-title');
   if (h) h.textContent = ntFolder === 'all' ? 'Notlar' : ntFolder === 'trash' ? 'Son Silinenler' : ntFolder.indexOf('tag:') === 0 ? '#' + ntFolder.slice(4) : (ntFolderName(ntFolder) || 'Notlar');
+  if (h) h.classList.toggle('dup-title', h.textContent === 'Notlar');
   var list = ntFiltered(), cnt = document.getElementById('nt-count');
   if (cnt) cnt.textContent = list.length + ' Not';
   if (!list.length) {
