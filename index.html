@@ -1440,6 +1440,49 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
 /* Namaz vakitleri: hesaplama kaynağını açıkça göster */
 .ib-source{font-size:.72rem;line-height:1.5;margin-top:.75rem;opacity:.9}
 .ib-source a{color:inherit;text-decoration:underline;text-underline-offset:3px;font-weight:650}
+
+/* V13: Sadece ana sayfa — kompakt, dokunulabilir, veri dostu tasarım */
+body[data-page="today"] { --tabbar-h:calc(3.55rem + env(safe-area-inset-bottom,0px)); }
+body[data-page="today"] #page-root{padding-top:calc(var(--header-h) + .65rem);padding-bottom:calc(var(--tabbar-h) + 2.4rem)}
+body[data-page="today"] #dash-greeting{margin-bottom:.55rem}
+body[data-page="today"] #dash-greeting h1{font-size:clamp(1.5rem,5vw,1.9rem);line-height:1.18;letter-spacing:-.035em}
+body[data-page="today"] #dash-greeting .td-chips{margin:.5rem 0 .45rem;gap:.35rem}
+body[data-page="today"] #dash-quick{margin:.3rem 0 .6rem}
+body[data-page="today"] #dash-quick .td-quick{min-height:48px;border-radius:16px;box-shadow:none}
+body[data-page="today"] #dash-quick .td-quick input{padding-top:.63rem;padding-bottom:.63rem}
+body[data-page="today"] #dash-quick .td-qhint{min-height:0;margin:.15rem .6rem 0;font-size:.72rem}
+body[data-page="today"] #dash-smart:empty,body[data-page="today"] #dash-ritual:empty{display:none}
+body[data-page="today"] #dash-hero{margin:.35rem 0 .65rem}
+body[data-page="today"] #dash-hero .dh-hero{border:1px solid var(--rule);border-radius:18px;background:linear-gradient(130deg,var(--accent-soft),var(--paper-raised) 65%);padding:.8rem .85rem;gap:.85rem}
+body[data-page="today"] #dash-hero .dh-ring{transform:scale(.87);transform-origin:center;flex-shrink:0}
+body[data-page="today"] #dash-hero .dh-hlbl{font-size:.72rem;color:var(--ink-soft)}
+body[data-page="today"] #dash-hero .dh-hbig{font-size:1.15rem}
+body[data-page="today"] #dash-hero .dh-hsub{font-size:.75rem;line-height:1.4}
+body[data-page="today"] #dash-agenda{margin:0;}
+body[data-page="today"] .v13-agenda-head{display:flex;align-items:baseline;justify-content:space-between;gap:.6rem;padding:.2rem .1rem .6rem}
+body[data-page="today"] .v13-agenda-head h2{font-size:1.04rem;margin:0;font-weight:750;letter-spacing:-.025em}
+body[data-page="today"] .v13-agenda-head span{font-size:.76rem;color:var(--ink-soft)}
+body[data-page="today"] .v13-list{background:var(--paper-raised);border:1px solid var(--rule);border-radius:17px;overflow:hidden}
+body[data-page="today"] .v13-item{display:flex;align-items:center;gap:.65rem;padding:.7rem .65rem;margin:0;border:0;border-bottom:1px solid var(--rule);min-height:64px;content-visibility:visible}
+body[data-page="today"] .v13-item:last-child{border-bottom:0}
+body[data-page="today"] .v13-ic{width:2.25rem;height:2.25rem;flex:none;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 16%,transparent);color:var(--c);border-radius:12px}
+body[data-page="today"] .v13-ic svg{width:1.15rem;height:1.15rem}
+body[data-page="today"] .v13-copy{min-width:0;flex:1;cursor:pointer}
+body[data-page="today"] .v13-title{font-size:.91rem;font-weight:650;line-height:1.35;overflow-wrap:anywhere}
+body[data-page="today"] .v13-sub{font-size:.73rem;color:var(--ink-soft);margin-top:.18rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body[data-page="today"] .v13-item .of-ck{flex:none;min-width:38px;min-height:42px}
+body[data-page="today"] .v13-item .of-more{font-size:1.2rem;min-width:34px;min-height:42px;padding:0 .15rem}
+body[data-page="today"] .v13-item.past{opacity:1}
+body[data-page="today"] .v13-item.od .v13-sub{color:var(--danger)}
+body[data-page="today"] .v13-move{border:0;background:var(--accent-soft);color:var(--accent);border-radius:9px;font-size:.7rem;font-weight:700;padding:.45rem .4rem;cursor:pointer}
+body[data-page="today"] .v13-expand{display:flex;align-items:center;justify-content:center;gap:.4rem;width:100%;min-height:44px;margin:.35rem 0 .6rem;background:none;border:0;color:var(--accent);font-size:.84rem;font-weight:700;cursor:pointer}
+body[data-page="today"] .v13-expand svg{width:15px;height:15px}
+body[data-page="today"] .v13-empty{padding:1.2rem;border:1px solid var(--rule);border-radius:15px;color:var(--ink-soft);font-size:.85rem}
+body[data-page="today"] .tabbar{height:calc(3.45rem + env(safe-area-inset-bottom,0px));border-radius:17px;bottom:max(5px,env(safe-area-inset-bottom,0px))}
+body[data-page="today"] .tabbar a,body[data-page="today"] .tabbar button{font-size:.59rem;gap:.16rem;padding-top:.12rem}
+body[data-page="today"] .tabbar svg{width:20px;height:20px}
+@media(max-width:370px){body[data-page="today"] .v13-item{gap:.4rem;padding:.6rem .45rem}body[data-page="today"] .v13-ic{width:2rem;height:2rem}body[data-page="today"] .v13-item .of-more{min-width:30px}}
+
 </style>
 <style>
 /* ===== premium.css (V3) ===== */
@@ -4147,30 +4190,37 @@ function dhFeedItems() {
   next.sort(function (a, b) { return (a.m == null ? 1e4 : a.m) - (b.m == null ? 1e4 : b.m); });
   return out.concat(next);
 }
+/* V13: Akış, mevcut görev/rutin/etkinlik veri ve işlem bağlantıları korunarak kompakt satırlara taşındı. */
+var dhAgendaExpanded = false;
 function dhItemPost(it) {
-  var K = { task: ['Görev', 'tasks', 'görevler'], routine: ['Rutin', 'routines', 'rutinler'], event: ['Etkinlik', 'calendar', 'takvim'], note: ['Not', 'notes', 'notlar'] }[it.kind] || ['Madde', 'tasks', 'görevler'];
+  var K = { task: ['Görev','tasks'], routine: ['Rutin','routines'], event: ['Etkinlik','calendar'], note: ['Not','notes'] }[it.kind] || ['Madde','tasks'];
   var sub = String(it.sub || '').replace(/^Rutin( \u00b7 )?/, '').replace(/^(Not|Tamamlandı)$/, '');
-  var tog = (it.kind === 'task' || it.kind === 'routine');
+  var tog = it.kind === 'task' || it.kind === 'routine';
   var ck = tog ? '<button type="button" class="of-ck' + (it.done ? ' checked' : '') + '" data-td-toggle aria-pressed="' + (it.done ? 'true' : 'false') + '" aria-label="' + esc(it.title) + ' tamamlandı">' + icon('check') + '</button>' : '';
-  var acts = it.od ? '<div class="of-acts"><button type="button" class="of-act" data-td-move>' + icon('calendar') + '<span>Bugüne taşı</span></button></div>' : '';
-  return '<article class="of-post' + (it.done ? ' done' : '') + (it.past ? ' past' : '') + (it.od ? ' od' : '') + '" data-td-kind="' + it.kind + '" data-td-id="' + esc(it.id) + '" style="--c:hsl(' + TD_HUE[it.kind] + ' 68% 46%)">' +
-    '<div class="of-h"><span class="of-av">' + icon(CARD_META[K[1]].ic) + '</span><div class="of-who"><b>' + K[0] + '</b><i>@' + K[2] + ' \u00b7 ' + esc(it.label) + '</i></div>' + ck + '<button type="button" class="of-more" data-td-open aria-label="Detayı aç">\u22ef</button></div>' +
-    '<div class="of-body" data-td-open>' + (it.kind === 'task' ? '<span class="priority-dot priority-' + (it.priority || 'medium') + '"></span> ' : '') + esc(it.title) + (sub ? '<span class="s">' + esc(sub) + '</span>' : '') + '</div>' + acts + '</article>';
+  var acts = it.od ? '<button type="button" class="v13-move" data-td-move>Bugüne taşı</button>' : '';
+  return '<article class="of-post v13-item' + (it.done ? ' done' : '') + (it.past ? ' past' : '') + (it.od ? ' od' : '') + '" data-td-kind="' + it.kind + '" data-td-id="' + esc(it.id) + '" style="--c:hsl(' + TD_HUE[it.kind] + ' 68% 46%)">' +
+    '<span class="v13-ic" aria-hidden="true">' + icon(CARD_META[K[1]].ic) + '</span>' +
+    '<div class="v13-copy" data-td-open><div class="v13-title">' + esc(it.title) + '</div><div class="v13-sub">' + esc(K[0]) + ' · ' + esc(it.label) + (sub ? ' · ' + esc(sub) : '') + '</div></div>' + acts + ck +
+    '<button type="button" class="of-more" data-td-open aria-label="' + esc(it.title) + ' ayrıntılarını aç">⋯</button></article>';
 }
 function renderTodayAgenda() {
   var el = document.getElementById('dash-agenda');
   if (!el) return;
-  var items = dhFeedItems(), cap = 14;
+  var items = dhFeedItems(), cap = dhAgendaExpanded ? 30 : 5;
   if (!items.length) {
     var dst = dhDayStats(todayISO());
-    el.innerHTML = '<div class="of-post"><p class="dh-empty">' + (dst.den && dst.num >= dst.den ? 'Bugünün görev ve rutinlerinin hepsi tamam \u2713' : 'Akışta henüz bir şey yok. Yukarıdaki kutuya yazarak ilk gönderini ekle.') + '</p></div>';
+    el.innerHTML = '<div class="v13-agenda-head"><h2>Bugünün planı</h2></div><div class="v13-empty">' + (dst.den && dst.num >= dst.den ? 'Bugünün görev ve rutinleri tamamlandı ✓' : 'Bugün için bekleyen bir kayıt yok.') + '</div>';
     return;
   }
-  el.innerHTML = items.slice(0, cap).map(dhItemPost).join('') + (items.length > cap ? '<a href="javascript:void(0)" class="of-morelink" data-nav="tasks">+' + (items.length - cap) + ' gönderi daha</a>' : '');
+  var openCount = items.filter(function(it){return it.kind === 'task' || it.kind === 'routine';}).length;
+  el.innerHTML = '<div class="v13-agenda-head"><h2>Bugünün planı</h2><span>' + items.length + ' kayıt</span></div><div class="v13-list">' +
+    items.slice(0,cap).map(dhItemPost).join('') + '</div>' +
+    (items.length > 5 ? '<button type="button" class="v13-expand" data-dh-agenda-expand aria-expanded="' + (dhAgendaExpanded ? 'true' : 'false') + '">' +
+      (dhAgendaExpanded ? 'Daha az göster' : 'Diğer ' + (items.length - 5) + ' kaydı göster') + icon('chevronR') + '</button>' : '');
 }
 var tdDay = null;
 function tdRefresh() { withGetCache(function () { renderHero(); renderRitual(); renderTodayAgenda(); renderTdChips(); renderSuggestions(); renderCards(); }); }
-function tdRollover() { tdDay = todayISO(); renderGreeting(); tdRefresh(); }
+function tdRollover() { dhAgendaExpanded = false; tdDay = todayISO(); renderGreeting(); tdRefresh(); }
 /* Uygulama arka plandan dönünce ya da gün değişince ekran güncel kalsın. */
 document.addEventListener('visibilitychange', function () {
   if (document.hidden || !document.getElementById('dash-agenda')) return;
@@ -4483,6 +4533,7 @@ function tdInitEvents() {
   root.__tdBound = true;
   root.addEventListener('click', function (e) {
     var t = e.target, c = function (sel) { return t.closest && t.closest(sel); }, x;
+    if ((x = c('[data-dh-agenda-expand]'))) { dhAgendaExpanded = !dhAgendaExpanded; renderTodayAgenda(); return; }
     if ((x = c('[data-td-backup]'))) { settingsReturn = 'today'; settingsStartSub = 'data'; navigateTo('settings'); return; }
     if ((x = c('[data-td-backup-snooze]'))) { lsSet('gunlukAjandam_backupSnooze', addDays(todayISO(), 7)); renderSuggestions(); return; }
     if ((x = c('[data-td-move]'))) { e.stopPropagation(); tdMoveOverdue([x.closest('[data-td-id]').getAttribute('data-td-id')]); return; }
