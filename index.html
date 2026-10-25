@@ -2063,10 +2063,10 @@ input,select,textarea {accent-color:var(--accent)}
   <div class="section-title"><h2>Üretkenlik</h2></div>
   <div class="card" id="yr-productivity"></div>
 
-  <div class="section-title"><h2>Öğrenme &amp; Okuma</h2></div>
+  <div class="section-title"><h2>Öğrenme ve Okuma</h2></div>
   <div class="card" id="yr-learning"></div>
 
-  <div class="section-title"><h2>Seviye &amp; Notlar</h2></div>
+  <div class="section-title"><h2>Seviye ve Notlar</h2></div>
   <div class="card" id="yr-misc"></div>
 </main>
 </div>
@@ -2531,6 +2531,19 @@ function nextOccurrence(evt, fromISO) {
   }
   return d;
 }
+
+/* Yaklaşan etkinlikler: yalnızca önümüzdeki CAL_UPCOMING_DAYS gün içindekiler listelenir.
+   Daha ileri tarihli etkinlikler takvimde (ilgili ay açılınca) görünür; yaklaşınca öne çıkar. */
+function calUpcomingDays() { return 30; }
+function calUpcoming(fromISO, limit) {
+  fromISO = fromISO || todayISO();
+  var end = addDays(fromISO, calUpcomingDays());
+  var all = get('events', []).map(function (e) { return { e: e, next: nextOccurrence(e, fromISO) }; }).filter(function (x) { return x.next; });
+  var near = all.filter(function (x) { return x.next <= end; }).sort(function (p, q) { return p.next < q.next ? -1 : p.next > q.next ? 1 : 0; });
+  return { near: limit ? near.slice(0, limit) : near, later: all.length - near.length };
+}
+function calDateLabel(iso) { return formatDateTR(iso, { year: parseISO(iso).getFullYear() !== new Date().getFullYear() }); }
+function calLaterNote(n) { return n ? n + ' etkinlik daha ileri tarihli; yaklaşınca burada görünür.' : ''; }
 
 /* ---------------------------------------------------------------------- */
 /* XP / Seviye                                                             */
@@ -4591,12 +4604,12 @@ function dhRoutinesPost() {
 function dhCalendarPost() {
   var today = todayISO(), evs = get('events', []);
   var todays = evs.filter(function (e) { return occursOn(e, today); }).sort(function (a, b) { return (tdMin(a.time) == null ? 1e4 : tdMin(a.time)) - (tdMin(b.time) == null ? 1e4 : tdMin(b.time)); });
-  var up = evs.map(function (e) { return { e: e, next: nextOccurrence(e, today) }; }).filter(function (x) { return x.next; }).sort(function (a, b) { return a.next < b.next ? -1 : a.next > b.next ? 1 : 0; });
-  if (!up.length) return dhPost('calendar', 'Takvim', 'Yaklaşan etkinlik yok', '<p class="dh-empty">Yaklaşan etkinlik yok. Takvime etkinlik ekleyerek günlerini planla.</p>', 'calendar', 'Takvimi aç');
+  var u = calUpcoming(today), up = u.near;
+  if (!up.length) return dhPost('calendar', 'Takvim', 'Yaklaşan etkinlik yok', '<p class="dh-empty">Önümüzdeki ' + calUpcomingDays() + ' günde etkinlik yok.' + (u.later ? ' ' + esc(calLaterNote(u.later)) : ' Takvime etkinlik ekleyerek günlerini planla.') + '</p>', 'calendar', 'Takvimi aç');
   var e0 = todays.length ? todays[0] : up[0].e, line = esc(e0.title || 'Etkinlik') + (e0.time ? ' \u00b7 ' + esc(e0.time) : '');
   var body = todays.length
     ? '<div class="dh-big">' + todays.length + ' <small>etkinlik bugün</small></div><div class="dh-muted">İlk: ' + line + '</div>'
-    : '<div class="dh-big">' + esc(formatDateTR(up[0].next, { year: false })) + '</div><div class="dh-muted">' + line + '</div>';
+    : '<div class="dh-big">' + esc(calDateLabel(up[0].next)) + '</div><div class="dh-muted">' + esc(inDaysLabel(daysBetween(today, up[0].next))) + ' \u00b7 ' + line + '</div>';
   return dhPost('calendar', 'Takvim', todays.length ? 'Bugün' : 'Sıradaki etkinlik', body, 'calendar', 'Takvimi aç');
 }
 function dhWorshipPost() {
@@ -5116,7 +5129,7 @@ function qfSearch(q) {
     if (has(t.title, t.desc, (t.tags || []).join(' '), (t.subtasks || []).map(function (x) { return x.title; }).join(' ')))
       G['Görevler'].push({ k: 'task', id: t.id, title: t.title, sub: t.status === 'done' ? 'Tamamlandı' : (t.due ? formatDateTR(t.due, { year: false }) + (t.time ? ' ' + t.time : '') : 'Tarihsiz'), done: t.status === 'done' });
   });
-  getEvents().forEach(function (e) { if (has(e.title, e.location, e.note)) G['Etkinlikler'].push({ k: 'event', id: e.id, title: e.title, sub: formatDateTR(e.date, { year: false }) + (e.time ? ' ' + e.time : '') }); });
+  getEvents().forEach(function (e) { if (has(e.title, e.location, e.note)) G['Etkinlikler'].push({ k: 'event', id: e.id, title: e.title, sub: calDateLabel(e.date) + (e.time ? ' ' + e.time : '') }); });
   getRoutines().forEach(function (r) { if (!r.archived && has(r.title)) G['Rutinler'].push({ k: 'routine', id: r.id, title: r.title, sub: 'Rutin' }); });
   getNotes().forEach(function (n) { if (has(n.text, n.title)) G['Notlar'].push({ k: 'note', id: n.id, title: ntTitleOf(n), sub: ntLocalISO(n.createdAt) ? formatDateTR(ntLocalISO(n.createdAt), { year: false }) : '' }); });
   getFinance().forEach(function (f) { if (G['Finans'].length < 6 && has(f.title, f.category, f.note)) G['Finans'].push({ k: 'fin', id: f.id, title: f.title || f.category, sub: (f.category || '') + ' \u00b7 ' + formatMoney(Number(f.amount) || 0) }); });
@@ -5902,15 +5915,16 @@ function renderMonthView() {
 
 function renderUpcoming() {
   var today = todayISO();
-  var items = getEvents().map(function (e) { return { e: e, next: nextOccurrence(e, today) }; })
-    .filter(function (x) { return x.next; }).sort(function (a, b) { return a.next < b.next ? -1 : 1; }).slice(0, 6);
+  var u = calUpcoming(today, 6), items = u.near;
   var el = document.getElementById('cal-upcoming');
-  if (!items.length) { el.innerHTML = '<p class="muted">Yaklaşan etkinlik yok.</p>'; return; }
+  var later = u.later ? '<p class="muted" style="margin:.6rem .2rem 0;font-size:.82rem">' + esc(calLaterNote(u.later)) + '</p>' : '';
+  if (!items.length) { el.innerHTML = '<p class="muted">Önümüzdeki ' + calUpcomingDays() + ' günde etkinlik yok.</p>' + later; return; }
   el.innerHTML = '<div class="card" style="padding:.2rem .8rem">' + items.map(function (x) {
+    var rel = inDaysLabel(daysBetween(today, x.next));
     return '<div class="list-row" data-event-id="' + x.e.id + '" data-open-event style="cursor:pointer">' +
-      '<span class="chip mono">' + esc(formatDateTR(x.next, { year: false })) + '</span>' +
-      '<div class="row-main"><div class="row-title">' + esc(x.e.title) + '</div>' + (x.e.time ? '<div class="row-sub">' + esc(x.e.time) + '</div>' : '') + '</div></div>';
-  }).join('') + '</div>';
+      '<span class="chip mono">' + esc(calDateLabel(x.next)) + '</span>' +
+      '<div class="row-main"><div class="row-title">' + esc(x.e.title) + '</div><div class="row-sub">' + esc(rel) + (x.e.time ? ' \u00b7 ' + esc(x.e.time) : '') + '</div></div></div>';
+  }).join('') + '</div>' + later;
   wireEventOpen(el);
 }
 
@@ -13145,8 +13159,8 @@ function renderYearReport() {
   });
   document.getElementById('yr-productivity').innerHTML =
     '<div class="list-row"><span class="row-main"><span class="row-title">Tamamlanan görev</span></span><span class="muted">' + doneTasks + ' / ' + tasks.length + '</span></div>' +
-    '<div class="list-row"><span class="row-main"><span class="row-title">Rutin işaretlemesi</span></span><span class="muted">' + routineChecks + '</span></div>' +
-    '<div class="list-row"><span class="row-main"><span class="row-title">Hedef tutturma</span></span><span class="muted">' + goalHits + '</span></div>';
+    '<div class="list-row"><span class="row-main"><span class="row-title">Rutin işaretleme sayısı</span></span><span class="muted">' + routineChecks + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Hedefe ulaşma sayısı</span></span><span class="muted">' + goalHits + '</span></div>';
 
   // ---- Öğrenme & Okuma ----
   var vocab = getVocab();
@@ -13154,17 +13168,17 @@ function renderYearReport() {
   var finishedBooks = reading.filter(function (b) { return b.finished && b.finishedAt && b.finishedAt.slice(0, 4) === yPrefix; });
   var pagesRead = finishedBooks.reduce(function (s, b) { return s + (Number(b.totalPages) || 0); }, 0);
   document.getElementById('yr-learning').innerHTML =
-    '<div class="list-row"><span class="row-main"><span class="row-title">Toplam kelime (öğrenilen)</span></span><span class="muted">' + vocab.length + '</span></div>' +
+    '<div class="list-row"><span class="row-main"><span class="row-title">Kelime bankası (toplam)</span></span><span class="muted">' + vocab.length + '</span></div>' +
     '<div class="list-row"><span class="row-main"><span class="row-title">Bitirilen kitap</span></span><span class="muted">' + finishedBooks.length + '</span></div>' +
-    '<div class="list-row"><span class="row-main"><span class="row-title">Okunan sayfa (bitenler)</span></span><span class="muted">' + pagesRead + '</span></div>';
+    '<div class="list-row"><span class="row-main"><span class="row-title">Okunan sayfa (bitirilen kitaplar)</span></span><span class="muted">' + pagesRead + '</span></div>';
 
   // ---- Seviye & Notlar ----
   var xp = get('xp', 0);
   var level = levelFromXP(xp);
-  var notes = get('notes', []).filter(function (n) { return !n.deletedAt && n.createdAt && n.createdAt.slice(0, 4) === yPrefix; });
+  var notes = get('notes', []).filter(function (n) { return !n.deletedAt && n.createdAt && ntLocalISO(n.createdAt).slice(0, 4) === yPrefix; });
   document.getElementById('yr-misc').innerHTML =
     '<div class="list-row"><span class="row-main"><span class="row-title">Toplam XP</span></span><span class="muted">' + xp + ' (Seviye ' + level + ')</span></div>' +
-    '<div class="list-row"><span class="row-main"><span class="row-title">Bu yıl eklenen not</span></span><span class="muted">' + notes.length + '</span></div>';
+    '<div class="list-row"><span class="row-main"><span class="row-title">Eklenen not</span></span><span class="muted">' + notes.length + '</span></div>';
 }
 
 </script>
