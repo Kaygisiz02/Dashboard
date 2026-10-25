@@ -1436,6 +1436,10 @@ h1, h2, h3, h4, p, li, label { overflow-wrap: anywhere; }
 #view-finance .fin-sub[data-sub="home"]>h1,
 .nt-head>h1.dup-title{position:absolute;width:1px;height:1px;margin:0;padding:0;border:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 .nt-head>#nt-menu{margin-left:auto}
+
+/* Namaz vakitleri: hesaplama kaynağını açıkça göster */
+.ib-source{font-size:.72rem;line-height:1.5;margin-top:.75rem;opacity:.9}
+.ib-source a{color:inherit;text-decoration:underline;text-underline-offset:3px;font-weight:650}
 </style>
 <style>
 /* ===== premium.css (V3) ===== */
@@ -6944,9 +6948,86 @@ ICON_PATHS.pin = '<path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><
 function ibNowD() { return window.__ibNow ? new Date(window.__ibNow) : new Date(); }
 function ibFmt(d) { return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
 function ibLoc() { var p = getPrayers(); return p.loc && isFinite(p.loc.lat) && isFinite(p.loc.lng) ? p.loc : null; }
+
+/* V8: Online hesaplama (AlAdhan Diyanet yöntemi 13 / Hanefi 1).
+   Bu resmî Diyanet yayını DEĞİLDİR. Bağlantı yoksa mevcut astronomik hesap korunur.
+   Namaz kayıtları ve kullanıcının ibadet verileri bu servise gönderilmez. */
+var IB_ONLINE_TIMES = Object.create(null), IB_ONLINE_BUSY = Object.create(null);
+var IB_ONLINE_SOURCE = 'AlAdhan · Diyanet hesaplama yöntemi (resmî veri değil)';
+function ibDayKey(date) {
+  return date.getFullYear() + '-' + pad2(date.getMonth()+1) + '-' + pad2(date.getDate());
+}
+function ibCacheKey(loc, day) {
+  return 'ajandam:ib-times-v8:' + Number(loc.lat).toFixed(4) + ':' + Number(loc.lng).toFixed(4) + ':' + day;
+}
+function ibReadOnline(loc, date) {
+  var key = ibCacheKey(loc, ibDayKey(date));
+  if (IB_ONLINE_TIMES[key]) return IB_ONLINE_TIMES[key];
+  try {
+    var raw = localStorage.getItem(key);
+    if (!raw) return null;
+    var data = JSON.parse(raw);
+    if (!data || !data.times || !data.savedAt || Date.now()-data.savedAt > 7*864e5) return null;
+    var out = {}, names = ['sabah','gunes','ogle','ikindi','aksam','yatsi'];
+    for (var i=0;i<names.length;i++) {
+      var t = data.times[names[i]];
+      if (typeof t !== 'number' || !Number.isFinite(t)) return null;
+      out[names[i]] = new Date(t);
+    }
+    return IB_ONLINE_TIMES[key] = out;
+  } catch (e) { return null; }
+}
+function ibRequestOnline(loc, date) {
+  if (!navigator.onLine || !window.fetch) return;
+  var day = ibDayKey(date), key = ibCacheKey(loc, day);
+  if (IB_ONLINE_BUSY[key]) return;
+  try {
+    var old = JSON.parse(localStorage.getItem(key) || 'null');
+    if (old && old.savedAt && Date.now()-old.savedAt < 12*3600000) return;
+  } catch (e) {}
+  IB_ONLINE_BUSY[key] = true;
+  var dd = pad2(date.getDate()) + '-' + pad2(date.getMonth()+1) + '-' + date.getFullYear();
+  var url = 'https://api.aladhan.com/v1/timings/' + dd +
+    '?latitude=' + encodeURIComponent(loc.lat) + '&longitude=' + encodeURIComponent(loc.lng) +
+    '&method=13&school=1&iso8601=true';
+  var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var timer = ctrl ? setTimeout(function(){ctrl.abort();},8000) : null;
+  fetch(url, {signal:ctrl ? ctrl.signal : undefined, mode:'cors', credentials:'omit'})
+    .then(function(res){ if(!res.ok) throw new Error('HTTP '+res.status); return res.json(); })
+    .then(function(json){
+      var t = json && json.data && json.data.timings;
+      if (!t) throw new Error('Vakitler bulunamadı');
+      var keys = {sabah:'Fajr',gunes:'Sunrise',ogle:'Dhuhr',ikindi:'Asr',aksam:'Maghrib',yatsi:'Isha'};
+      var times = {}, arr = [];
+      Object.keys(keys).forEach(function(k) {
+        var raw = t[keys[k]], ms = typeof raw === 'string' ? Date.parse(raw) : NaN;
+        if (!Number.isFinite(ms)) throw new Error('Saat biçimi doğrulanamadı');
+        times[k] = ms; arr.push(ms);
+      });
+      for(var i=1;i<arr.length;i++) if(arr[i]<=arr[i-1]) throw new Error('Saat sırası geçersiz');
+      var saved = {times:times,savedAt:Date.now()};
+      try {localStorage.setItem(key,JSON.stringify(saved));} catch(e){}
+      IB_ONLINE_TIMES[key] = Object.fromEntries(Object.keys(times).map(function(k){return [k,new Date(times[k])];}));
+      if (ibLoc() && ibCacheKey(ibLoc(),day) === key && document.body.getAttribute('data-page') === 'worship') {
+        renderIbHero(); renderPrayerToday();
+      }
+    })
+    .catch(function(){ /* Offline / servis hatası: astronomik yedek hesap */ })
+    .finally(function(){if(timer)clearTimeout(timer);delete IB_ONLINE_BUSY[key];});
+}
+function ibRefreshOnline() {
+  var loc=ibLoc(); if(!loc)return;
+  var now=ibNowD();
+  [-1,0,1].forEach(function(offset){
+    ibRequestOnline(loc,new Date(now.getFullYear(),now.getMonth(),now.getDate()+offset));
+  });
+}
+
 function ibDayTimes(date) {
   var loc = ibLoc();
   if (!loc) return null;
+  var online = ibReadOnline(loc, date);
+  if (online) return online;
   var y = date.getFullYear(), m = date.getMonth() + 1, d = date.getDate(), mn = ibPrayerMinutes(y, m, d, loc.lat, loc.lng, -new Date(y, m - 1, d, 12).getTimezoneOffset() / 60);
   function mk(v) { return new Date(y, m - 1, d, 0, Math.round(v)); }
   return { sabah: mk(mn.fajr), gunes: mk(mn.sunrise), ogle: mk(mn.dhuhr), ikindi: mk(mn.asr), aksam: mk(mn.maghrib), yatsi: mk(mn.isha) };
@@ -7019,7 +7100,7 @@ function openIbLocSheet() {
     title: 'Konum',
     bodyHTML: '<button class="btn btn-secondary btn-block" id="ibl-gps" style="margin-bottom:.7rem">' + icon('pin') + ' Konumumu kullan</button>' +
       '<div class="field"><input type="search" id="ibl-q" placeholder="Şehir ara" autocomplete="off" aria-label="Şehir ara"></div><div id="ibl-list" style="max-height:48vh;overflow:auto"></div>' +
-      '<p class="muted" style="font-size:.76rem;margin:.6rem 0 0">Vakitler internet olmadan cihazında hesaplanır (Diyanet yöntemi). Resmî imsakiyeden 1\u20132 dakika farklı olabilir.</p>',
+      '<p class="muted" style="font-size:.76rem;margin:.6rem 0 0">İnternet varsa Diyanet hesaplama yöntemli üçüncü taraf vakitler alınır; çevrimdışıyken tahmini hesap gösterilir. Resmî vakitler için Diyanet’i kontrol et.</p>',
     onOpen: function (body) {
       var list = body.querySelector('#ibl-list');
       function draw(q) {
@@ -7087,7 +7168,7 @@ function renderIbHero() {
   if (!el) return;
   var loc = ibLoc(), now = ibNowD();
   if (!loc) {
-    el.innerHTML = '<div class="ib-hero"><div class="lbl" style="margin-top:0">Namaz vakitleri</div><div class="name">Konumunu seç</div><div class="sub">Vakitler internet olmadan cihazında hesaplanır; sonraki vakte geri sayım gösterilir.</div>' +
+    el.innerHTML = '<div class="ib-hero"><div class="lbl" style="margin-top:0">Namaz vakitleri</div><div class="name">Konumunu seç</div><div class="sub">Çevrimiçi vakitler alınır; bağlantı yoksa yaklaşık hesap gösterilir.</div>' +
       '<div class="ib-btns"><button type="button" class="ib-btn" data-ib-gps>Konumumu kullan</button><button type="button" class="ib-btn ghost" data-ib-city>Şehir seç</button></div></div>';
     ibNext = null; return;
   }
@@ -7104,6 +7185,8 @@ function renderIbHero() {
   el.innerHTML = '<div class="ib-hero"><div class="top"><button type="button" class="ib-loc" data-ib-city>' + icon('pin') + esc(loc.name) + '</button><span>' + esc(formatDateTR(todayISO())) + (h ? ' \u00b7 ' + esc(h.text) : '') + '</span></div>' +
     '<div class="lbl">Sonraki: ' + ibLabel(st.next.k) + '</div><div class="name">' + ibLabel(st.next.k) + '<b>' + ibFmt(st.next.t) + (st.next.day ? ' (yarın)' : '') + '</b></div>' +
     '<div class="count" id="ib-count">' + ibCount(st.next.t - now) + '</div><div class="sub">' + sub + '</div>' +
+    '<div class="ib-source">' + (ibReadOnline(loc, now) ? 'Kaynak: ' + IB_ONLINE_SOURCE : 'Kaynak: çevrimdışı yaklaşık astronomik hesap') +
+    ' · <a href="https://namazvakti.diyanet.gov.tr/" target="_blank" rel="noopener noreferrer">Resmî Diyanet vakitleri</a></div>' +
     (chips.length ? '<div class="ib-chips">' + chips.map(function (c) { return '<span class="ib-chip">' + esc(c) + '</span>'; }).join('') + '</div>' : '') + '</div>';
 }
 function ibTick() {
@@ -7286,14 +7369,14 @@ function ibKhatamDate() {
   });
 }
 /* ---- sekmeler / başlatma ---- */
-function ibRenderAll() { renderIbHero(); renderPrayerToday(); renderIbCalendar(); renderKhatam(); renderZikir(); }
+function ibRenderAll() { ibRefreshOnline(); renderIbHero(); renderPrayerToday(); renderIbCalendar(); renderKhatam(); renderZikir(); }
 function ibSetTab(v) {
   ibTab = v;
   var root = document.querySelector('#view-worship');
   if (!root) return;
   root.querySelectorAll('#ib-tabs button').forEach(function (b) { b.classList.toggle('active', b.dataset.v === v); });
   root.querySelectorAll('.ib-sec').forEach(function (sec) { sec.hidden = sec.getAttribute('data-ib') !== v; });
-  if (v === 'namaz') { renderIbHero(); renderPrayerToday(); } else if (v === 'takvim') renderIbCalendar(); else if (v === 'kuran') { renderKhatam(); renderQuran(); } else if (v === 'zikir') renderZikir();
+  if (v === 'namaz') { ibRefreshOnline(); renderIbHero(); renderPrayerToday(); } else if (v === 'takvim') renderIbCalendar(); else if (v === 'kuran') { renderKhatam(); renderQuran(); } else if (v === 'zikir') renderZikir();
   window.scrollTo(0, 0);
 }
 function ibInit() {
