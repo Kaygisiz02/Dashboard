@@ -1961,6 +1961,10 @@ body[data-page="today"] #bell-btn{display:flex}
 .v14-mv{flex:none;border:0;border-radius:9px;background:var(--accent-soft);color:var(--accent);font:inherit;font-size:.7rem;font-weight:700;padding:.4rem .55rem;cursor:pointer}
 .v14-rest{display:block;text-align:center;padding:.65rem;font-size:.8rem;font-weight:650;color:var(--accent);text-decoration:none;border-top:1px solid var(--rule)}
 .v14-empty{margin:0;padding:.2rem .1rem .6rem;font-size:.84rem;color:var(--ink-soft)}
+.nx-opt>.set-val{flex:none;font-weight:500}
+.nx-pick{flex:none;border:0;background:none;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;min-height:2.75rem;padding:0 .2rem}
+.nx-time{flex:none;border:1px solid var(--rule-strong);border-radius:10px;background:var(--paper-raised);color:var(--ink);padding:.4rem .5rem;font:inherit}
+.nx-danger .set-lbl,.nx-danger .set-lbl small{color:var(--danger,#E5484D)}
 </style>
 <script>
   (function () {
@@ -5449,9 +5453,9 @@ function remAsk() {
 }
 function remNotify(title, body, tag) {
   showToast(title + (body ? ' \u00b7 ' + body : ''));
-  try { if (navigator.vibrate) navigator.vibrate(150); } catch (e) {}
+  try { if (navigator.vibrate && lsGet('ajandam_notifVib') !== '0') navigator.vibrate(150); } catch (e) {}
   if (!notifSupported() || Notification.permission !== 'granted') return;
-  var opts = { body: body || '', tag: tag, icon: 'icon-192.png' };
+  var opts = { body: body || '', tag: tag, icon: 'icon-192.png', silent: lsGet('ajandam_notifSound') === 'off' };
   var direct = function () { try { new Notification(title, opts); } catch (e) {} };
   if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
     navigator.serviceWorker.getRegistration().then(function (r) { if (r && r.showNotification) r.showNotification(title, opts); else direct(); }).catch(direct);
@@ -14198,6 +14202,189 @@ function renderMonthView() {
   });
   renderDayDetail(sel);
 }
+
+/* ---- Ayarlar: görsel tasarımdaki eksik sayfalar ---- */
+function nxRow(attr, ic, c, label, desc, val, o) {
+  o = o || {};
+  return '<button type="button" class="set-item' + (o.danger ? ' nx-danger' : '') + '" ' + attr + '><span class="set-ic" style="--c:' + c + '" aria-hidden="true">' + icon(ic) + '</span><span class="set-lbl">' + label + (desc ? '<small>' + desc + '</small>' : '') + '</span>' +
+    (val ? '<span class="set-val' + (o.ok ? ' ok' : '') + '">' + esc(val) + '</span>' : '') + (o.noChev ? '' : '<span class="muted" aria-hidden="true">' + icon('chevronR') + '</span>') + '</button>';
+}
+function nxWire(body) {
+  body.querySelectorAll('[data-sub]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      settingsSub = settingsLast = b.dataset.sub;
+      try { history.pushState({ pg: 'settings', i: navI() + 1, st: settingsSub }, ''); } catch (e) {}
+      renderSettings();
+    });
+  });
+  var a = body.querySelector('#set-admin'), t = body.querySelector('#set-tour');
+  if (a) a.addEventListener('click', openAdminLoginSheet);
+  if (t) t.addEventListener('click', function () { openAppTour(0); });
+}
+function nxRoot(body) {
+  var user = get('user', { name: '', goal: '' }), p = xpProgress(get('xp', 0)), cfg = getDashCardConfig(), perm = notifPermission();
+  var theme = { auto: 'Otomatik', light: 'Açık', dark: 'Koyu' }[get('theme', 'auto')];
+  var acc = ACCENTS.filter(function (a) { return a.id === get('accent', 'ink-blue'); })[0], lb = lsGet('gunlukAjandam_lastBackup') || '';
+  body.innerHTML =
+    '<div class="set-group"><button type="button" class="set-item set-profile" data-sub="profile"><span class="set-avatar" aria-hidden="true">' + (user.name ? esc(user.name.charAt(0).toLocaleUpperCase('tr')) : icon('user')) + '</span>' +
+      '<span class="set-lbl"><strong>' + esc(user.name || 'Adını ekle') + '</strong><span class="row-sub">Seviye ' + p.level + '</span></span><span class="muted" aria-hidden="true">' + icon('chevronR') + '</span></button></div>' +
+    '<div class="set-group">' +
+      nxRow('data-sub="appearance"', 'moon', 'var(--accent)', 'Görünüm', 'Tema, renkler ve görsel ayarlar', theme + (acc ? ', ' + acc.label : '')) +
+      nxRow('data-sub="cards"', 'grid', '#3B8EFF', 'Ana sayfa bölümleri', 'Bölümleri göster, gizle ve sırala', cfg.filter(function (c) { return c.visible; }).length + ' / ' + cfg.length + ' açık') +
+      nxRow('data-sub="notif"', 'bell', '#FF4D6A', 'Bildirimler', 'Hatırlatmalar ve izinler', perm === 'granted' ? 'Açık' : perm === 'unsupported' ? 'Desteklenmiyor' : 'Kapalı', { ok: perm === 'granted' }) +
+      nxRow('data-sub="rtset"', 'routines', '#3B8EFF', 'Rutinler', 'Günlük rutin ayarları', '') +
+      nxRow('data-sub="data"', 'download', '#26C281', 'Veri ve yedekleme', 'Yedekleme, içe/dışa aktar', lb ? 'Son yedek ' + formatDateTR(lb, { year: false }) : 'Yedek yok') +
+      nxRow('data-sub="privacy"', 'shield', '#9B6DFF', 'Gizlilik ve güvenlik', 'Veri güvenliği ve gizlilik', '') +
+      nxRow('data-sub="help"', 'info', '#3B8EFF', 'Yardım ve destek', 'Rehber, sık sorulan sorular', '') +
+      nxRow('data-sub="about"', 'info', '#3B8EFF', 'Hakkında', 'Uygulama bilgisi', 'Sürüm 1.0.0') +
+    '</div><p class="set-foot">Günlük Ajandam verilerini yalnızca bu cihazda saklar.</p>';
+  nxWire(body);
+}
+settingsRoot = nxRoot;
+
+function nxProfile(body) {
+  var user = get('user', { name: '', goal: '' }), p = xpProgress(get('xp', 0));
+  body.innerHTML = '<div class="set-group"><div class="set-item set-profile"><span class="set-avatar" aria-hidden="true">' + (user.name ? esc(user.name.charAt(0).toLocaleUpperCase('tr')) : icon('user')) + '</span>' +
+    '<span class="set-lbl"><strong>' + esc(user.name || 'Adını ekle') + '</strong><span class="row-sub">Seviye ' + p.level + (user.email ? ' \u2022 ' + esc(user.email) : '') + '</span></span></div></div>' +
+    '<div class="set-group">' +
+      nxRow('data-sub="personal"', 'user', '#3B8EFF', 'Kişisel bilgiler', 'Ad, e-posta, telefon', '') +
+      nxRow('data-sub="appearance"', 'target', '#26C281', 'Tercihler', 'Tema ve görünüm tercihleri', '') +
+      nxRow('id="set-admin"', 'lock', '#FF4D6A', 'Güvenlik', 'Yönetici erişimi', '') +
+      nxRow('data-sub="privacy"', 'shield', '#3B8EFF', 'Gizlilik', 'Veri ve izinler', '') +
+    '</div>' + setSec('level', 'Seviye ' + p.level, p.into + ' / ' + p.span + ' XP', '<div class="progress" role="progressbar" aria-labelledby="h-level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(p.pct) + '"><div style="width:' + p.pct + '%"></div></div>');
+  nxWire(body);
+}
+function nxPersonal(body) {
+  var user = get('user', { name: '', goal: '' }), F = [['name', 'Ad', 'text', 40, 'given-name'], ['email', 'E-posta', 'email', 80, 'email'], ['phone', 'Telefon', 'tel', 24, 'tel'], ['goal', 'Hedef (isteğe bağlı)', 'text', 120, 'off']];
+  body.innerHTML = '<div class="set-panel">' + F.map(function (f) { return '<div class="field"><label for="pf-' + f[0] + '">' + f[1] + '</label><input type="' + f[2] + '" id="pf-' + f[0] + '" maxlength="' + f[3] + '" autocomplete="' + f[4] + '" value="' + esc(user[f[0]] || '') + '"></div>'; }).join('') + '</div>' +
+    '<p class="set-desc" id="set-saved" role="status" aria-live="polite">Değişiklikler yazdıkça kaydedilir ve yalnızca bu cihazda durur.</p>';
+  var t;
+  F.forEach(function (f) {
+    document.getElementById('pf-' + f[0]).addEventListener('input', function () {
+      var u = Object.assign({}, get('user', { name: '', goal: '' }), { createdAt: user.createdAt || todayISO() });
+      F.forEach(function (g) { u[g[0]] = document.getElementById('pf-' + g[0]).value.trim(); });
+      set('user', u); clearTimeout(t);
+      t = setTimeout(function () { var s = document.getElementById('set-saved'); if (s) s.textContent = 'Kaydedildi'; }, 600);
+    });
+  });
+}
+function nxRtSet(body) {
+  var on = function (k, d) { var v = lsGet(k); return v == null ? d : v === '1'; };
+  body.innerHTML = '<div class="set-panel" style="padding:.1rem .9rem">' +
+    '<div class="nx-opt"><span>Rutin hatırlatmaları<small>Saati olan rutinler için bildirim al.</small></span>' + nxSwitch('rt-remind', 'ajandam_rtRemind', lsGet('ajandam_rtRemind') !== '0') + '</div>' +
+    '<div class="nx-opt"><span>Hatırlatma zamanı<small>Saati olmayan rutinler için. Boşsa bildirim gitmez.</small></span><input type="time" class="nx-time" id="rt-time" value="' + esc(lsGet('ajandam_rtTime') || '') + '" aria-label="Hatırlatma zamanı"></div>' +
+    '<div class="nx-opt"><span>Kaçırılan rutin uyarısı<small>Tamamlanmayan rutinleri 21:00\u2019de hatırlat.</small></span>' + nxSwitch('rt-missed', 'ajandam_rtMissed', on('ajandam_rtMissed', false)) + '</div>' +
+    '<div class="nx-opt"><span>Haftalık özet<small>Pazar 20:00\u2019de haftalık ilerlemeni gönder.</small></span>' + nxSwitch('rt-weekly', 'ajandam_rtWeekly', on('ajandam_rtWeekly', false)) + '</div></div>' +
+    '<p class="set-desc" style="margin-top:.7rem">Bildirimler için Bildirimler sayfasından izin vermiş olman gerekir.</p>';
+  body.querySelectorAll('[data-pref]').forEach(function (s) { s.addEventListener('click', function () { var v = s.getAttribute('aria-checked') !== 'true'; s.setAttribute('aria-checked', v ? 'true' : 'false'); lsSet(s.dataset.pref, v ? '1' : '0'); }); });
+  document.getElementById('rt-time').addEventListener('change', function (e) { lsSet('ajandam_rtTime', e.target.value); });
+}
+var nxRemBase = remItems;
+remItems = function () {
+  var out = nxRemBase.apply(this, arguments), today = todayISO(), d0 = parseISO(today);
+  function at(h, m) { return new Date(d0.getFullYear(), d0.getMonth(), d0.getDate(), h, m).getTime(); }
+  var rem = lsGet('ajandam_rtRemind') !== '0', dt = lsGet('ajandam_rtTime') || '', m = dt ? tdMin(dt) : null;
+  if (!rem) out = out.filter(function (x) { return String(x.key).indexOf('r:') !== 0; });
+  var due = getRoutines().filter(function (r) { return !r.archived && isRoutineDue(r, today); });
+  var left = due.filter(function (r) { return !(r.log && r.log[today]); });
+  if (rem && m != null) left.forEach(function (r) { if (!r.reminderTime) out.push({ key: 'rd:' + r.id + ':' + today + ':' + dt, at: at(Math.floor(m / 60), m % 60), title: r.title, body: 'Rutin hatırlatması' }); });
+  if (lsGet('ajandam_rtMissed') === '1' && left.length) out.push({ key: 'rm:' + today, at: at(21, 0), title: 'Tamamlanmayan rutinlerin var', body: left.length + ' rutin seni bekliyor' });
+  if (lsGet('ajandam_rtWeekly') === '1' && d0.getDay() === 0) {
+    var n = 0, k = 0, i, d;
+    for (i = 0; i < 7; i++) { d = addDays(today, -i); getRoutines().forEach(function (r) { if (!r.archived && isRoutineDue(r, d)) { n++; if (r.log && r.log[d]) k++; } }); }
+    out.push({ key: 'rw:' + today, at: at(20, 0), title: 'Haftalık özet', body: n ? k + ' / ' + n + ' rutin tamamlandı' : 'Bu hafta planlı rutin yoktu' });
+  }
+  return out;
+};
+
+function nxData(body) {
+  var lb = lsGet('gunlukAjandam_lastBackup') || '';
+  body.innerHTML = '<div class="set-group">' +
+    nxRow('id="dm-backup"', 'download', '#3B8EFF', 'Verileri yedekle', 'Tüm verilerini JSON dosyası olarak kaydet', '', { noChev: 1 }) +
+    nxRow('id="dm-restore"', 'upload', '#26C281', 'Yedekten geri yükle', 'Daha önce aldığın yedeği yükle', '', { noChev: 1 }) +
+    nxRow('id="dm-ics"', 'calendar', '#F5A623', 'Takvime aktar', 'Hatırlatmaları .ics dosyası olarak indir', '', { noChev: 1 }) +
+    nxRow('id="dm-reset"', 'trash', '#FF4D6A', 'Tüm verileri sil', 'Bu işlem geri alınamaz.', '', { danger: 1, noChev: 1 }) + '</div>' +
+    '<input type="file" id="dm-file" accept=".json,application/json" class="sr-only" tabindex="-1" aria-label="Yedek dosyası seç">' +
+    '<p class="set-desc" id="set-backup">' + esc(backupLabel()) + '</p><p class="set-desc" id="set-storage"></p><div id="set-undo-wrap"></div>';
+  var f = document.getElementById('dm-file');
+  document.getElementById('dm-backup').addEventListener('click', function () { exportData(); });
+  document.getElementById('dm-restore').addEventListener('click', function () { f.click(); });
+  document.getElementById('dm-ics').addEventListener('click', exportICS);
+  f.addEventListener('change', function (e) { if (e.target.files[0]) importDataFile(e.target.files[0]); e.target.value = ''; });
+  document.getElementById('dm-reset').addEventListener('click', function () {
+    confirmDialog({ title: 'Tüm veriler silinsin mi?', message: 'Bu işlem geri alınamaz. Önce yedek almanı öneririz.', confirmText: 'Sil', danger: true }).then(function (ok) { if (ok) resetAllData(); });
+  });
+  if (navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then(function (r) { var el = document.getElementById('set-storage'); if (el) el.textContent = (r.usage / 1048576).toFixed(1) + ' MB depolama kullanılıyor.'; }).catch(function () {});
+  loadPreRestore().then(function (snap) {
+    var w = document.getElementById('set-undo-wrap'); if (!w || !snap) return;
+    w.innerHTML = '<button type="button" class="btn btn-secondary btn-block" id="set-undo">Son geri yüklemeyi geri al (' + esc(String(snap.at || '').slice(0, 10)) + ')</button>';
+    document.getElementById('set-undo').addEventListener('click', undoLastRestore);
+  });
+}
+function nxPrivacy(body) {
+  body.innerHTML = '<div class="set-panel"><p class="set-desc" style="margin:0">Görev, rutin, not ve finans verilerin yalnızca bu cihazda, tarayıcı depolamasında saklanır. Düzenli yedek almak onları korur.</p></div>' +
+    '<div class="set-group" style="margin-top:1rem">' + nxRow('id="pv-persist"', 'shield', '#26C281', 'Kalıcı depolama', 'Tarayıcının verileri silmesini önle', '', { noChev: 1 }) + nxRow('id="set-admin"', 'lock', '#9B6DFF', 'Yönetici erişimi', 'Yetkili kullanıcılar için', '') + '</div>';
+  var b = document.getElementById('pv-persist');
+  function st() { if (navigator.storage && navigator.storage.persisted) navigator.storage.persisted().then(function (v) { var l = b.querySelector('.set-lbl'); if (l) l.querySelector('small').textContent = v ? 'Açık: tarayıcı verilerini kendiliğinden silmez' : 'Kapalı: dokunarak aç'; }); }
+  b.addEventListener('click', function () { if (!navigator.storage || !navigator.storage.persist) { showToast('Bu tarayıcı kalıcı depolamayı desteklemiyor'); return; } navigator.storage.persist().then(function (ok) { showToast(ok ? 'Kalıcı depolama açıldı' : 'Tarayıcı izin vermedi, düzenli yedek al'); st(); }); });
+  st(); nxWire(body);
+}
+function nxInfoSheet(title, html) { openSheet({ title: title, bodyHTML: html }); }
+function nxMsgSheet(title) {
+  openSheet({ title: title, bodyHTML: '<div class="field"><label for="msg-t">Mesajın</label><textarea id="msg-t" rows="5" maxlength="1000"></textarea></div><button type="button" class="btn btn-primary btn-block" id="msg-go">Paylaş</button><p class="set-desc" style="margin-top:.6rem">Uygulamanın bir sunucusu yok. Mesaj, paylaşım menüsüyle ya da panoya kopyalanarak gönderilir.</p>',
+    onOpen: function (b) {
+      b.querySelector('#msg-go').addEventListener('click', function () {
+        var v = b.querySelector('#msg-t').value.trim(), txt = 'Günlük Ajandam \u2013 ' + title + ': ' + v;
+        if (!v) { showToast('Önce mesajını yaz'); return; }
+        if (navigator.share) navigator.share({ title: title, text: txt }).catch(function () {});
+        else if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { showToast('Mesaj panoya kopyalandı'); });
+        closeSheet();
+      });
+    } });
+}
+var NX_FAQ = [['Verilerim nerede saklanıyor?', 'Yalnızca bu cihazda, tarayıcı depolamasında. Başka bir cihaza taşımak için yedek alıp orada geri yükle.'], ['Yedeği nasıl alırım?', 'Ayarlar > Veri ve yedekleme > Verileri yedekle. Bir JSON dosyası iner; Yedekten geri yükle ile aynı dosyayı geri yüklersin.'], ['Bildirimler neden gelmiyor?', 'Bildirimler sayfasından izin ver ve Bildirimi test et\u2019e dokun. Uygulama kapalıyken ya da telefon uygulamayı uyutmuşken bildirim gelmez.'], ['Ana sayfadaki bölümleri nasıl değiştiririm?', 'Ayarlar > Ana sayfa bölümleri. Anahtarla göster ya da gizle, oklarla sırala.']];
+function nxHelp(body) {
+  body.innerHTML = '<div class="set-group">' +
+    nxRow('id="set-tour"', 'info', '#3B8EFF', 'Nasıl kullanılır?', 'Uygulama rehberi', '') +
+    nxRow('id="hp-faq"', 'note', '#26C281', 'Sık sorulan sorular', 'En çok merak edilenler', '') +
+    nxRow('id="hp-fb"', 'target', '#9B6DFF', 'Geri bildirim', 'Öneri ve hata bildir', '') +
+    nxRow('id="hp-ct"', 'bell', '#F5A623', 'İletişim', 'Mesajını yaz ve paylaş', '') + '</div>';
+  document.getElementById('hp-faq').addEventListener('click', function () { nxInfoSheet('Sık sorulan sorular', NX_FAQ.map(function (q) { return '<details class="nx-tech"><summary>' + esc(q[0]) + '</summary><p class="set-desc">' + esc(q[1]) + '</p></details>'; }).join('')); });
+  document.getElementById('hp-fb').addEventListener('click', function () { nxMsgSheet('Geri bildirim'); });
+  document.getElementById('hp-ct').addEventListener('click', function () { nxMsgSheet('İletişim'); });
+  nxWire(body);
+}
+function nxAbout2(body) {
+  body.innerHTML = '<div class="set-panel nx-about"><span class="set-ic" style="--c:var(--accent);width:4rem;height:4rem;border-radius:18px;margin:0 auto" aria-hidden="true">' + icon('calendar') + '</span><h2>Günlük Ajandam</h2><p>Sürüm 1.0.0</p></div>' +
+    '<div class="set-group" style="margin-top:1rem">' + nxRow('id="ab-new"', 'flame', '#3B8EFF', 'Yenilikler', 'Bu sürümde neler var?', '') + nxRow('id="ab-lic"', 'page', '#26C281', 'Lisanslar', 'Açık kaynak lisansları', '') + nxRow('id="ab-pv"', 'shield', '#F5A623', 'Gizlilik Politikası', '', '') + '</div>';
+  document.getElementById('ab-new').addEventListener('click', function () { nxInfoSheet('Yenilikler', '<ul class="set-desc"><li>Takvim: Gün, Hafta ve Ay görünümleri</li><li>Yeniden tasarlanan Ayarlar</li><li>Rutin ayarları ve veri yönetimi</li></ul>'); });
+  document.getElementById('ab-lic').addEventListener('click', function () { nxInfoSheet('Lisanslar', '<p class="set-desc">PDF.js (Apache-2.0): PDF okuma.<br>Tesseract.js (Apache-2.0): fotoğraftan yazı okuma.</p>'); });
+  document.getElementById('ab-pv').addEventListener('click', function () { nxInfoSheet('Gizlilik Politikası', '<p class="set-desc">Verilerin yalnızca bu cihazda saklanır. Uygulama bir hesap ya da sunucu gerektirmez. Namaz vakitleri için seçtiğin konum da cihazında durur.</p>'); });
+}
+SETTINGS_SUBS.profile = { title: 'Profil', render: nxProfile };
+SETTINGS_SUBS.personal = { title: 'Kişisel bilgiler', render: nxPersonal };
+SETTINGS_SUBS.rtset = { title: 'Rutin ayarları', render: nxRtSet };
+SETTINGS_SUBS.data = { title: 'Veri yönetimi', render: nxData };
+SETTINGS_SUBS.privacy = { title: 'Gizlilik ve güvenlik', render: nxPrivacy };
+SETTINGS_SUBS.help = { title: 'Yardım ve destek', render: nxHelp };
+SETTINGS_SUBS.about.render = nxAbout2;
+
+var nxNotifBase = nxNotif;
+SETTINGS_SUBS.notif.render = function (body) {
+  nxNotifBase(body);
+  var pn = body.querySelector('.set-panel'); if (!pn) return;
+  pn.insertAdjacentHTML('beforeend', '<div class="nx-opt"><span>Bildirim zamanı</span><span class="set-val">Vakit girdiğinde</span></div>' +
+    '<div class="nx-opt"><span>Ses</span><button type="button" class="nx-pick" id="nf-sound">' + (lsGet('ajandam_notifSound') === 'off' ? 'Sessiz' : 'Varsayılan') + '</button></div>' +
+    '<div class="nx-opt"><span>Titreşim</span>' + nxSwitch('nf-vib', 'ajandam_notifVib', lsGet('ajandam_notifVib') !== '0') + '</div>');
+  document.getElementById('nf-sound').addEventListener('click', function (e) { var off = lsGet('ajandam_notifSound') !== 'off'; lsSet('ajandam_notifSound', off ? 'off' : 'on'); e.target.textContent = off ? 'Sessiz' : 'Varsayılan'; });
+  document.getElementById('nf-vib').addEventListener('click', function (e) { var s = e.currentTarget, v = s.getAttribute('aria-checked') !== 'true'; s.setAttribute('aria-checked', v ? 'true' : 'false'); lsSet('ajandam_notifVib', v ? '1' : '0'); });
+};
+var nxCardsBase = SETTINGS_SUBS.cards.render;
+SETTINGS_SUBS.cards.render = function (body) {
+  nxCardsBase(body);
+  body.insertAdjacentHTML('beforeend', '<button type="button" class="btn btn-secondary btn-block" id="cd-reset" style="margin-top:.8rem">' + icon('refresh') + ' Varsayılan düzene dön</button>');
+  document.getElementById('cd-reset').addEventListener('click', function () { setDashCardConfig(null); renderCards(); renderDashCardConfigList(body); showToast('Varsayılan düzen geri yüklendi'); });
+};
 </script>
 <script>
 window.SINGLE_FILE_APP = true;
