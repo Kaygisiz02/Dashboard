@@ -7249,14 +7249,21 @@ function openBulkKazaSheet() {
 }
 
 /* ---- Kaza kayıtları: yanlış girilen kayıtları düzelt / sil ----------------
-   Grafik p.kazaLog'dan çizilir. Burada yapılan silme/düzenleme SADECE grafiği
-   (kayıt geçmişini) etkiler; bekleyen kaza sayılarına dokunmaz. */
+   Grafik p.kazaLog'dan çizilir. Bir kaydı silmek ya da adedini değiştirmek, o kaydın
+   bekleyen kaza sayılarına yaptığı etkiyi de geri alır / düzeltir. */
+/* sign +1: kaydın etkisini uygula, -1: geri al. Toplu kayıtta adet 5 vakte eşit bölünür. */
+function kazaApply(p, l, sign) {
+  var toplu = l.prayer === 'toplu', keys = toplu ? PRAYER_KEYS : (PRAYER_KEYS.indexOf(l.prayer) >= 0 ? [l.prayer] : []);
+  var per = toplu ? Math.round(l.delta / PRAYER_KEYS.length) : l.delta;
+  p.kazaCounts = p.kazaCounts || {};
+  keys.forEach(function (k) { p.kazaCounts[k] = Math.max(0, (p.kazaCounts[k] || 0) + sign * per); });
+}
 function kazaLogLabel(l) { return l.prayer === 'toplu' ? 'Toplu (5 vakit)' : (PRAYER_LABELS[l.prayer] || String(l.prayer || '')); }
 function openKazaLogSheet() {
   var p = getPrayers(), log = p.kazaLog || [];
   var rows = log.map(function (l, i) { return { l: l, i: i }; }).filter(function (r) { return r.l && r.l.delta; })
     .sort(function (a, b) { return a.l.date < b.l.date ? 1 : (a.l.date > b.l.date ? -1 : b.i - a.i); });
-  var html = '<p class="hint">Grafik bu kayıtlardan çizilir. Yanlış girileni düzelt ya da sil. Bu sadece grafiği etkiler, bekleyen kaza sayıların değişmez.</p>';
+  var html = '<p class="hint">Grafik bu kayıtlardan çizilir. Yanlış girileni düzelt ya da sil. Silince ya da düzenleyince bekleyen kaza sayıların da buna göre güncellenir.</p>';
   if (!rows.length) html += '<p class="muted">Henüz kayıt yok.</p>';
   else html += '<div class="card" style="padding:.2rem .8rem">' + rows.map(function (r) {
     var l = r.l, abs = Math.abs(l.delta);
@@ -7277,13 +7284,14 @@ function kazaLogDelete(idx) {
   if (!l0) return;
   confirmDialog({
     title: 'Kayıt silinsin mi?', danger: true, confirmText: 'Sil',
-    message: kazaLogLabel(l0) + ' \u00b7 ' + (l0.delta < 0 ? 'kılındı \u2212' : 'eklendi +') + Math.abs(l0.delta) + ' \u00b7 ' + formatDateTR(l0.date) + '. Sadece grafikten kalkar, bekleyen kaza sayın değişmez.'
+    message: kazaLogLabel(l0) + ' \u00b7 ' + (l0.delta < 0 ? 'kılındı \u2212' : 'eklendi +') + Math.abs(l0.delta) + ' \u00b7 ' + formatDateTR(l0.date) + '. Grafikten kalkar ve bekleyen kaza sayın da buna göre geri alınır.'
   }).then(function (ok) {
     if (ok) {
       var p = getPrayers(), l = (p.kazaLog || [])[idx];
       if (l && l.date === l0.date && l.delta === l0.delta && l.prayer === l0.prayer) {
+        kazaApply(p, l, -1);
         p.kazaLog.splice(idx, 1);
-        savePrayers(p); renderKaza(); showToast('Kayıt silindi');
+        savePrayers(p); renderKaza(); showToast('Kayıt silindi, bekleyen kaza güncellendi');
       }
     }
     openKazaLogSheet();
@@ -7310,6 +7318,7 @@ function openKazaLogEdit(idx) {
         var p = getPrayers(), l = (p.kazaLog || [])[idx];
         if (!l || l.date !== l0.date || l.delta !== l0.delta || l.prayer !== l0.prayer) { openKazaLogSheet(); return; }
         var newDelta = (l.delta < 0 ? -1 : 1) * amt;
+        kazaApply(p, { prayer: l.prayer, delta: newDelta - l.delta }, 1);
         l.delta = newDelta; l.date = date;
         savePrayers(p); renderKaza(); showToast('Kayıt güncellendi');
         openKazaLogSheet();
@@ -14221,7 +14230,7 @@ SETTINGS_SUBS.about = { title: 'Hakkında', render: nxAbout };
 var CAL_ORDER = ['rutin', 'gorev', 'ibadet', 'not', 'etkinlik'], CAL_NAME = { rutin: 'Rutin', gorev: 'Görev', ibadet: 'İbadet', not: 'Not', etkinlik: 'Etkinlik' };
 function calItems(iso, light) {
   var out = [];
-  getEvents().forEach(function (e) { if (occursOn(e, iso)) out.push({ k: 'etkinlik', time: e.time || '', end: e.endTime || '', title: e.title, sub: 'Etkinlik' + (e.location ? ' \u00b7 ' + e.location : ''), done: null, id: e.id }); });
+  getEvents().forEach(function (e) { if (occursOn(e, iso)) out.push({ k: 'etkinlik', time: e.time || '', end: e.endTime || '', title: e.title, sub: 'Etkinlik' + (e.location ? ' \u00b7 ' + e.location : ''), done: !!(e.doneOn && e.doneOn[iso]), id: e.id }); });
   get('tasks', []).forEach(function (t) { if (t.due === iso) out.push({ k: 'gorev', time: t.time || '', title: t.title, sub: 'Görev', done: t.status === 'done', id: t.id }); });
   getRoutines().forEach(function (r) { if (!r.archived && isRoutineDue(r, iso) && (!r.createdAt || r.createdAt.slice(0, 10) <= iso)) out.push({ k: 'rutin', time: r.reminderTime || '', title: r.title, sub: r.category || 'Genel', done: !!(r.log && r.log[iso]), id: r.id }); });
   var lg = getPrayers().dailyLog[iso] || {};
@@ -14241,11 +14250,19 @@ function calToggle(k, id, iso) {
     if (iso === t) toggleRoutineToday(id);
     else if (iso < t) { var l = getRoutines(), r = l.find(function (x) { return x.id === id; }); if (r) { r.log = r.log || {}; if (r.log[iso]) delete r.log[iso]; else r.log[iso] = true; saveRoutines(l); } }
     else { showToast('Gelecekteki rutin işaretlenemez'); return; }
+  } else if (k === 'etkinlik') {
+    if (iso > t) { showToast('Henüz başlamamış etkinlik işaretlenemez'); return; }
+    var evs = getEvents(), ev = evs.find(function (x) { return x.id === id; });
+    if (!ev) return;
+    ev.doneOn = ev.doneOn || {};
+    if (ev.doneOn[iso]) delete ev.doneOn[iso]; else ev.doneOn[iso] = true;
+    saveEvents(evs);
+    showToast(ev.doneOn[iso] ? 'Etkinlik tamamlandı' : 'Tamamlandı işareti kaldırıldı');
   } else if (k === 'ibadet') togglePrayer(id);
   renderCalendar();
 }
 function calRowHTML(x, iso) {
-  var t = todayISO(), can = x.k === 'gorev' || (x.k === 'rutin' && iso <= t) || (x.k === 'ibadet' && iso === t);
+  var t = todayISO(), can = x.k === 'gorev' || ((x.k === 'rutin' || x.k === 'etkinlik') && iso <= t) || (x.k === 'ibadet' && iso === t);
   var left = x.done === null ? '<span class="cl-dot" style="--k:var(--k-' + x.k + ')"></span>' : '<button type="button" class="cl-chk' + (x.done ? ' on' : '') + '" data-tg aria-label="İşaretle"' + (can ? '' : ' disabled') + '>' + icon('check') + '</button>';
   return '<div class="cl-row" data-k="' + x.k + '" data-id="' + esc(x.id) + '" data-iso="' + iso + '"><span class="cl-time">' + (x.time ? esc(x.time) : '\u2013') + '</span>' + left +
     '<div class="cl-tx" data-open><b>' + esc(x.title) + '</b><i>' + esc(x.sub) + '</i></div>' + (x.done ? '<span class="cl-ok">' + icon('check') + '</span>' : '<span class="cl-go">' + icon('chevronR') + '</span>') + '</div>';
